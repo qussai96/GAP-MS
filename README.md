@@ -1,2 +1,2 @@
-# GAP-MS
-Gene Assisted Prediction with MS
+# BIP
+Improving Braker prediction with mass spectrometry data
