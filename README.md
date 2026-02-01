@@ -54,15 +54,10 @@ If `-o` is not provided, outputs go to `GAPMS_Output/` in the parent directory o
 -m, --mapping             Optional peptide-to-protein mapping file
 -s, --scores              Optional CSV with columns: Protein, external_score
 -c, --compute_psauron      Compute PSAURON scores
--cm, --compute_embeddings  Compute embeddings-based scores
 -rg, --reference_gtf       Optional reference GTF for comparison
 -rf, --reference_fasta     Optional reference protein FASTA
 -o, --output               Output directory
 ```
-
-Notes:
-- `-c` and `-cm` are mutually exclusive.
-- Embeddings scoring uses the model path defined in [gapms/main.py](gapms/main.py).
 
 ---
 

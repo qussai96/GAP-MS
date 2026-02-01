@@ -187,8 +187,8 @@ def train_iterative_model(df, high_confident_df, low_confident_df, pos_thr=0.90,
     model = random_search.best_estimator_
 
     # Optional SHAP analysis
-    if plot_shap and shap_output_dir:
-        plot_shap(model, X_labeled, shap_output_dir)
+    # if plot_shap and shap_output_dir:
+    #     plot_shap(model, X_labeled, shap_output_dir)
 
     # Track new positives added
     total_new_pos = set()
