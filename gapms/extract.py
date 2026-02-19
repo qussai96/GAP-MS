@@ -114,7 +114,8 @@ def extract_features(gtf_file, prediction_fasta, mapping_file, output_dir, exter
     pep_ends = []
 
     for prot_seq, peptide in zip(pep_df['Prot_seq'], pep_df['Peptide']):
-        start = prot_seq.find(peptide) + 1  # 1-based
+        normalized_peptide = peptide.replace('I', 'L')  # Normalize for I/L isobaric amino acids
+        start = prot_seq.find(normalized_peptide) + 1  # 1-based
         end = start + len(peptide) - 1 if start > 0 else 0
         pep_starts.append(start)
         pep_ends.append(end)

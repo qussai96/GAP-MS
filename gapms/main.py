@@ -16,6 +16,7 @@ from gapms.tools import run_proteomapper, run_psauron, run_gffread, run_embeddin
 from gapms.get_new_proteins import get_new_proteins
 from gapms.peptides_to_genome import map_peptides_to_genome
 from gapms.parse_gffcompare_tmap import parse_gffcompare_tmap
+from gapms.generate_annotation_comparison_report import generate_annotation_report
 
 def main():
     start_time = time.time()
@@ -103,21 +104,73 @@ def main():
         print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Mapping peptides to genome coordinates....")
         map_peptides_to_genome(args.gtf, protein_fasta, mapping, output_dir)
 
-        if args.reference_fasta:
-            print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Getting New Supported Proteins....")
-            get_new_proteins(output_dir, args.reference_gtf, args.reference_fasta)
+        # if args.reference_fasta:
+        #     print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Getting New Supported Proteins....")
+        #     get_new_proteins(output_dir, args.reference_gtf, args.reference_fasta)
 
-        elif args.reference_gtf and args.assembly:
-            print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Getting New Supported Proteins....")
-            run_gffread(args.assembly, args.reference_gtf, output_dir, "reference")
-            get_new_proteins(output_dir, args.reference_gtf)
+        # elif args.reference_gtf and args.assembly:
+        #     print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Getting New Supported Proteins....")
+        #     run_gffread(args.assembly, args.reference_gtf, output_dir, "reference")
+        #     get_new_proteins(output_dir, args.reference_gtf)
             
 
         if args.reference_gtf:
             print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Getting New Supported Proteins....")
+            
+            # Clean reference GTF by removing rows with invalid strand characters or missing IDs
+            cleaned_reference_gtf = output_dir / "reference_cleaned.gtf"
+            with open(args.reference_gtf, 'r') as infile, open(cleaned_reference_gtf, 'w') as outfile:
+                removed_count = 0
+                for line in infile:
+                    if line.startswith('#'):
+                        # Keep comment lines
+                        outfile.write(line)
+                    else:
+                        fields = line.rstrip('\n').split('\t')
+                        if len(fields) >= 9:
+                            strand = fields[6]
+                            attributes = fields[8]
+                            
+                            # Check strand validity
+                            if strand not in ['+', '-']:
+                                removed_count += 1
+                                continue
+                            
+                            # Check for valid ID in attributes column (multiple possible ID field names)
+                            id_fields = ['ID=', 'transcript_id=', 'protein_id=', 'gene_id=']
+                            has_valid_id = False
+                            
+                            for id_field in id_fields:
+                                if id_field in attributes:
+                                    # Extract the ID value
+                                    id_part = [attr.strip() for attr in attributes.split(';') if attr.strip().startswith(id_field)]
+                                    if id_part and id_part[0].split('=')[1]:
+                                        has_valid_id = True
+                                        break
+                            
+                            if not has_valid_id:
+                                removed_count += 1
+                                continue
+                            
+                            outfile.write(line)
+                        else:
+                            # Skip lines that don't have enough fields
+                            removed_count += 1
+            
+            if removed_count > 0:
+                print(f"Removed {removed_count} rows with invalid strand or missing ID from reference GTF")
+            
             gtf_out = output_dir / "supported_proteins.gtf"
-            run_gffcompare(args.reference_gtf, gtf_out)
+            run_gffcompare(cleaned_reference_gtf, gtf_out)
             parse_gffcompare_tmap(output_dir, args.gtf, args.reference_gtf, args.reference_fasta)
+            
+            print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Generating Annotation Comparison Report....")
+            generate_annotation_report(
+                output_dir,
+                args.gtf,
+                args.reference_gtf,
+                protein_fasta=protein_fasta,
+            )
 
         total_time = (time.time() - start_time) / 60
         print("\n✅ Pipeline completed", file=sys.__stdout__)
