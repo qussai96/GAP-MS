@@ -21,7 +21,6 @@ from .plotting import (
 def filter_predictions(gtf_file, protein_fasta, output_dir,):    
     all_scores_path = output_dir / "all_proteins_scores.tsv"
     all_scores_df = pd.read_csv(all_scores_path, sep='\t')
-    
     # Step 4: Find highly supported proteins
     high_confident_df = get_high_confident_proteins(all_scores_df)
     high_confident_proteins = set(high_confident_df['Protein'].unique())

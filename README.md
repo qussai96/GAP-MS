@@ -6,6 +6,30 @@ GAP-MS evaluates predicted gene models by integrating peptide evidence from mass
 
 ## Installation
 
+### Option 1: Using Containers (Recommended)
+
+**With Apptainer** (for HPC clusters):
+```bash
+apptainer pull oras://docker.io/qussaiab96/gapms:latest
+apptainer run gapms_latest.sif -g annotations.gtf -f proteins.fasta -p peptides.txt
+```
+
+**With Docker/Podman**:
+```bash
+docker pull qussaiab96/gapms:latest
+docker run --rm -v $(pwd):/data qussaiab96/gapms:latest -g /data/annotations.gtf -f /data/proteins.fasta -p /data/peptides.txt
+```
+
+**Build Locally from Apptainer Definition**:
+```bash
+git clone https://github.com/qussai96/GAP-MS.git
+cd GAP-MS
+apptainer build --fakeroot gapms.sif gapms.def
+apptainer run gapms.sif -g annotations.gtf -f proteins.fasta -p peptides.txt
+```
+
+### Option 2: Conda Installation
+
 ```bash
 conda create -n gapms_env python=3.10 perl-xml-parser perl-xml-twig -c conda-forge
 conda activate gapms_env

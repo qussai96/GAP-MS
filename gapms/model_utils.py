@@ -132,6 +132,7 @@ def get_low_confident_proteins(df):
 
 def train_iterative_model(df, high_confident_df, low_confident_df, pos_thr=0.90, neg_thr=0.10, n_iter=5, shap_output_dir=None, plot_shap=None):
     feature_cols = [
+    # Original 9 features
     "protein_coverage",
     "protein_specific_peptides",
     "gene_specific_peptides",
@@ -140,7 +141,21 @@ def train_iterative_model(df, high_confident_df, low_confident_df, pos_thr=0.90,
     "mapped_peptides",
     "N_terminal_peptides",
     "C_terminal_peptides",
-    "protein_length"
+    "protein_length",
+    # 12 new engineered features
+    "mapped_peptides_per_aa",
+    "protein_specific_rate",
+    "gene_specific_rate",
+    "splice_rate",
+    "internal_rate",
+    "terminal_rate",
+    "isoform_specificity",
+    "junction_evidence",
+    "has_N_term",
+    "has_C_term",
+    "has_both_term",
+    "has_any_protein_specific",
+    "has_any_splice"
     ]
     
     # Initialize label column
@@ -187,8 +202,8 @@ def train_iterative_model(df, high_confident_df, low_confident_df, pos_thr=0.90,
     model = random_search.best_estimator_
 
     # Optional SHAP analysis
-    # if plot_shap and shap_output_dir:
-    #     plot_shap(model, X_labeled, shap_output_dir)
+    if plot_shap and shap_output_dir:
+        plot_shap(model, X_labeled, shap_output_dir)
 
     # Track new positives added
     total_new_pos = set()
@@ -233,12 +248,12 @@ def train_iterative_model(df, high_confident_df, low_confident_df, pos_thr=0.90,
     y_true = df_labeled["label"]
     y_pred = model.predict(X_labeled)
     y_proba = model.predict_proba(X_labeled)[:, 1]
-    # print("\nXGBoost Evaluation Metrics (on labeled data):")
-    # print(f"Accuracy: {accuracy_score(y_true, y_pred):.4f}")
-    # print(f"Precision: {precision_score(y_true, y_pred):.4f}")
-    # print(f"Recall: {recall_score(y_true, y_pred):.4f}")
-    # print(f"F1-score: {f1_score(y_true, y_pred):.4f}")
-    # print(f"AUROC: {roc_auc_score(y_true, y_proba):.4f}")
+    print("\nXGBoost Evaluation Metrics (on labeled data):")
+    print(f"Accuracy: {accuracy_score(y_true, y_pred):.4f}")
+    print(f"Precision: {precision_score(y_true, y_pred):.4f}")
+    print(f"Recall: {recall_score(y_true, y_pred):.4f}")
+    print(f"F1-score: {f1_score(y_true, y_pred):.4f}")
+    print(f"AUROC: {roc_auc_score(y_true, y_proba):.4f}")
     
     # Feature importance reporting using SHAP
     print("\nFeature importance (SHAP summary):")

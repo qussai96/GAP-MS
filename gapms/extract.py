@@ -9,7 +9,6 @@ from .peptide_utils import (
     mapping_file_to_df,
     get_gene_protein_specific_peps,
     check_peptide_loc,
-    count_expected_peptides_with_missed_cleavages,
     calculate_protein_coverage
 )
 from .plotting import (
@@ -200,6 +199,8 @@ def extract_features(gtf_file, prediction_fasta, mapping_file, output_dir, exter
 
     all_proteins_scores_df.sort_values(by='mapped_peptides', ascending=False, inplace=True)
     all_proteins_scores_df = all_proteins_scores_df.astype({'isoforms': 'Int64', 'protein_length': 'Int64', 'splice_sites': 'Int64'})
+    
+    all_proteins_scores_df = engineer_features(all_proteins_scores_df)
     all_proteins_scores_df.to_csv(output_dir / 'all_proteins_scores.tsv', sep='\t', index=False)
 
     mapped_proteins = all_proteins_scores_df[all_proteins_scores_df['mapped_peptides'] > 0]['Protein']
@@ -221,3 +222,63 @@ def extract_features(gtf_file, prediction_fasta, mapping_file, output_dir, exter
     plot_mapped_percentage_bars(stacked_bars_df, output_dir)
 
 
+def engineer_features(df):
+    df = df.copy()
+    
+    # Ensure required columns exist
+    required_cols = [
+        "protein_coverage", "mapped_peptides", "protein_length",
+        "protein_specific_peptides", "gene_specific_peptides",
+        "splice_peptides", "internal_peptides",
+        "N_terminal_peptides", "C_terminal_peptides"
+    ]
+    
+    missing = [col for col in required_cols if col not in df.columns]
+    if missing:
+        raise ValueError(f"Missing required columns for feature engineering: {missing}")
+    
+    # Normalization features (rates)
+    df['mapped_peptides_per_aa'] = (
+        df['mapped_peptides'] / (df['protein_length'].clip(lower=1))
+    ).fillna(0)
+    
+    df['protein_specific_rate'] = (
+        df['protein_specific_peptides'] / df['mapped_peptides'].clip(lower=1)
+    ).fillna(0)
+    
+    df['gene_specific_rate'] = (
+        df['gene_specific_peptides'] / df['mapped_peptides'].clip(lower=1)
+    ).fillna(0)
+    
+    df['splice_rate'] = (
+        df['splice_peptides'] / df['mapped_peptides'].clip(lower=1)
+    ).fillna(0)
+    
+    df['internal_rate'] = (
+        df['internal_peptides'] / df['mapped_peptides'].clip(lower=1)
+    ).fillna(0)
+    
+    df['terminal_rate'] = (
+        (df['N_terminal_peptides'] + df['C_terminal_peptides']) / 
+        df['mapped_peptides'].clip(lower=1)
+    ).fillna(0)
+    
+    # Discriminative contrasts
+    df['isoform_specificity'] = (
+        df['protein_specific_rate'] - df['gene_specific_rate']
+    ).fillna(0)
+    
+    # junction_evidence: splice-heavy support
+    df['junction_evidence'] = (
+        df['splice_peptides'] / df['internal_peptides'].clip(lower=1)
+    ).fillna(0)
+    
+    # Binary flags (highly predictive and stable)
+    df['has_N_term'] = (df['N_terminal_peptides'] > 0).astype(int)
+    df['has_C_term'] = (df['C_terminal_peptides'] > 0).astype(int)
+    df['has_both_term'] = ((df['N_terminal_peptides'] > 0) & 
+                            (df['C_terminal_peptides'] > 0)).astype(int)
+    df['has_any_protein_specific'] = (df['protein_specific_peptides'] > 0).astype(int)
+    df['has_any_splice'] = (df['splice_peptides'] > 0).astype(int)
+    
+    return df

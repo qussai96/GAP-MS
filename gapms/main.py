@@ -102,17 +102,7 @@ def main():
         filter_predictions(args.gtf, protein_fasta, output_dir)
 
         print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Mapping peptides to genome coordinates....")
-        map_peptides_to_genome(args.gtf, protein_fasta, mapping, output_dir)
-
-        # if args.reference_fasta:
-        #     print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Getting New Supported Proteins....")
-        #     get_new_proteins(output_dir, args.reference_gtf, args.reference_fasta)
-
-        # elif args.reference_gtf and args.assembly:
-        #     print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Getting New Supported Proteins....")
-        #     run_gffread(args.assembly, args.reference_gtf, output_dir, "reference")
-        #     get_new_proteins(output_dir, args.reference_gtf)
-            
+        map_peptides_to_genome(args.gtf, protein_fasta, mapping, output_dir)            
 
         if args.reference_gtf:
             print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Getting New Supported Proteins....")
@@ -179,11 +169,8 @@ def main():
     except Exception as e:
         print(f"\n❌ An error occurred: {str(e)}", file=sys.__stdout__)
         print(f"Please check the log file for more details: {log_file_path}", file=sys.__stdout__)
-        
-        traceback.print_exc(file=log_file)
-        
+        traceback.print_exc(file=log_file)        
         raise
-
 
     finally:
         try:
