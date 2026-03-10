@@ -6,6 +6,10 @@ setup(
     name='gapms',
     version='0.1.3',
     packages=find_packages(),
+    package_data={
+        'gapms': ['*.pl'],  # Include all Perl scripts in the gapms package
+    },
+    include_package_data=True,
     install_requires=[
         'pandas',
         'numpy',

@@ -1,17 +1,21 @@
 Bootstrap: docker
-From: quay.io/biocontainers/python:3.10
+From: continuumio/miniconda3:23.3.1
 
 %post
-    # Install system dependencies
-    apt-get update && apt-get install -y \
-        perl \
-        wget \
-        && rm -rf /var/lib/apt/lists/*
+    # Update conda
+    conda config --add channels conda-forge
+    conda config --add channels bioconda
     
-    # Install gffread from bioconda
-    micromamba install -y -n base -c conda-forge -c bioconda \
-        gffread \
-        && micromamba clean --all --yes
+    # Create conda environment with Python 3.10
+    conda create -n gapms_env python=3.10 perl-xml-parser perl-xml-twig -y
+    
+    # Activate the environment and install packages
+    . /opt/conda/etc/profile.d/conda.sh
+    conda activate gapms_env
+    
+    # Install system dependencies and bioinformatics tools
+    conda install -y \
+        gffread
     
     # Install Python dependencies
     pip install --no-cache-dir \
@@ -26,6 +30,9 @@ From: quay.io/biocontainers/python:3.10
         shap==0.46.0 \
         psauron==1.0.4
     
+    # Clean up
+    conda clean --all -y
+    
     # Create directory for GAP-MS
     mkdir -p /opt/gapms
 
@@ -38,11 +45,14 @@ From: quay.io/biocontainers/python:3.10
 
 %post
     # Install GAP-MS package after files are copied
+    . /opt/conda/etc/profile.d/conda.sh
+    conda activate gapms_env
     cd /opt/gapms
     pip install .
 
 %environment
-    export PATH=/opt/conda/bin:$PATH
+    export PATH=/opt/conda/envs/gapms_env/bin:$PATH
+    export CONDA_DEFAULT_ENV=gapms_env
     export LC_ALL=C.UTF-8
     export LANG=C.UTF-8
 

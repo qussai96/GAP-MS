@@ -123,8 +123,8 @@ def get_low_confident_proteins(df):
             for _, row in group.iterrows():
                 cond1 = row["mapped_peptides"] < 2
                 cond2 = row["gene_specific_peptides"] == 0
-                cond3 = row["protein_length"] < 200 or row["protein_length"] > 500
-                if cond1 and cond2 and cond3:
+                # cond3 = row["protein_length"] < 200 or row["protein_length"] > 500
+                if cond1 and cond2:  # and cond3:
                     low_confident.append(row)
                     break
         print(f"Number of low confident proteins: {len(low_confident)}")
