@@ -101,6 +101,22 @@ def extract_features(gtf_file, prediction_fasta, mapping_file, output_dir, exter
 
     # 1. Load mapping
     print(f"{_ts()} [extract] Loading mapping file...")
+    try:
+        raw_mapping_df = pd.read_csv(mapping_file, sep='\t', header=0, names=['Peptide', 'Protein', 'location'])
+        unmapped_peptides = (
+            raw_mapping_df.loc[
+                raw_mapping_df['Protein'].astype(str).str.upper().eq('UNMAPPED'),
+                'Peptide'
+            ]
+            .dropna()
+            .drop_duplicates()
+            .sort_values()
+        )
+        unmapped_peptides.to_csv(output_dir / 'Unmpped_pepides.txt', index=False, header=False)
+        print(f"{_ts()} [extract] Saved {len(unmapped_peptides)} unmapped peptides to {output_dir / 'Unmpped_pepides.txt'}")
+    except Exception as exc:
+        print(f"{_ts()} [extract] Warning: could not export unmapped peptides from mapping file: {exc}")
+
     mapping_df = mapping_file_to_df(mapping_file)
 
     # 2. Get gene-protein specific peptides

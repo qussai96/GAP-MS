@@ -96,12 +96,30 @@ def filter_predictions(
     save_gtf_subset(gtf_df, supported_proteins, output_dir, 'supported_proteins.gtf')
 
 
-    all_scores_df['supported'] = np.where(all_scores_df['Protein'].isin(supported_proteins), 'Yes', 'No')
-    all_scores_df['high_conf'] = np.where(all_scores_df['Protein'].isin(high_confident_proteins), 'Yes', 'No')
-    all_scores_df['low_conf'] = np.where(all_scores_df['Protein'].isin(low_confident_proteins), 'Yes', 'No')
-    all_scores_df['unsupported'] = np.where(all_scores_df['Protein'].isin(unsupported_proteins), 'Yes', 'No')
+    all_scores_df['supported'] = np.where(all_scores_df['Protein'].isin(supported_proteins), '+', '-')
+    all_scores_df['confidence'] = np.select(
+        [
+            all_scores_df['Protein'].isin(high_confident_proteins),
+            all_scores_df['Protein'].isin(supported_proteins),
+        ],
+        [
+            'high',
+            'moderate',
+        ],
+        default='no-support'
+    )
+
+    ordered_cols = ['Protein', 'supported', 'confidence']
+    remaining_cols = [col for col in all_scores_df.columns if col not in ordered_cols]
+    all_scores_df = all_scores_df[ordered_cols + remaining_cols]
+    all_scores_df['_supported_sort'] = all_scores_df['supported'].map({'+': 0, '-': 1}).fillna(2)
+    all_scores_df = all_scores_df.sort_values(
+        by=['_supported_sort', 'confidence', 'mapped_peptides', 'Protein'],
+        ascending=[True, True, False, True]
+    ).drop(columns=['_supported_sort']).reset_index(drop=True)
 
      # Save updated all_scores_df
+    all_scores_df.to_csv(all_scores_path, sep='\t', index=False)
     plot_mapped_percentage_bars(all_scores_df, output_dir)
     plot_sequence_coverage_groups_hist(all_scores_df, output_dir)
     if plot_external_scores_enabled:

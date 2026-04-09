@@ -56,7 +56,7 @@ def plot_mapped_percentage_bars(df, output_dir):
 
         supported_summary_df = None
         if 'supported' in scores_df.columns:
-            gapms_mask = scores_df['supported'] == 'Yes'
+            gapms_mask = scores_df['supported'].isin(['Yes', '+'])
             total_proteins = len(scores_df)
             supported_summary_df = pd.DataFrame({
                 'bar_name': evidence_df['bar_name'],
@@ -204,21 +204,32 @@ def plot_mapped_percentage_bars(df, output_dir):
 def plot_sequence_coverage_groups_hist(df, output_dir):
     _, figures_dir = _get_figures_dir(output_dir)
     plt.figure(figsize=(6, 4))
+
+    supported_mask = df['supported'].isin(['Yes', '+']) if 'supported' in df.columns else pd.Series(False, index=df.index)
+    unsupported_mask = ~supported_mask
+
+    if 'confidence' in df.columns:
+        high_mask = df['confidence'] == 'high'
+        moderate_mask = df['confidence'] == 'moderate'
+    else:
+        high_mask = df['high_conf'] == 'Yes'
+        moderate_mask = supported_mask & ~high_mask
+
     plt.hist(
-        df[df["supported"] == 'Yes']["sequence_coverage"],
+        df[supported_mask]["sequence_coverage"],
         bins=20, density=True, color="lightgray", alpha=0.8, label="Supported"
     )
     plt.hist(
-        df[df["unsupported"] == 'Yes']["sequence_coverage"],
+        df[unsupported_mask]["sequence_coverage"],
         bins=20, density=True, color="dimgray", alpha=0.8, label="Not supported"
     )
     plt.hist(
-        df[df["high_conf"] == 'Yes']["sequence_coverage"],
-        bins=20, density=True, color="#ADD8E6", alpha=0.8, label="High confident"
+        df[high_mask]["sequence_coverage"],
+        bins=20, density=True, color="#ADD8E6", alpha=0.8, label="High confidence"
     )
     plt.hist(
-        df[df["low_conf"] == 'Yes']["sequence_coverage"],
-        bins=20, density=True, color="#D8BFD8", alpha=0.8, label="Low confident"
+        df[moderate_mask]["sequence_coverage"],
+        bins=20, density=True, color="#D8BFD8", alpha=0.8, label="Moderate confidence"
     )
     plt.yscale("log")
     plt.xlabel("Sequence coverage")
@@ -250,7 +261,7 @@ def plot_external_scores(df, output_dir):
         bins=20, density=True, color="navy", alpha=0.7, label="All proteins"
     )
     plt.hist(
-        df[df["supported"] == 'Yes']["external_score"],
+        df[df["supported"].isin(['Yes', '+'])]["external_score"],
         bins=20, density=True, color="mediumseagreen", alpha=0.8, label="Supported proteins"
     )
     plt.yscale("log")

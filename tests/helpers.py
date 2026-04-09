@@ -16,7 +16,13 @@ def create_mini_gapms_dataset(base_dir: Path):
     base_dir.mkdir(parents=True, exist_ok=True)
 
     output_dir = base_dir / "output"
-    for subdir in [output_dir, output_dir / "Figures", output_dir / "Txt", output_dir / "Novel"]:
+    for subdir in [
+        output_dir,
+        output_dir / "Figures",
+        output_dir / "Txt",
+        output_dir / "Compare_to_Reference",
+        output_dir / "Compare_to_Reference" / "Novel",
+    ]:
         subdir.mkdir(parents=True, exist_ok=True)
 
     prediction_gtf = base_dir / "predictions.gtf"

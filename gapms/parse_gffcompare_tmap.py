@@ -8,7 +8,9 @@ from .gtf_utils import gtf_to_df_with_genes
 def parse_gffcompare_tmap(output_dir, prediction_gtf, reference_gtf, reference_fasta=None):
     # 1. Setup Paths
     output_dir = Path(output_dir)
-    new_proteins_dir = output_dir / "Novel"
+    compare_dir = output_dir / "Compare_to_Reference"
+    compare_dir.mkdir(parents=True, exist_ok=True)
+    new_proteins_dir = compare_dir / "Novel"
     new_proteins_dir.mkdir(parents=True, exist_ok=True)
 
     # Set file paths

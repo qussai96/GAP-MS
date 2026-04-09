@@ -57,7 +57,10 @@ def main():
         txt_dir= output_dir / "Txt"
         txt_dir.mkdir(parents=True, exist_ok=True)
 
-        new_proteins_dir = output_dir / "Novel"
+        compare_dir = output_dir / "Compare_to_Reference"
+        compare_dir.mkdir(parents=True, exist_ok=True)
+
+        new_proteins_dir = compare_dir / "Novel"
         new_proteins_dir.mkdir(parents=True, exist_ok=True)
 
 
