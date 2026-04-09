@@ -325,27 +325,44 @@ def generate_annotation_report(output_dir, supported_gtf, reference_gtf,
         protein_fasta: Path to protein FASTA file (required for sequence export)
     """
     output_dir = Path(output_dir)
-    
+    compare_dir = output_dir / "Compare_to_Reference"
+
     # Auto-detect file paths if not provided
     if tmap_file is None:
-        tmap_files = list(output_dir.glob("*.tmap"))
-        if tmap_files:
-            tmap_file = tmap_files[0]
-        else:
-            tmap_file = output_dir / "gffcompare.supported_proteins.gtf.tmap"
-    
+        tmap_candidates = (
+            sorted(compare_dir.glob("*.tmap"))
+            + sorted(output_dir.glob("*.tmap"))
+            + [
+                compare_dir / "gffcmp.supported_proteins.gtf.tmap",
+                output_dir / "gffcmp.supported_proteins.gtf.tmap",
+                output_dir / "gffcompare.supported_proteins.gtf.tmap",
+            ]
+        )
+    else:
+        provided_tmap = Path(tmap_file)
+        tmap_candidates = [
+            provided_tmap,
+            compare_dir / provided_tmap.name,
+            output_dir / provided_tmap.name,
+        ]
+
+    tmap_file = next((Path(path) for path in tmap_candidates if Path(path).exists()), Path(tmap_candidates[0]))
+
     if all_proteins_scores is None:
         all_proteins_scores = output_dir / "all_proteins_scores.tsv"
-    
+
     if peptides_bed is None:
         peptides_bed = output_dir / "peptides_mapped.bed"
-    
-    tmap_file = Path(tmap_file)
+
     all_proteins_scores = Path(all_proteins_scores)
     peptides_bed = Path(peptides_bed)
     supported_gtf = Path(supported_gtf)
     reference_gtf = Path(reference_gtf)
-    
+
+    if not tmap_file.exists():
+        looked_in = "\n  - ".join(str(path) for path in tmap_candidates)
+        raise FileNotFoundError(f"TMAP file not found. Looked in:\n  - {looked_in}")
+
     print(f"Loading TMAP file: {tmap_file}")
     tmap_df = pd.read_csv(tmap_file, sep='\t')
     
@@ -469,10 +486,6 @@ def generate_annotation_report(output_dir, supported_gtf, reference_gtf,
     
     # Generate TSV report
     report_df = pd.DataFrame(report_data)
-    
-    print(f"\n{'='*80}")
-    print(f"ANNOTATION COMPARISON REPORT - PEPTIDE EVIDENCE")
-    print(f"{'='*80}")
     print(f"Total genes with peptide evidence at difference sites: {len(report_df)}")
     
     # Write summary report
