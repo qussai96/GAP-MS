@@ -14,13 +14,13 @@ def parse_gffcompare_tmap(output_dir, prediction_gtf, reference_gtf, reference_f
     new_proteins_dir.mkdir(parents=True, exist_ok=True)
 
     # Set file paths
-    # Note: Adjust tmap filename if your gffcompare output prefix is different
-    # This looks for any .tmap file in the dir, or defaults to specific name
-    tmap_files = list(output_dir.glob("*.tmap"))
+    # Prefer gffcompare artifacts written into Compare_to_Reference/, but keep a
+    # fallback for older layouts.
+    tmap_files = sorted(compare_dir.glob("*.tmap")) or sorted(output_dir.glob("*.tmap"))
     if tmap_files:
         tmap_file = tmap_files[0]
     else:
-        tmap_file = output_dir / "gffcompare.supported_proteins.gtf.tmap"
+        tmap_file = compare_dir / "gffcmp.supported_proteins.gtf.tmap"
     
     supported_proteins_fasta = output_dir / "supported_proteins.fa"
     all_proteins_scores = output_dir / "all_proteins_scores.tsv"

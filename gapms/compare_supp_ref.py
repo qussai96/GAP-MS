@@ -492,12 +492,15 @@ def generate_annotation_report(output_dir, supported_gtf, reference_gtf,
         summary_report.append({
             'Category': category,
             'Count': count,
-            'Gene_IDs': '{' + ','.join(sorted(list(gene_ids))) + '}'
+            'Protein_IDs': '{' + ','.join(sorted(list(gene_ids))) + '}'
         })
     
     # Write output files
-    report_file = output_dir / "annotation_comparison_report.tsv"
-    summary_file = output_dir / "annotation_comparison_summary.tsv"
+    compare_dir = output_dir / "Compare_to_Reference"
+    compare_dir.mkdir(parents=True, exist_ok=True)
+
+    report_file = compare_dir / "annotation_comparison_report.tsv"
+    summary_file = compare_dir / "annotation_comparison_summary.tsv"
     
     report_df.to_csv(report_file, sep='\t', index=False)
     print(f"\nDetailed report written to: {report_file}")
@@ -508,8 +511,9 @@ def generate_annotation_report(output_dir, supported_gtf, reference_gtf,
     
     # Extract GTF entries by category
     print(f"\nExtracting GTF entries by category...")
-    gtf_dir = output_dir / "Compare_to_Reference"
-    gtf_dir.mkdir(parents=True, exist_ok=True)
+    gtf_dir = compare_dir
+    different_dir = compare_dir / "Different"
+    different_dir.mkdir(parents=True, exist_ok=True)
     
     # Load the supported GTF file
     supported_gtf_path = Path(supported_gtf)
@@ -574,8 +578,9 @@ def generate_annotation_report(output_dir, supported_gtf, reference_gtf,
         if category_gtf_lines:
             # Sanitize filename
             safe_category = category.replace('/', '_').replace(' ', '_')
-            gtf_file = gtf_dir / f"{safe_category}.gtf"
-            faa_file = gtf_dir / f"{safe_category}.faa"
+            category_dir = different_dir if safe_category.startswith("peptide_support_different_") else gtf_dir
+            gtf_file = category_dir / f"{safe_category}.gtf"
+            faa_file = category_dir / f"{safe_category}.faa"
             
             with open(gtf_file, 'w') as f:
                 for line in category_gtf_lines:

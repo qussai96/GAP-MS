@@ -30,8 +30,11 @@ class TestCompareSuppRef(unittest.TestCase):
             self.assertEqual(len(report_df), 1)
             self.assertEqual(report_df.iloc[0]["peptide_evidence_category"], "peptide_support_different_start")
             self.assertEqual(len(summary_df), 1)
-            self.assertTrue((paths["output_dir"] / "annotation_comparison_report.tsv").exists())
-            self.assertTrue((paths["output_dir"] / "annotation_comparison_summary.tsv").exists())
+            compare_dir = paths["output_dir"] / "Compare_to_Reference"
+            self.assertTrue((compare_dir / "annotation_comparison_report.tsv").exists())
+            self.assertTrue((compare_dir / "annotation_comparison_summary.tsv").exists())
+            self.assertTrue((compare_dir / "Different" / "peptide_support_different_start.gtf").exists())
+            self.assertTrue((compare_dir / "Different" / "peptide_support_different_start.faa").exists())
 
 
 if __name__ == "__main__":

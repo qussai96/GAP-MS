@@ -1,5 +1,6 @@
 import subprocess
 import os
+import shutil
 from pathlib import Path
 
 def run_proteomapper(protdb_path: str, peptides_path: str, output_dir):
@@ -74,10 +75,14 @@ def run_psauron(protdb_path: Path, output_dir):
     return output_file
 
 
-def run_gffcompare(reference_gtf_path: str, supported_gtf_path: str):
+def run_gffcompare(reference_gtf_path: str, supported_gtf_path: str, output_dir):
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    out_prefix = output_dir / "gffcmp"
 
     command = [
         "gffcompare",
+        "-o", str(out_prefix),
         "-r", str(reference_gtf_path),
         str(supported_gtf_path)
     ]
@@ -87,6 +92,21 @@ def run_gffcompare(reference_gtf_path: str, supported_gtf_path: str):
 
     if gffcompare_result.returncode != 0:
         raise RuntimeError(f"gffcompare failed:\n{gffcompare_result.stderr}")
+
+    # Some gffcompare builds still emit `gffcmp.*` files into the current working
+    # directory even when `-o` includes a folder prefix. Move any such stray files
+    # into the requested Compare_to_Reference/ folder so the layout stays consistent.
+    prefix_name = out_prefix.name
+    source_dirs = {Path.cwd(), Path(supported_gtf_path).resolve().parent}
+    for source_dir in source_dirs:
+        for stray_file in source_dir.glob(f"{prefix_name}*"):
+            if stray_file.resolve().parent == output_dir.resolve():
+                continue
+            destination = output_dir / stray_file.name
+            if destination.exists():
+                destination.unlink()
+            shutil.move(str(stray_file), str(destination))
+
     return gffcompare_result
 
 

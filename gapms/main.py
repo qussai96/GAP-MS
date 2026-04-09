@@ -159,7 +159,7 @@ def main():
                 print(f"Removed {removed_count} rows with invalid strand or missing ID from reference GTF")
             
             gtf_out = output_dir / "supported_proteins.gtf"
-            run_gffcompare(cleaned_reference_gtf, gtf_out)
+            run_gffcompare(cleaned_reference_gtf, gtf_out, compare_dir)
             parse_gffcompare_tmap(output_dir, args.gtf, args.reference_gtf, args.reference_fasta)
             
             print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Generating Annotation Comparison Report....")

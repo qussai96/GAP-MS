@@ -77,10 +77,11 @@ If `-o` is not provided, outputs go to `GAPMS_Output/` in the parent directory o
 -a, --assembly            Path to genome assembly (required if -f is not provided)
 -m, --mapping             Optional peptide-to-protein mapping file
 -s, --scores              Optional CSV with columns: Protein, external_score
--c, --compute_psauron      Compute PSAURON scores
--rg, --reference_gtf       Optional reference GTF for comparison
--rf, --reference_fasta     Optional reference protein FASTA
--o, --output               Output directory
+-c, --compute_psauron     Compute PSAURON scores
+-rg, --reference_gtf      Optional reference GTF for comparison
+-rf, --reference_fasta    Optional reference protein FASTA
+-o, --output              Output directory
+-i, --iterative           Train an iterative XGBoost model instead of using the pre-trained classifier
 ```
 
 ---
@@ -105,6 +106,12 @@ Compare with reference annotations:
 gapms -g predictions.gtf -a genome.fasta -p peptides.txt -rg reference.gtf -rf reference.fasta
 ```
 
+Use iterative training instead of the bundled pre-trained XGBoost model:
+
+```bash
+gapms -g predictions.gtf -f proteins.fasta -p peptides.txt -i
+```
+
 ---
 
 ## Output overview
@@ -114,25 +121,37 @@ GAP‑MS writes results to the output directory (default: `GAPMS_Output/`) and c
 ```
 GAPMS_Output/
 ├── log.txt                          # Pipeline execution log
-├── all_proteins_scores.tsv          # Feature scores for all proteins
+├── all_proteins_scores.tsv          # Feature/evidence table for all proteins
 ├── supported_proteins.gtf           # GTF with only supported proteins
 ├── supported_proteins.fa            # FASTA with only supported proteins
-├── peptides_mapped.bed        # BED format for genome 
-|
+├── peptides_mapped.bed              # BED track of peptide genome coordinates
+├── Unmpped_pepides.txt              # Peptides reported by Proteomapper as UNMAPPED
 ├── Figures/                         # Visualization plots
 │   ├── roc_curve_*.png
 │   ├── shap_summary.png
 │   ├── sequence_coverage_hist.png
 │   └── ...
-├── Txt/                            # Text lists of proteins
+├── Txt/                             # Text lists of proteins
 │   ├── all_proteins.txt
+│   ├── high_confident_proteins.txt
 │   ├── supported_proteins.txt
 │   ├── unsupported_proteins.txt
 │   └── ...
-└── Novel/                          # Novel protein analysis (if -rg/-rf used)
-```
+└── Compare_to_Reference/            # Produced when -rg/-rf is used
+    ├── gffcmp.*                     # gffcompare outputs (.tmap/.refmap/.stats/.tracking/...)
+    ├── annotation_comparison_report.tsv
+    ├── annotation_comparison_summary.tsv
+    ├── Novel/
+    │   ├── new_predicted_proteins.gtf
+    │   ├── new_predicted_proteins.fa
+    │   └── new_predicted_proteins_scores.tsv
+    ├── Different/
+    │   ├── peptide_support_different_start.gtf
+    │   ├── peptide_support_different_stop.gtf
+    │   └── peptide_support_different_splice.gtf
+    └── ...
 
-Additional files (scores, filtered predictions, peptide‑genome tracks) are produced by the pipeline modules during execution.
+```
 
 ---
 

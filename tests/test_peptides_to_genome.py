@@ -50,7 +50,7 @@ class TestPeptidesToGenomeRobustness(unittest.TestCase):
 
             self.assertEqual(len(report_df), 1)
             self.assertEqual(len(summary_df), 1)
-            self.assertTrue((paths["output_dir"] / "annotation_comparison_report.tsv").exists())
+            self.assertTrue((paths["output_dir"] / "Compare_to_Reference" / "annotation_comparison_report.tsv").exists())
 
 
 if __name__ == "__main__":
