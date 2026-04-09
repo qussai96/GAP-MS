@@ -31,3 +31,10 @@ wheels/
 *.swp
 *.swo
 *~
+
+# Local docs and exploratory content not for GitHub
+ANNOTATION_COMPARISON_QUICK_REF.md
+ANNOTATION_COMPARISON_README.md
+APPTAINER_GUIDE.md
+Web-portal/
+testing/
