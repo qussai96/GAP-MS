@@ -8,15 +8,13 @@ import sys
 import argparse
 from pathlib import Path
 from datetime import datetime
-import subprocess
 
 from gapms.extract import extract_features
 from gapms.filter import filter_predictions
-from gapms.tools import run_proteomapper, run_psauron, run_gffread, run_embeddings, run_gffcompare
-from gapms.get_new_proteins import get_new_proteins
+from gapms.tools import run_proteomapper, run_psauron, run_gffread, run_gffcompare
 from gapms.peptides_to_genome import map_peptides_to_genome
 from gapms.parse_gffcompare_tmap import parse_gffcompare_tmap
-from gapms.generate_annotation_comparison_report import generate_annotation_report
+from gapms.compare_supp_ref import generate_annotation_report
 
 def main():
     start_time = time.time()
@@ -34,6 +32,7 @@ def main():
     parser.add_argument("-rg", "--reference_gtf", type=Path, help="Optional reference gtf file")
     parser.add_argument("-rf", "--reference_fasta", type=Path, help="Optional reference fasta file")
     parser.add_argument("-o", "--output", type=Path, help="Optional output directory")
+    parser.add_argument("-i", "--iterative", action="store_true", help="Train an iterative XGBoost model from the high/low-confidence sets instead of using the pre-trained classifier")
 
     args = parser.parse_args()
     
@@ -64,7 +63,7 @@ def main():
 
         # Prepare logging
         log_file_path = output_dir / "log.txt"
-        log_file = open(log_file_path, "w")
+        log_file = open(log_file_path, "w", buffering=1)
         sys.stdout = log_file
         sys.stderr = log_file
 
@@ -99,7 +98,13 @@ def main():
         extract_features(args.gtf, protein_fasta, mapping, output_dir, external_scores_csv)
 
         print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Running GAPMS....")
-        filter_predictions(args.gtf, protein_fasta, output_dir)
+        filter_predictions(
+            args.gtf,
+            protein_fasta,
+            output_dir,
+            plot_external_scores_enabled=bool(args.scores),
+            use_iterative_training=args.iterative,
+        )
 
         print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Mapping peptides to genome coordinates....")
         map_peptides_to_genome(args.gtf, protein_fasta, mapping, output_dir)            

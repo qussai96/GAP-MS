@@ -122,7 +122,7 @@ GAPMS_Output/
 ├── Figures/                         # Visualization plots
 │   ├── roc_curve_*.png
 │   ├── shap_summary.png
-│   ├── protein_coverage_hist.png
+│   ├── sequence_coverage_hist.png
 │   └── ...
 ├── Txt/                            # Text lists of proteins
 │   ├── all_proteins.txt

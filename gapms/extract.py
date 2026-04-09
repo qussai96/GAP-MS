@@ -1,5 +1,7 @@
 
 from pathlib import Path
+from datetime import datetime
+
 import pandas as pd
 import numpy as np
 from Bio import SeqIO
@@ -8,12 +10,15 @@ from .gtf_utils import gtf_to_df_with_genes, read_scores_csv
 from .peptide_utils import (
     mapping_file_to_df,
     get_gene_protein_specific_peps,
-    check_peptide_loc,
-    calculate_protein_coverage
+    calculate_sequence_coverage,
 )
 from .plotting import (
     plot_mapped_percentage_bars
 )
+
+
+def _ts():
+    return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 
 def extract_features(gtf_file, prediction_fasta, mapping_file, output_dir, external_scores_csv=None):
@@ -23,7 +28,9 @@ def extract_features(gtf_file, prediction_fasta, mapping_file, output_dir, exter
     external_scores_csv = Path(external_scores_csv) if external_scores_csv else None
     output_dir=Path(output_dir)
 
+    print(f"{_ts()} [extract] Parsing GTF/GFF...")
     gtf_df = gtf_to_df_with_genes(gtf_file)
+    print(f"{_ts()} [extract] GTF parsed: {len(gtf_df)} rows. Building CDS features...")
     print(f"Sample protein IDs from GTF: {gtf_df['Protein'].dropna().head().tolist()}")
     transcripts_df = gtf_df[gtf_df['Type'].isin(['transcript', 'mRNA'])][['Protein', 'Prediction_score']]
     transcripts_df = transcripts_df.rename(columns={"Prediction_score": "transcript_score"})
@@ -93,12 +100,15 @@ def extract_features(gtf_file, prediction_fasta, mapping_file, output_dir, exter
 
 
     # 1. Load mapping
+    print(f"{_ts()} [extract] Loading mapping file...")
     mapping_df = mapping_file_to_df(mapping_file)
 
     # 2. Get gene-protein specific peptides
+    print(f"{_ts()} [extract] Resolving gene/protein-specific peptides...")
     pep_df = get_gene_protein_specific_peps(cds_df, mapping_df)
 
     # 3. Create protein sequence dictionary
+    print(f"{_ts()} [extract] Loading protein FASTA sequences...")
     seq_dict = {record.id.split()[0]: str(record.seq).replace('I', 'L').replace('*', '') 
                 for record in SeqIO.parse(prediction_fasta, "fasta")}
 
@@ -108,7 +118,8 @@ def extract_features(gtf_file, prediction_fasta, mapping_file, output_dir, exter
     pep_df.dropna(subset=['Prot_seq'], inplace=True)
     # print(f"Peptides after filtering out rows with missing protein sequences: {len(pep_df)}")
 
-    # 5. Compute peptide positions (vectorized using list comprehension)
+    # 5. Compute peptide positions
+    print(f"{_ts()} [extract] Computing peptide positions for {len(pep_df)} pep-protein pairs...")
     pep_starts = []
     pep_ends = []
 
@@ -122,11 +133,17 @@ def extract_features(gtf_file, prediction_fasta, mapping_file, output_dir, exter
     pep_df['pep_start'] = pep_starts
     pep_df['pep_end'] = pep_ends
     pep_df['prot_len'] = pep_df['Prot_seq'].str.len()
+    pep_df['N_terminal_peptide'] = np.where(
+        (pep_df['pep_start'] == 1) |
+        ((pep_df['pep_start'] == 2) & pep_df['Prot_seq'].str.startswith('M')),
+        '+',
+        '-'
+    )
 
     # 6. Drop temporary column
     pep_df.drop(columns='Prot_seq', inplace=True)
 
-    # 7. Compute protein coverage
+    # 7. Compute sequence coverage (vectorized)
     if pep_df.empty:
         print("\n=== DEBUG INFO ===")
         print("Sample protein IDs from FASTA (seq_dict):")
@@ -135,34 +152,54 @@ def extract_features(gtf_file, prediction_fasta, mapping_file, output_dir, exter
         print(mapping_df['Protein'].head().tolist())
         print("==================\n")
         raise ValueError("No peptides could be mapped to proteins. Check that protein IDs in the mapping file match the FASTA headers. We use only first part of the FASTA header up to the first space.")
-    
-    coverage_series = pep_df.groupby("Protein").apply(calculate_protein_coverage)
-    pep_df['protein_coverage'] = pep_df['Protein'].map(coverage_series)
 
+    print(f"{_ts()} [extract] Computing sequence coverage...")
+    coverage_map = calculate_sequence_coverage(pep_df)
+    pep_df['sequence_coverage'] = pep_df['Protein'].map(coverage_map).fillna(0)
 
-
+    print(f"{_ts()} [extract] Merging CDS and peptide features ({len(cds_df)} CDS rows × {len(pep_df)} pep-protein pairs)...")
     peptide_features_df = pd.merge(cds_df, pep_df, on=['Protein', 'Gene'])
     peptide_features_df = peptide_features_df[[
         'Peptide', 'Protein', 'Gene', 'isoforms', 'splice_sites', 'Protein_specific',
         'Gene_specific', 'cds_start', 'cds_end', 'peptide_length',
-        'pep_start', 'pep_end', 'transcript_score', 'prot_len', 'protein_coverage'
+        'pep_start', 'pep_end', 'N_terminal_peptide', 'transcript_score', 'prot_len', 'sequence_coverage'
     ]]
 
-    cds_dict = peptide_features_df.groupby('Protein')[['cds_start', 'cds_end']].apply(lambda x: list(x.itertuples(index=False, name=None))).to_dict()
-    peptide_features_df['Splice_peptide'] = peptide_features_df.apply(lambda row: check_peptide_loc(row, cds_dict), axis=1)
+    print(f"{_ts()} [extract] Computing splice-site flags on {len(peptide_features_df)} rows...")
+    cds_intervals = peptide_features_df[['Protein', 'cds_start', 'cds_end']].drop_duplicates()
+    pep_unique = peptide_features_df[['Protein', 'pep_start', 'pep_end']].drop_duplicates()
 
-    peptide_features_df['N_terminal_peptide'] = np.where(peptide_features_df['pep_start'] == 1, '+', '-')
+    check = pep_unique.merge(cds_intervals, on='Protein', how='left')
+    check['contained'] = (
+        (check['cds_start'] <= check['pep_start']) &
+        (check['cds_end'] >= check['pep_end'])
+    )
+    internal_peps = (
+        check[check['contained']]
+        .drop_duplicates(subset=['Protein', 'pep_start', 'pep_end'])
+        [['Protein', 'pep_start', 'pep_end']]
+    )
+    internal_peps['_internal'] = True
+    peptide_features_df = peptide_features_df.merge(
+        internal_peps, on=['Protein', 'pep_start', 'pep_end'], how='left'
+    )
+    peptide_features_df['Splice_peptide'] = np.where(
+        peptide_features_df['_internal'].fillna(False), '-', '+'
+    )
+    peptide_features_df.drop(columns=['_internal'], inplace=True)
+
     peptide_features_df['C_terminal_peptide'] = np.where(peptide_features_df['pep_end'] == peptide_features_df['prot_len'], '+', '-')
     peptide_features_df = peptide_features_df.drop(columns=['cds_start', 'cds_end']).drop_duplicates()
 
 
+    print(f"{_ts()} [extract] Aggregating protein-level scores...")
     proteins_scores_df = peptide_features_df.groupby("Protein").agg(
         protein_length=("prot_len", "mean"),
         isoforms=("isoforms", "mean"),
         splice_sites=("splice_sites", "mean"),
         transcript_score=("transcript_score", "mean"),
-        protein_coverage=("protein_coverage", lambda x: round(x.mean(), 2)),
-        mapped_peptides=("Peptide", "count"),
+        sequence_coverage=("sequence_coverage", lambda x: round(x.mean(), 2)),
+        mapped_peptides=("Peptide", "nunique"),
         N_terminal_peptides=("N_terminal_peptide", lambda x: (x == "+").sum()),
         C_terminal_peptides=("C_terminal_peptide", lambda x: (x == "+").sum()),
         protein_specific_peptides=("Protein_specific", lambda x: (x == "+").sum()),
@@ -202,6 +239,7 @@ def extract_features(gtf_file, prediction_fasta, mapping_file, output_dir, exter
     
     all_proteins_scores_df = engineer_features(all_proteins_scores_df)
     all_proteins_scores_df.to_csv(output_dir / 'all_proteins_scores.tsv', sep='\t', index=False)
+    print(f"{_ts()} [extract] Saved all_proteins_scores.tsv")
 
     mapped_proteins = all_proteins_scores_df[all_proteins_scores_df['mapped_peptides'] > 0]['Protein']
     unmapped_proteins = all_proteins_scores_df[all_proteins_scores_df['mapped_peptides'] == 0]['Protein']
@@ -209,16 +247,50 @@ def extract_features(gtf_file, prediction_fasta, mapping_file, output_dir, exter
     no_Nterm_proteins = all_proteins_scores_df[all_proteins_scores_df['N_terminal_peptides'] == 0]['Protein']
     Cterm_proteins = all_proteins_scores_df[all_proteins_scores_df['C_terminal_peptides'] > 0]['Protein']
     no_Cterm_proteins = all_proteins_scores_df[all_proteins_scores_df['C_terminal_peptides'] == 0]['Protein']
+
+    splice_all_supported = all_proteins_scores_df[
+        (all_proteins_scores_df['splice_sites'] > 0) &
+        (all_proteins_scores_df['splice_peptides'] >= all_proteins_scores_df['splice_sites'])
+    ]['Protein']
+    splice_some_supported = all_proteins_scores_df[
+        (all_proteins_scores_df['splice_sites'] > 0) &
+        (all_proteins_scores_df['splice_peptides'] > 0) &
+        (all_proteins_scores_df['splice_peptides'] < all_proteins_scores_df['splice_sites'])
+    ]['Protein']
+    splice_no_supported = all_proteins_scores_df[
+        ~(
+            ((all_proteins_scores_df['splice_sites'] > 0) &
+             (all_proteins_scores_df['splice_peptides'] >= all_proteins_scores_df['splice_sites'])) |
+            ((all_proteins_scores_df['splice_sites'] > 0) &
+             (all_proteins_scores_df['splice_peptides'] > 0) &
+             (all_proteins_scores_df['splice_peptides'] < all_proteins_scores_df['splice_sites']))
+        )
+    ]['Protein']
     
     print(f'Number of proteins with mapped peptide: {len(mapped_proteins)}')
     print(f'Number of proteins without mapped peptide: {len(unmapped_proteins)}')
     print(f'Number of proteins with mapped Nterm peptide: {len(Nterm_proteins)}')
     print(f'Number of proteins with mapped Cterm peptide: {len(Cterm_proteins)}')
+    print(f'Number of proteins with all splice sites supported: {len(splice_all_supported)}')
+    print(f'Number of proteins with some splice sites supported: {len(splice_some_supported)}')
+    print(f'Number of proteins with no splice support: {len(splice_no_supported)}')
     
     stacked_bars_df = pd.DataFrame({
-    'bar_name': ['Identifeid peptides', 'N-term peptide', 'C-term peptide'],
-    'mapped': [len(mapped_proteins), len(Nterm_proteins), len(Cterm_proteins)],
-    'unmapped': [len(unmapped_proteins), len(no_Nterm_proteins), len(no_Cterm_proteins)]})
+        'bar_name': ['Mapped\npeptides', 'N-terminal\nsupport', 'C-terminal\nsupport', 'Splice-site\nsupport'],
+        'supported': [
+            len(mapped_proteins),
+            len(Nterm_proteins),
+            len(Cterm_proteins),
+            len(splice_all_supported)
+        ],
+        'partial': [0, 0, 0, len(splice_some_supported)],
+        'unsupported': [
+            len(unmapped_proteins),
+            len(no_Nterm_proteins),
+            len(no_Cterm_proteins),
+            len(splice_no_supported)
+        ]
+    })
     plot_mapped_percentage_bars(stacked_bars_df, output_dir)
 
 
@@ -227,7 +299,7 @@ def engineer_features(df):
     
     # Ensure required columns exist
     required_cols = [
-        "protein_coverage", "mapped_peptides", "protein_length",
+        "sequence_coverage", "mapped_peptides", "protein_length",
         "protein_specific_peptides", "gene_specific_peptides",
         "splice_peptides", "internal_peptides",
         "N_terminal_peptides", "C_terminal_peptides"

@@ -1,106 +1,49 @@
+import pickle
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold, RandomizedSearchCV
 from xgboost import XGBClassifier
 
-def calculate_sensitivity(scores, cutoff):
-    if not scores:
-        return 0.0
-    return sum(score >= cutoff for score in scores) / len(scores)
+from .score_filter import (
+    calculate_fpr,
+    calculate_sensitivity,
+    calculate_specificity_tnr,
+    find_apply_score_filter,
+    find_cutoff,
+)
 
+BASE_FEATURE_COLS = [
+    "sequence_coverage",
+    "protein_specific_peptides",
+    "gene_specific_peptides",
+    "splice_peptides",
+    "internal_peptides",
+    "mapped_peptides",
+    "N_terminal_peptides",
+    "C_terminal_peptides",
+    "protein_length",
+]
 
-def calculate_fpr(unsupported_scores, cutoff):
-    # Calculate FPR directly: unsupported proteins passing cutoff / all unsupported proteins
-    if not unsupported_scores:
-        return 0.0  # All proteins are high-confidence, FPR = 0
-    unsupported_passing = sum(s >= cutoff for s in unsupported_scores)
-    return unsupported_passing / len(unsupported_scores)
+ENGINEERED_FEATURE_COLS = [
+    "mapped_peptides_per_aa",
+    "protein_specific_rate",
+    "gene_specific_rate",
+    "splice_rate",
+    "internal_rate",
+    "terminal_rate",
+    "isoform_specificity",
+    "junction_evidence",
+    "has_N_term",
+    "has_C_term",
+    "has_both_term",
+    "has_any_protein_specific",
+    "has_any_splice",
+]
 
-
-def calculate_specificity_tnr(unsupported_scores, cutoff):
-    # TNR (True Negative Rate) = 1 - FPR
-    return 1 - calculate_fpr(unsupported_scores, cutoff)
-
-
-def find_cutoff(proteins_scores_df, high_confident_proteins, score_column, output_dir=None, plot_roc=None):
-    scores = proteins_scores_df[score_column].tolist()
-
-    # Case: all scores are zero
-    if all(score == 0 for score in scores):
-        return 0
-
-    # Subset high-confidence protein scores
-    high_confident_proteins_scores = proteins_scores_df[
-        proteins_scores_df['Protein'].isin(high_confident_proteins)
-    ][score_column].tolist()
-
-    if not high_confident_proteins_scores:
-        return 0  # fallback if no high-confidence proteins
-
-    # Pre-calculate unsupported scores once (expensive operation)
-    high_conf_set = set(high_confident_proteins_scores)
-    unsupported_scores = [s for s in scores if s not in high_conf_set]
-
-    # Generate cutoff thresholds from 1.0 → 0.0 with finer granularity
-    cutoffs = np.linspace(1.0, 0.0, 1000)
-
-    tpr = [calculate_sensitivity(high_confident_proteins_scores, c) for c in cutoffs]
-    fpr = [calculate_fpr(unsupported_scores, c) for c in cutoffs]
-    tnr = [calculate_specificity_tnr(unsupported_scores, c) for c in cutoffs]
-
-    # Sort by FPR to create a proper ROC curve
-    roc_points = sorted(zip(fpr, tpr, cutoffs, tnr), key=lambda x: x[0])
-    fpr_sorted, tpr_sorted, cutoffs_sorted, tnr_sorted = zip(*roc_points)
-    fpr_sorted = list(fpr_sorted)
-    tpr_sorted = list(tpr_sorted)
-    cutoffs_sorted = list(cutoffs_sorted)
-    tnr_sorted = list(tnr_sorted)
-
-    # Primary method: Youden's Index (J = TPR + TNR - 1)
-    # Finds the point with maximum distance from diagonal (most balanced)
-    youden_indices = [tpr_sorted[i] + tnr_sorted[i] - 1 for i in range(len(tpr_sorted))]
-    best_idx_youden = np.argmax(youden_indices)
-    cutoff_youden = cutoffs_sorted[best_idx_youden]
-    j_max = youden_indices[best_idx_youden]
-
-    # Secondary method: Find cutoff where slope of ROC curve < 1 (elbow method)
-    # Only use if Youden's index is too low (indicates poor classifier)
-    cutoff_elbow = None
-    for i in range(2, len(tpr_sorted)):
-        delta_fpr = fpr_sorted[i] - fpr_sorted[i - 1]
-        slope = (tpr_sorted[i] - tpr_sorted[i - 1]) / delta_fpr if delta_fpr != 0 else float("inf")
-
-        if slope < 1:
-            cutoff_elbow = cutoffs_sorted[i]
-            break
-
-    # Use Youden's method as primary; use elbow only if Youden gives very poor result
-    if j_max > 0.2:  # Youden's index > 0.2 indicates decent classifier
-        cutoff = cutoff_youden
-        method = "Youden's Index"
-    elif cutoff_elbow is not None:
-        cutoff = cutoff_elbow
-        method = "Elbow Method (fallback)"
-    else:
-        cutoff = 0
-        method = "No valid cutoff found"
-
-    print(f"  {score_column} - {method}: cutoff={cutoff:.3f}, Youden's J={j_max:.3f}")
-
-    if plot_roc and output_dir:
-        plot_roc(fpr_sorted, tpr_sorted, cutoff, fpr_sorted[best_idx_youden], tpr_sorted[best_idx_youden], output_dir, score_column)
-
-    return cutoff
-
-
-
-def find_apply_score_filter(proteins_scores_df, high_confident_proteins, score_column, output_dir=None, plot_roc=None):
-    cutoff = find_cutoff(proteins_scores_df, high_confident_proteins, score_column, output_dir, plot_roc)
-    cutoff = max(cutoff, 0.5)
-    high_scoring = set(proteins_scores_df[proteins_scores_df[score_column] > cutoff]['Protein'])
-    print(f"Determined cutoff of {score_column}: {cutoff}")
-    print(f"Number of {score_column} supported proteins: {len(high_scoring)}")
-    return cutoff, high_scoring 
+ITERATIVE_FEATURE_COLS = BASE_FEATURE_COLS + ENGINEERED_FEATURE_COLS
+DEFAULT_PRETRAINED_MODEL_NAME = "xgb_protein_classifier.pkl"
 
 
 def get_high_confident_proteins(df):
@@ -108,7 +51,7 @@ def get_high_confident_proteins(df):
         for _, group in df.groupby("Protein"):
             for _, row in group.iterrows():
                 cond1 = row["protein_specific_peptides"] >= 2
-                cond2 = row["protein_coverage"] >= 0.8
+                cond2 = row["sequence_coverage"] >= 0.8
                 cond3 = row["N_terminal_peptides"] >= 1 and row["C_terminal_peptides"] >= 1
                 cond4 = row["splice_peptides"] == row["splice_sites"] and row["splice_peptides"] > 0
                 if cond1 or cond2 or cond3 or cond4:
@@ -131,32 +74,7 @@ def get_low_confident_proteins(df):
         return pd.DataFrame(low_confident)
 
 def train_iterative_model(df, high_confident_df, low_confident_df, pos_thr=0.90, neg_thr=0.10, n_iter=5, shap_output_dir=None, plot_shap=None):
-    feature_cols = [
-    # Original 9 features
-    "protein_coverage",
-    "protein_specific_peptides",
-    "gene_specific_peptides",
-    "splice_peptides",
-    "internal_peptides",
-    "mapped_peptides",
-    "N_terminal_peptides",
-    "C_terminal_peptides",
-    "protein_length",
-    # 12 new engineered features
-    "mapped_peptides_per_aa",
-    "protein_specific_rate",
-    "gene_specific_rate",
-    "splice_rate",
-    "internal_rate",
-    "terminal_rate",
-    "isoform_specificity",
-    "junction_evidence",
-    "has_N_term",
-    "has_C_term",
-    "has_both_term",
-    "has_any_protein_specific",
-    "has_any_splice"
-    ]
+    feature_cols = ITERATIVE_FEATURE_COLS
     
     # Initialize label column
     df["label"] = np.nan
@@ -276,3 +194,134 @@ def train_iterative_model(df, high_confident_df, low_confident_df, pos_thr=0.90,
     print(f"Total new positives added during iterations (beyond high-confidence set): {len(total_new_pos)}")
 
     return df
+
+
+def resolve_pretrained_model_path(model_path=None):
+    """Resolve the best available pretrained model path."""
+    if model_path is not None:
+        candidate_paths = [Path(model_path)]
+    else:
+        module_dir = Path(__file__).resolve().parent
+        repo_dir = module_dir.parent
+        workspace_dir = repo_dir.parent
+        candidate_paths = [
+            module_dir / DEFAULT_PRETRAINED_MODEL_NAME,
+            repo_dir / DEFAULT_PRETRAINED_MODEL_NAME,
+            workspace_dir / "GAP-MS-ONE-MODEL" / DEFAULT_PRETRAINED_MODEL_NAME,
+        ]
+
+    for candidate in candidate_paths:
+        if candidate.exists():
+            return candidate
+
+    searched = "\n - ".join(str(path) for path in candidate_paths)
+    raise FileNotFoundError(
+        "Pre-trained model not found. Checked:\n - " + searched
+    )
+
+
+def _get_pretrained_feature_columns(model, df):
+    """Infer which features the pretrained model expects."""
+    if hasattr(model, "feature_names_in_"):
+        feature_cols = list(model.feature_names_in_)
+    else:
+        n_features = getattr(model, "n_features_in_", None)
+        if n_features == len(ITERATIVE_FEATURE_COLS):
+            feature_cols = ITERATIVE_FEATURE_COLS
+        elif n_features == len(BASE_FEATURE_COLS):
+            feature_cols = BASE_FEATURE_COLS
+        else:
+            raise ValueError(
+                "Could not infer the pretrained model feature set. "
+                f"Model reports {n_features} features."
+            )
+
+    # Backward/forward compatibility for renamed coverage term.
+    legacy_coverage_col = "protein" + "_coverage"
+    current_coverage_col = "sequence_coverage"
+    if legacy_coverage_col in feature_cols and legacy_coverage_col not in df.columns and current_coverage_col in df.columns:
+        df[legacy_coverage_col] = df[current_coverage_col]
+    if current_coverage_col in feature_cols and current_coverage_col not in df.columns and legacy_coverage_col in df.columns:
+        df[current_coverage_col] = df[legacy_coverage_col]
+
+    missing_features = [col for col in feature_cols if col not in df.columns]
+    if missing_features:
+        raise ValueError(f"Missing required features for pretrained model: {missing_features}")
+
+    return feature_cols
+
+
+def apply_pretrained_model(df, model_path=None):
+    """Apply a pre-trained XGBoost classifier to the protein feature table."""
+    resolved_model_path = resolve_pretrained_model_path(model_path)
+    print(f"Using pre-trained XGBoost model: {resolved_model_path}")
+
+    with open(resolved_model_path, 'rb') as handle:
+        model = pickle.load(handle)
+
+    df_copy = df.copy()
+    feature_cols = _get_pretrained_feature_columns(model, df_copy)
+    X = df_copy[feature_cols]
+
+    df_copy["prob_pos"] = model.predict_proba(X)[:, 1]
+    df_copy["final_label"] = (df_copy["prob_pos"] >= 0.5).astype(int)
+
+    print(
+        f"Pre-trained model predictions complete: "
+        f"{(df_copy['final_label'] == 1).sum()} positive, "
+        f"{(df_copy['final_label'] == 0).sum()} negative"
+    )
+    return df_copy
+
+
+def run_protein_classifier(
+    df,
+    high_confident_df,
+    low_confident_df,
+    use_iterative_training=False,
+    model_path=None,
+    pos_thr=0.90,
+    neg_thr=0.10,
+    n_iter=5,
+    shap_output_dir=None,
+    plot_shap=None,
+):
+    """
+    Run protein classification in two modes:
+      1) default: use the pre-trained XGBoost model
+      2) iterative: train from high/low confidence sets when `use_iterative_training=True`
+
+    If the pre-trained model is unavailable or fails, this automatically falls back to
+    the iterative training mode.
+    """
+    if use_iterative_training:
+        print("Using iterative XGBoost training mode (-i/--iterative).")
+        labeled_df = train_iterative_model(
+            df=df,
+            high_confident_df=high_confident_df,
+            low_confident_df=low_confident_df,
+            pos_thr=pos_thr,
+            neg_thr=neg_thr,
+            n_iter=n_iter,
+            shap_output_dir=shap_output_dir,
+            plot_shap=plot_shap,
+        )
+        return labeled_df, "iterative"
+
+    try:
+        labeled_df = apply_pretrained_model(df=df, model_path=model_path)
+        return labeled_df, "pretrained"
+    except Exception as exc:
+        print(f"Pre-trained model could not be used: {exc}")
+        print("Falling back to iterative XGBoost training...")
+        labeled_df = train_iterative_model(
+            df=df,
+            high_confident_df=high_confident_df,
+            low_confident_df=low_confident_df,
+            pos_thr=pos_thr,
+            neg_thr=neg_thr,
+            n_iter=n_iter,
+            shap_output_dir=shap_output_dir,
+            plot_shap=plot_shap,
+        )
+        return labeled_df, "iterative-fallback"

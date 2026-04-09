@@ -2,13 +2,6 @@ import re
 import pandas as pd
 import csv
 
-def extract_id(suppl_value, pattern):
-    if isinstance(suppl_value, str):
-        match = re.search(pattern, suppl_value)
-        if match:
-            return match.group(1)
-    # print(f'Check row with suppl {suppl_value}')
-    return None
 
 def extract_attribute(suppl_value, attr_name):
     """
@@ -30,6 +23,11 @@ def extract_attribute(suppl_value, attr_name):
     
     return None
 
+def _str_extract(series, pattern):
+    """Return first capture group from a Series using vectorized regex."""
+    return series.str.extract(pattern, expand=False)
+
+
 def gtf_to_df_with_genes(gtf_file):
     column_names = [
         'Seqid', 'Source', 'Type', 'Start', 'End',
@@ -40,87 +38,61 @@ def gtf_to_df_with_genes(gtf_file):
     df = pd.read_csv(
         gtf_file,
         sep='\t',
-        header=None,         # prevent first line being treated as header
+        header=None,
         names=column_names,
-        comment='#'
+        comment='#',
+        dtype={'Type': str, 'Suppl': str},
     )
 
-    df['Type'] = df['Type'].astype(str)
-    df = df[df['Type'].str.lower().isin(['gene', 'mrna', 'transcript', 'cds'])]
-    
-    def gene_extraction(row):
-        suppl = row['Suppl']
-        
-        # Try gene_id first (GTF/GFF)
-        gene_id = extract_attribute(suppl, 'gene_id')
-        if gene_id:
-            return gene_id
-        
-        # Try GeneID (NCBI GFF)
-        gene_id = extract_attribute(suppl, 'GeneID')
-        if gene_id:
-            return gene_id
-        
-        # Try gene attribute
-        gene_id = extract_attribute(suppl, 'gene')
-        if gene_id:
-            return gene_id
-        
-        # Try Parent for non-gene features
-        if row['Type'].lower() != 'gene':
-            parent = extract_attribute(suppl, 'Parent')
-            if parent:
-                return parent
-        
-        # Try ID for gene features
-        if row['Type'].lower() == 'gene':
-            id_val = extract_attribute(suppl, 'ID')
-            if id_val:
-                return id_val
-        
-        # Fallback for transcript/mRNA/gene
-        if row['Type'].lower() in ['mrna', 'transcript', 'gene']:
-            return suppl
-        
-        return None
-
-    def protein_extraction(row):
-        suppl = row['Suppl']
-        row_type = row['Type'].lower()
-        
-        if row_type in ['mrna', 'transcript', 'gene']:
-            # Try ID first
-            id_val = extract_attribute(suppl, 'ID')
-            if id_val:
-                return id_val
-            
-            # Try transcript_id
-            transcript_id = extract_attribute(suppl, 'transcript_id')
-            if transcript_id:
-                return transcript_id
-            
-            return suppl
-        else:
-            # CDS features - try protein_id first
-            protein_id = extract_attribute(suppl, 'protein_id')
-            if protein_id:
-                return protein_id
-            
-            # Try transcript_id
-            transcript_id = extract_attribute(suppl, 'transcript_id')
-            if transcript_id:
-                return transcript_id
-            
-            # Try Parent
-            parent = extract_attribute(suppl, 'Parent')
-            if parent:
-                return parent
-            
-            return None
-    
+    df['Type'] = df['Type'].str.lower()
+    df = df[df['Type'].isin(['gene', 'mrna', 'transcript', 'cds'])]
     df = df.dropna(subset=['Seqid'])
-    df['Gene'] = df.apply(gene_extraction, axis=1)
-    df['Protein'] = df.apply(protein_extraction, axis=1)
+
+    s = df['Suppl']
+    t = df['Type']
+
+    # Vectorized gene extraction:
+    # gene_id > GeneID > gene > Parent (non-gene) > ID (gene) > raw attributes fallback
+    gene = (
+        _str_extract(s, r'gene_id\s*[= ]?"?([^";,\s]+)"?')
+        .combine_first(_str_extract(s, r'GeneID=([^;,\s]+)'))
+        .combine_first(_str_extract(s, r'(?:^|;)\s*gene\s*[= ]?"?([^";,\s]+)"?'))
+    )
+
+    non_gene_mask = t != 'gene'
+    gene = gene.combine_first(
+        _str_extract(s.where(non_gene_mask), r'Parent=([^;,\s]+)')
+    )
+
+    gene_row_mask = t == 'gene'
+    gene = gene.combine_first(
+        _str_extract(s.where(gene_row_mask), r'ID=([^;,\s]+)')
+    )
+
+    meta_mask = t.isin(['mrna', 'transcript', 'gene'])
+    gene = gene.fillna(s.where(meta_mask))
+    df['Gene'] = gene
+
+    # Vectorized protein extraction:
+    # transcript/mRNA/gene rows: ID > transcript_id > raw attributes
+    prot_meta = (
+        _str_extract(s.where(meta_mask), r'ID=([^;,\s]+)')
+        .combine_first(_str_extract(s.where(meta_mask), r'transcript_id\s*[= ]?"?([^";,\s]+)"?'))
+        .fillna(s.where(meta_mask))
+    )
+
+    # CDS rows: protein_id > transcript_id > Parent
+    cds_mask = t == 'cds'
+    prot_cds = (
+        _str_extract(s.where(cds_mask), r'protein_id\s*[= ]?"?([^";,\s]+)"?')
+        .combine_first(_str_extract(s.where(cds_mask), r'transcript_id\s*[= ]?"?([^";,\s]+)"?'))
+        .combine_first(_str_extract(s.where(cds_mask), r'Parent=([^;,\s]+)'))
+    )
+    df['Protein'] = prot_meta.combine_first(prot_cds)
+
+    # Normalize Type values to what downstream code expects
+    type_map = {'gene': 'gene', 'mrna': 'mRNA', 'transcript': 'transcript', 'cds': 'CDS'}
+    df['Type'] = df['Type'].map(type_map).fillna(df['Type'])
 
     # Convert prediction scores safely
     df['Prediction_score'] = pd.to_numeric(

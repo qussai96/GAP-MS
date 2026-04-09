@@ -22,41 +22,76 @@ def get_gene_protein_specific_peps(gtf_df, mapping_df):
     return pep_protein_gene_df[['Peptide', 'Protein', 'Gene', 'peptide_length', 'Protein_specific', 'Gene_specific']]
 
 
-def check_peptide_loc(row, protein_cds_dict):
-    protein = row['Protein']
-    pep_start, pep_end = row['pep_start'], row['pep_end']
-    protein_cds = protein_cds_dict.get(protein, [])
-    
-    for cds_start, cds_end in protein_cds:
-        if cds_start <= pep_start and cds_end >= pep_end:
-            return '-'
-    return '+'
 
-def calculate_protein_coverage(group):
-    prot_len = group["prot_len"].iloc[0]
-    intervals = group[["pep_start", "pep_end"]].to_numpy()
-    intervals = intervals[np.argsort(intervals[:, 0])]
-    
-    merged_intervals = []
-    start, end = intervals[0]
+def calculate_sequence_coverage(peptide_df):
+    """
+    Compute peptide-derived sequence coverage per protein.
 
-    for s, e in intervals[1:]:
-        if s <= end:
-            end = max(end, e)
+    Accepts either a peptide-level DataFrame containing multiple proteins and returns
+    a `{protein_id: coverage}` dictionary, or a single-protein grouped DataFrame and
+    returns the coverage as a float.
+    """
+    required_cols = {'Protein', 'pep_start', 'pep_end', 'prot_len'}
+    missing_cols = required_cols - set(peptide_df.columns)
+    if missing_cols:
+        raise ValueError(f"Missing required columns for coverage calculation: {sorted(missing_cols)}")
+
+    if peptide_df.empty:
+        return {}
+
+    valid_peptides = peptide_df.loc[
+        peptide_df['pep_start'].fillna(0).gt(0)
+        & peptide_df['pep_end'].fillna(0).ge(peptide_df['pep_start'].fillna(0))
+        & peptide_df['prot_len'].fillna(0).gt(0),
+        ['Protein', 'pep_start', 'pep_end', 'prot_len']
+    ].copy()
+
+    all_proteins = peptide_df['Protein'].dropna().unique().tolist()
+    if valid_peptides.empty:
+        coverage_map = {protein: 0.0 for protein in all_proteins}
+        return coverage_map[all_proteins[0]] if len(all_proteins) == 1 else coverage_map
+
+    pep_sorted = valid_peptides.sort_values(['Protein', 'pep_start', 'pep_end']).reset_index(drop=True)
+
+    prot_arr = pep_sorted['Protein'].to_numpy()
+    start_arr = pep_sorted['pep_start'].to_numpy()
+    end_arr = pep_sorted['pep_end'].to_numpy()
+    len_arr = pep_sorted['prot_len'].to_numpy()
+
+    cur_prot = None
+    cur_start = cur_end = 0
+    total = 0
+    prot_len_val = 0
+    coverage_map = {}
+
+    for i in range(len(prot_arr)):
+        p = prot_arr[i]
+        s = start_arr[i]
+        e = end_arr[i]
+
+        if p != cur_prot:
+            if cur_prot is not None:
+                total += cur_end - cur_start + 1
+                coverage_map[cur_prot] = round(total / prot_len_val, 4)
+            cur_prot = p
+            cur_start = s
+            cur_end = e
+            total = 0
+            prot_len_val = len_arr[i]
+        elif s <= cur_end:
+            cur_end = max(cur_end, e)
         else:
-            merged_intervals.append((start, end))
-            start, end = s, e
-    merged_intervals.append((start, end))
+            total += cur_end - cur_start + 1
+            cur_start = s
+            cur_end = e
 
-    covered_length = sum(e - s + 1 for s, e in merged_intervals)
-    return round(covered_length / prot_len, 4)
+    if cur_prot is not None:
+        total += cur_end - cur_start + 1
+        coverage_map[cur_prot] = round(total / prot_len_val, 4)
 
-def count_expected_peptides_with_missed_cleavages(sequence, missed_cleavages=1):
-    cleavage_sites = [
-        i for i in range(len(sequence) - 1)
-        if sequence[i] in ['K', 'R'] and sequence[i + 1] != 'P'
-    ]
-    num_cleavages = len(cleavage_sites)
-    total_peptides = sum((num_cleavages + missed) for missed in range(missed_cleavages + 1))
-    return total_peptides
+    for protein in all_proteins:
+        coverage_map.setdefault(protein, 0.0)
+
+    return coverage_map[all_proteins[0]] if len(all_proteins) == 1 else coverage_map
+
 

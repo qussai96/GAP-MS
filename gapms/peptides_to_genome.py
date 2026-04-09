@@ -52,21 +52,6 @@ def get_protein_to_cds_mapping(gtf_df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
     return protein_cds_dict
 
 
-def map_peptide_to_codons(pep_start_aa: int, pep_end_aa: int) -> List[Tuple[int, int]]:
-    """
-    Convert peptide amino acid positions to codon positions.
-    
-    Args:
-        pep_start_aa: Peptide start position in amino acids (1-based)
-        pep_end_aa: Peptide end position in amino acids (1-based)
-    
-    Returns:
-        List of (codon_start, codon_end) tuples (1-based)
-    """
-    # Each amino acid = 1 codon
-    return [(pep_start_aa, pep_end_aa)]
-
-
 def map_codon_to_genome(codon_start: int, codon_end: int, 
                         cds_features: pd.DataFrame, strand: str) -> List[Tuple[int, int]]:
     """
@@ -190,14 +175,6 @@ def export_to_bed(peptide_mappings: List[Dict], output_file: Path):
             bed.write(f"{chrom}\t{chrom_start}\t{chrom_end}\t{name}\t{score}\t{strand}\t")
             bed.write(f"{chrom_start}\t{chrom_end}\t{color}\t")
             bed.write(f"{block_count}\t{block_sizes}\t{block_starts}\n")
-
-
-def export_to_gff3(peptide_mappings: List[Dict], output_file: Path):
-    """Legacy: GFF3 export retained for compatibility but not used by default."""
-    # Keep implementation minimal in case it's needed in future
-    with open(output_file, 'w') as gff:
-        gff.write("##gff-version 3\n")
-        # Not used by default
 
 
 def map_peptides_to_genome(gtf_file: Path, protein_fasta: Path, mapping_file: Path,

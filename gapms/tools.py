@@ -74,52 +74,6 @@ def run_psauron(protdb_path: Path, output_dir):
     return output_file
 
 
-def run_embeddings(protdb_path: Path, model_file: Path, output_dir: Path):
-    """
-    Generate embeddings from protein FASTA and score them using a trained model.
-    
-    Args:
-        protdb_path: Path to protein FASTA file
-        model_file: Path to trained scoring model (.pth)
-        output_dir: Directory to save output files
-    
-    Returns:
-        Path to external_scores.csv file
-    """
-    # Lazy import to avoid loading heavy dependencies unless needed
-    try:
-        from gapms.embeddings import convert_to_embeddings, get_external_scores_from_embeddings
-    except ImportError as e:
-        raise RuntimeError(
-            "Embeddings functionality requires additional dependencies. "
-            "Please install: pip install torch fair-esm"
-        ) from e
-    
-    embeddings_file = output_dir / "proteins_embeddings.npy"
-    external_scores_file = output_dir / "external_scores.csv"
-
-    try:
-        # Step 1: Convert proteins to embeddings
-        print("Converting proteins to embeddings...")
-        convert_to_embeddings(protdb_path, embeddings_file, batch_size=64)
-        
-        # Step 2: Score embeddings using the trained model
-        print("Scoring embeddings...")
-        get_external_scores_from_embeddings(
-            embeddings_file,
-            model_file,
-            external_scores_file,
-            dim=1280,
-            n_layers=3,
-            batch_size=2048
-        )
-        
-        return external_scores_file
-        
-    except Exception as e:
-        raise RuntimeError(f"Embeddings processing failed: {str(e)}")
-
-
 def run_gffcompare(reference_gtf_path: str, supported_gtf_path: str):
 
     command = [
@@ -134,3 +88,49 @@ def run_gffcompare(reference_gtf_path: str, supported_gtf_path: str):
     if gffcompare_result.returncode != 0:
         raise RuntimeError(f"gffcompare failed:\n{gffcompare_result.stderr}")
     return gffcompare_result
+
+
+# def run_embeddings(protdb_path: Path, model_file: Path, output_dir: Path):
+#     """
+#     Generate embeddings from protein FASTA and score them using a trained model.
+    
+#     Args:
+#         protdb_path: Path to protein FASTA file
+#         model_file: Path to trained scoring model (.pth)
+#         output_dir: Directory to save output files
+    
+#     Returns:
+#         Path to external_scores.csv file
+#     """
+#     # Lazy import to avoid loading heavy dependencies unless needed
+#     try:
+#         from gapms.embeddings import convert_to_embeddings, get_external_scores_from_embeddings
+#     except ImportError as e:
+#         raise RuntimeError(
+#             "Embeddings functionality requires additional dependencies. "
+#             "Please install: pip install torch fair-esm"
+#         ) from e
+    
+#     embeddings_file = output_dir / "proteins_embeddings.npy"
+#     external_scores_file = output_dir / "external_scores.csv"
+
+#     try:
+#         # Step 1: Convert proteins to embeddings
+#         print("Converting proteins to embeddings...")
+#         convert_to_embeddings(protdb_path, embeddings_file, batch_size=64)
+        
+#         # Step 2: Score embeddings using the trained model
+#         print("Scoring embeddings...")
+#         get_external_scores_from_embeddings(
+#             embeddings_file,
+#             model_file,
+#             external_scores_file,
+#             dim=1280,
+#             n_layers=3,
+#             batch_size=2048
+#         )
+        
+#         return external_scores_file
+        
+#     except Exception as e:
+#         raise RuntimeError(f"Embeddings processing failed: {str(e)}")
