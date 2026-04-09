@@ -541,9 +541,10 @@ def generate_annotation_report(output_dir, supported_gtf, reference_gtf,
     fasta_file = Path(protein_fasta)
     if fasta_file.exists():
         print(f"Loading protein sequences: {fasta_file}")
-        for record in SeqIO.parse(fasta_file, "fasta"):
-            protein_id = record.id.split()[0]  # Use ID before any whitespace
-            protein_sequences[protein_id] = str(record.seq)
+        with open(fasta_file) as fasta_handle:
+            for record in SeqIO.parse(fasta_handle, "fasta"):
+                protein_id = record.id.split()[0]  # Use ID before any whitespace
+                protein_sequences[protein_id] = str(record.seq)
         print(f"Loaded {len(protein_sequences)} protein sequences")
     else:
         raise FileNotFoundError(f"Protein FASTA not found: {fasta_file}")

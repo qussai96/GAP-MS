@@ -58,6 +58,8 @@ def get_high_confident_proteins(df):
                     high_confident.append(row)
                     break
         print(f"Number of high confident proteins: {len(high_confident)}")
+        if not high_confident:
+            return df.iloc[0:0].copy()
         return pd.DataFrame(high_confident)
 
 def get_low_confident_proteins(df):
@@ -71,6 +73,8 @@ def get_low_confident_proteins(df):
                     low_confident.append(row)
                     break
         print(f"Number of low confident proteins: {len(low_confident)}")
+        if not low_confident:
+            return df.iloc[0:0].copy()
         return pd.DataFrame(low_confident)
 
 def train_iterative_model(df, high_confident_df, low_confident_df, pos_thr=0.90, neg_thr=0.10, n_iter=5, shap_output_dir=None, plot_shap=None):

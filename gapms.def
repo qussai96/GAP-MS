@@ -1,54 +1,42 @@
 Bootstrap: docker
-From: continuumio/miniconda3:23.3.1
-
-%post
-    # Update conda
-    conda config --add channels conda-forge
-    conda config --add channels bioconda
-    
-    # Create conda environment with Python 3.10
-    conda create -n gapms_env python=3.10 perl-xml-parser perl-xml-twig -y
-    
-    # Activate the environment and install packages
-    . /opt/conda/etc/profile.d/conda.sh
-    conda activate gapms_env
-    
-    # Install system dependencies and bioinformatics tools
-    conda install -y \
-        gffread
-    
-    # Install Python dependencies
-    pip install --no-cache-dir \
-        pandas==2.2.3 \
-        matplotlib==3.8.3 \
-        numpy==1.24.4 \
-        seaborn==0.12.2 \
-        biopython==1.83 \
-        scipy==1.12.0 \
-        scikit-learn==1.4.1.post1 \
-        xgboost==2.0.3 \
-        shap==0.46.0 \
-        psauron==1.0.4
-    
-    # Clean up
-    conda clean --all -y
-    
-    # Create directory for GAP-MS
-    mkdir -p /opt/gapms
+From: continuumio/miniconda3:23.3.1-0
 
 %files
-    # Copy the entire GAP-MS directory into the container
-    /home/students/q.abbas/Git/GAP-MS/gapms /opt/gapms/gapms
-    /home/students/q.abbas/Git/GAP-MS/setup.py /opt/gapms/
-    /home/students/q.abbas/Git/GAP-MS/pyproject.toml /opt/gapms/
-    /home/students/q.abbas/Git/GAP-MS/README.md /opt/gapms/
+    gapms /opt/gapms/gapms
+    setup.py /opt/gapms/setup.py
+    pyproject.toml /opt/gapms/pyproject.toml
+    README.md /opt/gapms/README.md
+    requirements.txt /opt/gapms/requirements.txt
+    xgb_protein_classifier.pkl /opt/gapms/xgb_protein_classifier.pkl
 
 %post
-    # Install GAP-MS package after files are copied
+    set -e
+
+    # Configure Conda channels
+    conda config --add channels conda-forge
+    conda config --add channels bioconda
+
+    # Create the runtime environment
+    conda create -y -n gapms_env \
+        python=3.10 \
+        pip \
+        perl \
+        perl-xml-parser \
+        perl-xml-twig \
+        gffread \
+        gffcompare
+
     . /opt/conda/etc/profile.d/conda.sh
     conda activate gapms_env
+
+    # Install GAP-MS from the copied source tree
     cd /opt/gapms
-    pip install .
+    pip install --no-cache-dir --upgrade pip setuptools wheel
+    pip install --no-cache-dir .
+
+    # Clean caches to reduce image size
+    conda clean --all -y
+    rm -rf /root/.cache/pip
 
 %environment
     export PATH=/opt/conda/envs/gapms_env/bin:$PATH
@@ -57,8 +45,7 @@ From: continuumio/miniconda3:23.3.1
     export LANG=C.UTF-8
 
 %runscript
-    # Default: run gapms command
-    exec gapms "$@"
+    exec /opt/conda/envs/gapms_env/bin/gapms "$@"
 
 %labels
     Author Qussai Abbas
@@ -66,14 +53,14 @@ From: continuumio/miniconda3:23.3.1
     Description GAP-MS: Gene Model Assessment using Peptides from Mass Spectrometry
 
 %help
-    GAP-MS evaluates predicted gene models by integrating peptide evidence 
+    GAP-MS evaluates predicted gene models by integrating peptide evidence
     from mass spectrometry with in-silico gene predictions.
-    
+
     Usage:
         apptainer run gapms.sif -g annotations.gtf -f proteins.fasta -p peptides.txt
-    
+
     Or:
         apptainer exec gapms.sif gapms -g annotations.gtf -a assembly.fasta -p peptides.txt
-    
+
     For more information:
         apptainer exec gapms.sif gapms --help

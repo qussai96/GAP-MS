@@ -109,8 +109,11 @@ def extract_features(gtf_file, prediction_fasta, mapping_file, output_dir, exter
 
     # 3. Create protein sequence dictionary
     print(f"{_ts()} [extract] Loading protein FASTA sequences...")
-    seq_dict = {record.id.split()[0]: str(record.seq).replace('I', 'L').replace('*', '') 
-                for record in SeqIO.parse(prediction_fasta, "fasta")}
+    with open(prediction_fasta) as fasta_handle:
+        seq_dict = {
+            record.id.split()[0]: str(record.seq).replace('I', 'L').replace('*', '')
+            for record in SeqIO.parse(fasta_handle, "fasta")
+        }
 
     # 4. Map protein sequences
     pep_df['Prot_seq'] = pep_df['Protein'].map(seq_dict)
