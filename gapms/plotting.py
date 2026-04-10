@@ -199,6 +199,133 @@ def plot_mapped_percentage_bars(df, output_dir):
     plt.close()
 
 
+def _load_annotation_summary_counts(compare_dir):
+    """Load counts for novel and peptide-supported difference categories."""
+    compare_dir = Path(compare_dir)
+    counts = {
+        'novel': 0,
+        'peptide_support_different_splice': 0,
+        'peptide_support_different_start': 0,
+        'peptide_support_different_stop': 0,
+    }
+
+    novel_scores = compare_dir / 'Novel' / 'new_predicted_proteins_scores.tsv'
+    if novel_scores.exists() and novel_scores.stat().st_size > 0:
+        try:
+            novel_df = pd.read_csv(novel_scores, sep='\t')
+            counts['novel'] = int(novel_df['Protein'].nunique()) if 'Protein' in novel_df.columns else int(len(novel_df))
+        except pd.errors.EmptyDataError:
+            pass
+
+    summary_path = compare_dir / 'annotation_comparison_summary.tsv'
+    if summary_path.exists() and summary_path.stat().st_size > 0:
+        try:
+            summary_df = pd.read_csv(summary_path, sep='\t')
+            if {'Category', 'Count'}.issubset(summary_df.columns):
+                for _, row in summary_df.iterrows():
+                    category = str(row['Category']).strip()
+                    if category in counts:
+                        counts[category] = int(row['Count'])
+        except pd.errors.EmptyDataError:
+            pass
+
+    return counts
+
+
+def _plot_reference_count_bars(ax, compare_dir, title):
+    """Plot reference comparison category counts as a compact labeled bar chart."""
+    counts = _load_annotation_summary_counts(compare_dir)
+    categories = [
+        'novel',
+        'peptide_support_different_splice',
+        'peptide_support_different_start',
+        'peptide_support_different_stop',
+    ]
+    labels = ['Novel', 'Diff splice', 'Diff start', 'Diff stop']
+    values = [counts[key] for key in categories]
+    colors = ['#4C78A8', '#F58518', '#54A24B', '#E45756']
+
+    bars = ax.bar(labels, values, color=colors, edgecolor='black', width=0.68)
+    for bar, value in zip(bars, values):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + max(max(values) * 0.02 if max(values) else 0.2, 0.2),
+            str(int(value)),
+            ha='center',
+            va='bottom',
+            fontsize=10,
+            fontweight='bold'
+        )
+
+    ax.set_title(title, fontweight='bold', fontsize=11)
+    ax.set_ylabel('Protein count')
+    ax.grid(axis='y', linestyle='--', alpha=0.35)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.set_ylim(0, max(values) * 1.18 + 1 if any(values) else 1)
+
+
+def _draw_existing_figure(ax, image_path, title):
+    """Render an existing PNG into a panel, or show a placeholder if missing."""
+    image_path = Path(image_path)
+    ax.set_title(title, fontweight='bold', fontsize=11)
+    ax.axis('off')
+
+    if not image_path.exists():
+        ax.text(0.5, 0.5, f'Missing figure:\n{image_path.name}', ha='center', va='center', fontsize=11, transform=ax.transAxes)
+        return
+
+    image = plt.imread(image_path)
+    ax.imshow(image)
+    ax.set_aspect('auto')
+
+
+def plot_parent_run_summary(output_dir):
+    """Create a single parent-level summary figure for combined prediction+BAM runs."""
+    output_dir = Path(output_dir)
+    prediction_dir = output_dir / 'prediction_search'
+    bam_dir = output_dir / 'bam_search'
+    comparisons_dir = output_dir / 'comparisons'
+
+    fig, axes = plt.subplots(
+        5,
+        1,
+        figsize=(14, 30),
+        gridspec_kw={'height_ratios': [1.45, 1.45, 1.0, 1.0, 1.45]}
+    )
+    fig.suptitle('GAP-MS combined summary', fontsize=16, fontweight='bold', y=0.995)
+
+    _draw_existing_figure(
+        axes[0],
+        prediction_dir / 'Figures' / 'Peptides_mapping_bars.png',
+        '1. prediction_search peptide mapping summary'
+    )
+    _draw_existing_figure(
+        axes[1],
+        bam_dir / 'Figures' / 'Peptides_mapping_bars.png',
+        '2. bam_search peptide mapping summary'
+    )
+    _plot_reference_count_bars(
+        axes[2],
+        prediction_dir / 'Compare_to_Reference',
+        '3. prediction_search vs reference (novel and peptide-supported differences)'
+    )
+    _plot_reference_count_bars(
+        axes[3],
+        bam_dir / 'Compare_to_Reference',
+        '4. bam_search vs reference (novel and peptide-supported differences)'
+    )
+    _draw_existing_figure(
+        axes[4],
+        comparisons_dir / 'bam_vs_input_gtf_summary.png',
+        '5. bam_search vs prediction_search summary'
+    )
+
+    fig.tight_layout(rect=[0, 0, 1, 0.985])
+    output_path = output_dir / 'combined_pipeline_summary.png'
+    fig.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    return output_path
 
 
 def plot_sequence_coverage_groups_hist(df, output_dir):
