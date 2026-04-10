@@ -240,6 +240,9 @@ class TestMainCli(unittest.TestCase):
                 bam_supported_gtf=bam_dir / "supported_proteins.gtf",
                 output_dir=output_dir / "comparisons",
                 bam_protein_fasta=generated_fasta,
+                prediction_supported_gtf=prediction_dir / "supported_proteins.gtf",
+                prediction_novel_gtf=prediction_dir / "Compare_to_Reference" / "Novel" / "new_predicted_proteins.gtf",
+                bam_novel_gtf=bam_dir / "Compare_to_Reference" / "Novel" / "new_predicted_proteins.gtf",
             )
 
 

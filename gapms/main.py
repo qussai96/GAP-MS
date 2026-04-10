@@ -15,7 +15,11 @@ from gapms.tools import run_proteomapper, run_psauron, run_gffread, run_gffcompa
 from gapms.peptides_to_genome import map_peptides_to_genome
 from gapms.parse_gffcompare_tmap import parse_gffcompare_tmap
 from gapms.compare_supp_ref import generate_annotation_report
-from gapms.bam_search import prepare_bam_search_inputs, compare_bam_support_to_input_gtf
+from gapms.bam_search import (
+    prepare_bam_search_inputs,
+    compare_bam_support_to_input_gtf,
+    report_high_potential_new_gene_candidates,
+)
 from gapms.plotting import plot_parent_run_summary
 
 def main():
@@ -235,7 +239,17 @@ def main():
                 bam_supported_gtf=bam_dir / "supported_proteins.gtf",
                 output_dir=comparisons_dir,
                 bam_protein_fasta=branch_results["bam_search"]["protein_fasta"],
+                prediction_supported_gtf=prediction_dir / "supported_proteins.gtf",
+                prediction_novel_gtf=prediction_dir / "Compare_to_Reference" / "Novel" / "new_predicted_proteins.gtf",
+                bam_novel_gtf=bam_dir / "Compare_to_Reference" / "Novel" / "new_predicted_proteins.gtf",
             )
+            if args.reference_gtf:
+                report_high_potential_new_gene_candidates(
+                    prediction_novel_gtf=prediction_dir / "Compare_to_Reference" / "Novel" / "new_predicted_proteins.gtf",
+                    bam_novel_gtf=bam_dir / "supported_proteins.gtf",
+                    output_dir=output_dir,
+                    bam_tmap_file=comparisons_dir / "gffcmp.supported_proteins.gtf.tmap",
+                )
             summary_figure = plot_parent_run_summary(output_dir)
             print(f"Combined parent summary figure written to: {summary_figure}")
 

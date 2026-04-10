@@ -6,11 +6,76 @@ from unittest.mock import patch
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from gapms.bam_search import compare_bam_support_to_input_gtf
+from gapms.bam_search import (
+    _summarize_supported_overlap_from_classes,
+    compare_bam_support_to_input_gtf,
+    report_high_potential_new_gene_candidates,
+)
 from gapms.plotting import plot_parent_run_summary
 
 
 class TestBamGtfCompare(unittest.TestCase):
+    def test_supported_overlap_summary_uses_selected_gffcompare_classes(self):
+        summary_df = pd.DataFrame(
+            [
+                {"class_code": "=", "count": 3},
+                {"class_code": "j", "count": 4},
+                {"class_code": "c", "count": 2},
+                {"class_code": "k", "count": 1},
+                {"class_code": "m", "count": 5},
+                {"class_code": "n", "count": 6},
+                {"class_code": "u", "count": 20},
+                {"class_code": "o", "count": 7},
+            ]
+        )
+
+        counts = _summarize_supported_overlap_from_classes(summary_df)
+
+        self.assertEqual(counts["accepted_overlap"], 21)
+        self.assertEqual(counts["other_classes"], 27)
+        self.assertEqual(counts["total"], 48)
+
+    def test_report_high_potential_new_gene_candidates_finds_shared_novel_loci(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            prediction_novel_gtf = tmp_path / "prediction_new.gtf"
+            bam_supported_gtf = tmp_path / "bam_supported.gtf"
+            bam_tmap_file = tmp_path / "gffcmp.supported_proteins.gtf.tmap"
+
+            prediction_novel_gtf.write_text(
+                "chr1\tHelixer\tCDS\t100\t180\t0.0\t+\t0\tID=predA.cds1;Parent=predA;gene=predGeneA\n"
+                "chr1\tHelixer\tCDS\t220\t300\t0.0\t+\t0\tID=predA.cds2;Parent=predA;gene=predGeneA\n"
+                "chr1\tHelixer\tCDS\t1000\t1100\t0.0\t+\t0\tID=predB.cds1;Parent=predB;gene=predGeneB\n"
+            )
+            bam_supported_gtf.write_text(
+                "chr1\tGAPMS\tCDS\t800\t860\t1000\t+\t0\tgene_id \"STRG.1\"; transcript_id \"bam1\"; protein_id \"bam1\";\n"
+                "chr1\tGAPMS\tCDS\t900\t980\t1000\t+\t0\tgene_id \"STRG.1\"; transcript_id \"bam1\"; protein_id \"bam1\";\n"
+                "chr2\tGAPMS\tCDS\t500\t600\t1000\t+\t0\tgene_id \"STRG.2\"; transcript_id \"bam2\"; protein_id \"bam2\";\n"
+            )
+            pd.DataFrame(
+                [
+                    {"qry_id": "bam1", "ref_id": "predA", "class_code": "j"},
+                    {"qry_id": "bam2", "ref_id": "-", "class_code": "u"},
+                ]
+            ).to_csv(bam_tmap_file, sep="\t", index=False)
+
+            candidates_df = report_high_potential_new_gene_candidates(
+                prediction_novel_gtf=prediction_novel_gtf,
+                bam_novel_gtf=bam_supported_gtf,
+                output_dir=tmp_path,
+                bam_tmap_file=bam_tmap_file,
+            )
+
+            self.assertEqual(len(candidates_df), 1)
+            self.assertEqual(candidates_df.loc[0, "prediction_protein"], "predA")
+            self.assertIn("bam1", candidates_df.loc[0, "bam_proteins"])
+            self.assertIn("j", candidates_df.loc[0, "bam_class_codes"])
+            self.assertTrue((tmp_path / "high_potential_new_gene_candidates.tsv").exists())
+            self.assertFalse((tmp_path / "high_potential_new_gene_candidates_prediction.gtf").exists())
+            self.assertFalse((tmp_path / "high_potential_new_gene_candidates_bam.gtf").exists())
+            self.assertFalse((tmp_path / "high_potential_new_gene_candidates_prediction.fa").exists())
+            self.assertFalse((tmp_path / "high_potential_new_gene_candidates_bam.fa").exists())
+
     def test_plot_parent_run_summary_writes_combined_parent_png(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
@@ -55,6 +120,7 @@ class TestBamGtfCompare(unittest.TestCase):
             )
 
             output_path = plot_parent_run_summary(tmp_path)
+            self.assertEqual(output_path.name, "combined_gapms_summary.png")
             self.assertTrue(output_path.exists())
             self.assertGreater(output_path.stat().st_size, 0)
 
@@ -66,18 +132,32 @@ class TestBamGtfCompare(unittest.TestCase):
             compare_dir.mkdir(parents=True, exist_ok=True)
 
             input_gtf = tmp_path / "input.gtf"
+            prediction_supported_gtf = tmp_path / "prediction_supported.gtf"
+            prediction_novel_gtf = tmp_path / "prediction_novel.gtf"
             bam_supported_gtf = tmp_path / "bam_supported.gtf"
+            bam_novel_gtf = tmp_path / "bam_novel.gtf"
             bam_protein_fasta = tmp_path / "bam_supported.fa"
             tmap_file = compare_dir / "gffcmp.bam_supported.gtf.tmap"
 
             input_gtf.write_text(
                 "chr1\tsrc\tCDS\t1\t90\t.\t+\t0\tID=cds1;Parent=pred1;protein_id=pred1;gene=gene1\n"
             )
+            prediction_supported_gtf.write_text(
+                "chr1\tsrc\tCDS\t1\t90\t.\t+\t0\tID=cds1;Parent=pred1;protein_id=pred1;gene=gene1\n"
+                "chr1\tsrc\tCDS\t400\t450\t.\t+\t0\tID=cds2;Parent=predOnly;protein_id=predOnly;gene=gene2\n"
+            )
+            prediction_novel_gtf.write_text(
+                "chr1\tsrc\tCDS\t500\t560\t.\t+\t0\tID=cds3;Parent=predNovel;protein_id=predNovel;gene=gene3\n"
+            )
             bam_supported_gtf.write_text(
                 "chr1\ttransdecoder\tmRNA\t1\t90\t.\t+\t.\tID=pred1;Parent=GENE.pred1\n"
                 "chr1\ttransdecoder\tCDS\t1\t90\t.\t+\t0\tID=cds.pred1;Parent=pred1\n"
                 "chr1\ttransdecoder\tmRNA\t200\t290\t.\t+\t.\tID=bamNovel.p1;Parent=GENE.bamNovel\n"
                 "chr1\ttransdecoder\tCDS\t200\t290\t.\t+\t0\tID=cds.bamNovel;Parent=bamNovel.p1\n"
+            )
+            bam_novel_gtf.write_text(
+                "chr1\ttransdecoder\tmRNA\t520\t590\t.\t+\t.\tID=bamNovelShared;Parent=GENE.bamNovelShared\n"
+                "chr1\ttransdecoder\tCDS\t520\t590\t.\t+\t0\tID=cds.bamNovelShared;Parent=bamNovelShared\n"
             )
             bam_protein_fasta.write_text(
                 ">pred1\nMPEPTIDE\n>bamNovel.p1\nMNOVELSEQ\n"
@@ -94,6 +174,9 @@ class TestBamGtfCompare(unittest.TestCase):
                 bam_supported_gtf=bam_supported_gtf,
                 output_dir=compare_dir,
                 bam_protein_fasta=bam_protein_fasta,
+                prediction_supported_gtf=prediction_supported_gtf,
+                prediction_novel_gtf=prediction_novel_gtf,
+                bam_novel_gtf=bam_novel_gtf,
             )
 
             mock_run_gffcompare.assert_called_once_with(input_gtf, bam_supported_gtf, compare_dir)

@@ -55,6 +55,36 @@ class TestCompareSuppRef(unittest.TestCase):
             self.assertEqual(len(report_df), 1)
             self.assertEqual(len(summary_df), 1)
 
+    def test_generate_annotation_report_exports_different_files_for_gtf_attributes(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            paths = create_mini_gapms_dataset(Path(tmpdir))
+            paths["prediction_gtf"].write_text(
+                "\n".join(
+                    [
+                        'chr1\tsrc\ttranscript\t1\t33\t0.95\t+\t.\tgene_id "geneA"; transcript_id "protA"; protein_id "protA";',
+                        'chr1\tsrc\tCDS\t1\t18\t0.95\t+\t0\tgene_id "geneA"; transcript_id "protA"; protein_id "protA";',
+                        'chr1\tsrc\tCDS\t19\t33\t0.95\t+\t0\tgene_id "geneA"; transcript_id "protA"; protein_id "protA";',
+                        'chr1\tsrc\ttranscript\t101\t130\t0.40\t+\t.\tgene_id "geneB"; transcript_id "protB"; protein_id "protB";',
+                        'chr1\tsrc\tCDS\t101\t130\t0.40\t+\t0\tgene_id "geneB"; transcript_id "protB"; protein_id "protB";',
+                        "",
+                    ]
+                )
+            )
+
+            generate_annotation_report(
+                output_dir=paths["output_dir"],
+                supported_gtf=paths["prediction_gtf"],
+                reference_gtf=paths["reference_gtf"],
+                tmap_file=paths["tmap_file"],
+                all_proteins_scores=paths["all_scores_tsv"],
+                peptides_bed=paths["peptides_bed"],
+                protein_fasta=paths["protein_fasta"],
+            )
+
+            compare_dir = paths["output_dir"] / "Compare_to_Reference"
+            self.assertTrue((compare_dir / "Different" / "peptide_support_different_start.gtf").exists())
+            self.assertTrue((compare_dir / "Different" / "peptide_support_different_start.faa").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

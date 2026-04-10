@@ -187,7 +187,7 @@ GAPMS_Output/
 ```
 GAPMS_Output/
 ├── log.txt
-├── combined_pipeline_summary.png    # Parent-level summary figure for presentations
+├── combined_gapms_summary.png       # Parent-level summary figure for presentations
 ├── prediction_search/
 │   ├── all_proteins_scores.tsv
 │   ├── supported_proteins.gtf

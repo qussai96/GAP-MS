@@ -318,11 +318,11 @@ def plot_parent_run_summary(output_dir):
     _draw_existing_figure(
         axes[4],
         comparisons_dir / 'bam_vs_input_gtf_summary.png',
-        '5. bam_search vs prediction_search summary'
+        '5. supported and novel overlap between branches'
     )
 
     fig.tight_layout(rect=[0, 0, 1, 0.985])
-    output_path = output_dir / 'combined_pipeline_summary.png'
+    output_path = output_dir / 'combined_gapms_summary.png'
     fig.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close(fig)
     return output_path

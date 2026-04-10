@@ -573,17 +573,15 @@ def generate_annotation_report(output_dir, supported_gtf, reference_gtf,
         # Extract GTF lines for proteins in this category
         category_gtf_lines = []
         for entry in gtf_data:
-            # Extract protein ID from attributes
+            # Extract protein/transcript ID from either GFF3-style or GTF-style attributes.
             attrs = entry['attributes']
-            protein_id = None
-            
-            # Try to extract protein ID from Parent attribute
-            for attr in attrs.split(';'):
-                attr = attr.strip()
-                if attr.startswith('Parent='):
-                    protein_id = attr.replace('Parent=', '')
-                    break
-            
+            protein_id = (
+                extract_attribute(attrs, 'protein_id')
+                or extract_attribute(attrs, 'transcript_id')
+                or extract_attribute(attrs, 'Parent')
+                or extract_attribute(attrs, 'ID')
+            )
+
             if protein_id in protein_ids:
                 category_gtf_lines.append(entry['line'])
         
