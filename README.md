@@ -9,12 +9,22 @@ GAP-MS evaluates predicted gene models by integrating peptide evidence from mass
 ### Option 1: Conda Installation
 
 ```bash
-conda create -n gapms_env python=3.10 perl-xml-parser perl-xml-twig -c conda-forge
+conda create -n gapms_env -c conda-forge -c bioconda \
+  python=3.10 \
+  perl-xml-parser perl-xml-twig \
+  gffread gffcompare samtools stringtie transdecoder
 conda activate gapms_env
 git clone https://github.com/qussai96/GAP-MS.git
 cd GAP-MS
 pip install .
 ```
+
+For BAM-enabled runs (`-b`), GAP-MS now expects these external tools to be available:
+- `samtools`
+- `StringTie`
+- `gffread`
+- `TransDecoder`
+- `gffcompare`
 
 ### Option 2: Using Containers
 
@@ -42,39 +52,59 @@ apptainer run gapms.sif -g annotations.gtf -f proteins.fasta -p peptides.txt
 
 ## Required inputs
 
-1) Gene models in GTF format (`-g`)  
-2) Peptides list (one peptide per line) (`-p`)  
-3) Either:
-   - Protein FASTA for the predictions (`-f`), or
-   - Genome assembly FASTA (`-a`) to generate proteins from the GTF
+1) Peptides list (`-p`) [required]  
+2) At least one search source:
+   - Prediction GTF (`-g`), or
+   - RNA-seq BAM (`-b`)
+3) Genome assembly FASTA (`-a`) when:
+   - proteins must be generated from a GTF, or
+   - BAM mode is used
+4) Optional:
+   - prediction protein FASTA (`-f`)
+   - precomputed peptide mapping (`-m`)
+   - external scores CSV (`-s`)
+   - reference GTF / FASTA (`-rg`, `-rf`)
 
 ---
 
 ## Usage
 
-### With protein FASTA
+### 1) With prediction GTF + protein FASTA
 
 ```bash
 gapms -g annotations.gtf -f proteins.fasta -p peptides.txt
 ```
 
-### With genome assembly (proteins will be generated)
+### 2) With prediction GTF + genome assembly (proteins will be generated)
 
 ```bash
 gapms -g annotations.gtf -a assembly.fasta -p peptides.txt
 ```
 
-If `-o` is not provided, outputs go to `GAPMS_Output/` in the parent directory of the GTF file.
+### 3) With BAM input only
+
+```bash
+gapms -b rnaseq_alignments.bam -a assembly.fasta -p peptides.txt
+```
+
+### 4) With both prediction GTF and BAM input
+
+```bash
+gapms -g predictions.gtf -b rnaseq_alignments.bam -a assembly.fasta -p peptides.txt
+```
+
+If `-o` is not provided, outputs go to `GAPMS_Output/` in the parent directory of the GTF or BAM file.
 
 ---
 
 ## Command‑line options
 
 ```
--g, --gtf                 Path to the prediction GTF file (required)
+-g, --gtf                 Path to the prediction GTF file (optional unless --bam is omitted)
+-b, --bam                 Optional RNA-seq BAM file for StringTie → TransDecoder search
 -p, --peptides            Path to peptides TXT file (required)
--f, --proteins            Path to protein FASTA (optional if -a is provided)
--a, --assembly            Path to genome assembly (required if -f is not provided)
+-f, --proteins            Path to prediction protein FASTA (optional if -a is provided)
+-a, --assembly            Path to genome assembly (required if -f is not provided or when --bam is used)
 -m, --mapping             Optional peptide-to-protein mapping file
 -s, --scores              Optional CSV with columns: Protein, external_score
 -c, --compute_psauron     Compute PSAURON scores
@@ -116,43 +146,74 @@ gapms -g predictions.gtf -f proteins.fasta -p peptides.txt -i
 
 ## Output overview
 
-GAP‑MS writes results to the output directory (default: `GAPMS_Output/`) and creates subfolders used by the pipeline:
+GAP‑MS writes results to the output directory (default: `GAPMS_Output/`). The structure depends on whether you run a single branch or both prediction + BAM branches together.
+
+### A) Single-branch output (`-g` only or `-b` only)
 
 ```
 GAPMS_Output/
-├── log.txt                          # Pipeline execution log
+├── log.txt
 ├── all_proteins_scores.tsv          # Feature/evidence table for all proteins
-├── supported_proteins.gtf           # GTF with only supported proteins
-├── supported_proteins.fa            # FASTA with only supported proteins
-├── peptides_mapped.bed              # BED track of peptide genome coordinates
-├── Unmpped_pepides.txt              # Peptides reported by Proteomapper as UNMAPPED
-├── Figures/                         # Visualization plots
+├── supported_proteins.gtf           # Supported proteins in genome coordinates
+├── supported_proteins.fa
+├── peptides_mapped.bed
+├── Unmpped_pepides.txt
+├── Figures/
+│   ├── Peptides_mapping_bars.png
 │   ├── roc_curve_*.png
-│   ├── shap_summary.png
-│   ├── sequence_coverage_hist.png
+│   ├── shap_summary_plot.png
 │   └── ...
-├── Txt/                             # Text lists of proteins
+├── Txt/
 │   ├── all_proteins.txt
-│   ├── high_confident_proteins.txt
 │   ├── supported_proteins.txt
 │   ├── unsupported_proteins.txt
 │   └── ...
 └── Compare_to_Reference/            # Produced when -rg/-rf is used
-    ├── gffcmp.*                     # gffcompare outputs (.tmap/.refmap/.stats/.tracking/...)
+    ├── gffcmp.*
     ├── annotation_comparison_report.tsv
     ├── annotation_comparison_summary.tsv
     ├── Novel/
     │   ├── new_predicted_proteins.gtf
     │   ├── new_predicted_proteins.fa
     │   └── new_predicted_proteins_scores.tsv
-    ├── Different/
-    │   ├── peptide_support_different_start.gtf
-    │   ├── peptide_support_different_stop.gtf
-    │   └── peptide_support_different_splice.gtf
-    └── ...
-
+    └── Different/
+        ├── peptide_support_different_start.gtf
+        ├── peptide_support_different_stop.gtf
+        └── peptide_support_different_splice.gtf
 ```
 
+### B) Combined output when both `-g` and `-b` are supplied
+
+```
+GAPMS_Output/
+├── log.txt
+├── combined_pipeline_summary.png    # Parent-level summary figure for presentations
+├── prediction_search/
+│   ├── all_proteins_scores.tsv
+│   ├── supported_proteins.gtf
+│   ├── supported_proteins.fa
+│   ├── peptides_mapped.bed
+│   ├── Figures/
+│   ├── Txt/
+│   └── Compare_to_Reference/
+├── bam_search/
+│   ├── transcripts.gtf                      # StringTie transcript models
+│   ├── transcripts.fa                       # transcript FASTA
+│   ├── transcripts.fa.transdecoder.pep      # TransDecoder peptides
+│   ├── all_proteins_scores.tsv
+│   ├── supported_proteins.gtf               # supported BAM ORFs in genome
+│   ├── supported_proteins.fa
+│   ├── peptides_mapped.bed
+│   ├── Figures/
+│   ├── Txt/
+│   └── Compare_to_Reference/
+└── comparisons/
+    ├── bam_vs_input_gtf_summary.tsv
+    ├── bam_supported_no_gene_overlap.tsv
+    ├── bam_supported_no_gene_overlap.gtf
+    ├── bam_supported_no_gene_overlap.faa
+    └── bam_vs_input_gtf_summary.png
+```
 ---
 
 ## Feedback & issues

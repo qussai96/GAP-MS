@@ -24,7 +24,10 @@ From: continuumio/miniconda3:23.3.1-0
         perl-xml-parser \
         perl-xml-twig \
         gffread \
-        gffcompare
+        gffcompare \
+        samtools \
+        stringtie \
+        transdecoder
 
     . /opt/conda/etc/profile.d/conda.sh
     conda activate gapms_env
@@ -56,11 +59,19 @@ From: continuumio/miniconda3:23.3.1-0
     GAP-MS evaluates predicted gene models by integrating peptide evidence
     from mass spectrometry with in-silico gene predictions.
 
-    Usage:
+    This image includes the external tools used by the pipeline:
+        gffread, gffcompare, samtools, StringTie, and TransDecoder
+
+    Example usage:
         apptainer run gapms.sif -g annotations.gtf -f proteins.fasta -p peptides.txt
 
-    Or:
-        apptainer exec gapms.sif gapms -g annotations.gtf -a assembly.fasta -p peptides.txt
+    With BAM input:
+        apptainer exec gapms.sif gapms -b rnaseq.bam -a assembly.fasta -p peptides.txt
+
+    With both prediction + BAM branches and reference comparison:
+        apptainer exec gapms.sif gapms \
+            -g predictions.gtf -b rnaseq.bam -a assembly.fasta -p peptides.txt \
+            -rg reference.gtf -rf reference.faa
 
     For more information:
         apptainer exec gapms.sif gapms --help
