@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --job-name=gapms_bam_full
 #SBATCH --partition=CPU
-#SBATCH --cpus-per-task=32
-#SBATCH --mem=120G
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=10G
 #SBATCH --time=24:00:00
 #SBATCH --output=/home/students/q.abbas/Git/GAP-MS/tests/gapms_bam_full_%j.out
 #SBATCH --error=/home/students/q.abbas/Git/GAP-MS/tests/gapms_bam_full_%j.err

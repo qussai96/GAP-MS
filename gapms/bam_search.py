@@ -787,7 +787,6 @@ def _plot_novel_class_pie(ax, counts, title):
 
 
 def _plot_venn_panel(ax, counts, title):
-    """Render a two-circle Venn-style panel with Jaccard overlap."""
     from matplotlib.patches import Circle
 
     ax.set_title(title, fontweight='bold')
@@ -799,45 +798,85 @@ def _plot_venn_panel(ax, counts, title):
     intersection = int(counts.get('intersection', 0))
 
     if pred_total == 0 and bam_total == 0:
-        ax.text(0.5, 0.5, 'No proteins available', ha='center', va='center', fontsize=12, transform=ax.transAxes)
+        ax.text(
+            0.5, 0.5,
+            'No proteins available',
+            ha='center', va='center',
+            fontsize=12,
+            transform=ax.transAxes
+        )
         return
 
-    r_left = max(0.17, min(0.28, 0.17 + 0.11 * (pred_total / max(pred_total, bam_total, 1))**0.5))
-    r_right = max(0.17, min(0.28, 0.17 + 0.11 * (bam_total / max(pred_total, bam_total, 1))**0.5))
+    max_total = max(pred_total, bam_total, 1)
+
+    r_left = max(0.17, min(0.28, 0.17 + 0.11 * (pred_total / max_total) ** 0.5))
+    r_right = max(0.17, min(0.28, 0.17 + 0.11 * (bam_total / max_total) ** 0.5))
+
     c_left = (0.43, 0.52)
     c_right = (0.62, 0.52)
 
     pred_color = '#4C78A8'
     bam_color = '#E45756'
-    overlap_color = '#72B7B2'
 
     left = Circle(c_left, r_left, facecolor=pred_color, edgecolor='black', alpha=0.35, linewidth=1.5)
     right = Circle(c_right, r_right, facecolor=bam_color, edgecolor='black', alpha=0.35, linewidth=1.5)
+
     ax.add_patch(left)
     ax.add_patch(right)
-
-    # Visual hint for overlap region.
-    overlap_radius = min(r_left, r_right) * 0.55
-    overlap_center = ((c_left[0] + c_right[0]) / 2, c_left[1])
-    overlap = Circle(overlap_center, overlap_radius, facecolor=overlap_color, edgecolor='none', alpha=0.5)
-    ax.add_patch(overlap)
 
     pred_only = max(pred_total - intersection, 0)
     bam_only = max(bam_total - intersection, 0)
 
-    ax.text(c_left[0] - r_left * 0.45, c_left[1], f"{pred_only}", ha='center', va='center', fontsize=14, fontweight='bold')
-    ax.text(c_right[0] + r_right * 0.45, c_right[1], f"{bam_only}", ha='center', va='center', fontsize=14, fontweight='bold')
-    ax.text(overlap_center[0], overlap_center[1], f"{intersection}", ha='center', va='center', fontsize=14, fontweight='bold')
+    ax.text(
+        c_left[0] - r_left * 0.45,
+        c_left[1],
+        f"{pred_only}",
+        ha='center', va='center',
+        fontsize=14, fontweight='bold'
+    )
 
-    ax.text(c_left[0] - r_left * 0.25, c_left[1] + r_left + 0.04, 'prediction_search', ha='center', fontsize=10)
-    ax.text(c_right[0] + r_right * 0.25, c_right[1] + r_right + 0.04, 'bam_search', ha='center', fontsize=10)
+    ax.text(
+        c_right[0] + r_right * 0.45,
+        c_right[1],
+        f"{bam_only}",
+        ha='center', va='center',
+        fontsize=14, fontweight='bold'
+    )
 
-    jaccard = counts.get('jaccard', 0.0)
+    ax.text(
+        (c_left[0] + c_right[0]) / 2,
+        c_left[1],
+        f"{intersection}",
+        ha='center', va='center',
+        fontsize=14, fontweight='bold'
+    )
+
+    ax.text(
+        c_left[0] - r_left * 0.25,
+        c_left[1] + r_left + 0.04,
+        'prediction_search',
+        ha='center',
+        fontsize=10
+    )
+
+    ax.text(
+        c_right[0] + r_right * 0.25,
+        c_right[1] + r_right + 0.04,
+        'bam_search',
+        ha='center',
+        fontsize=10
+    )
+
+    # percentages instead of jaccard
+    pred_pct = (intersection / pred_total * 100) if pred_total else 0
+    bam_pct = (intersection / bam_total * 100) if bam_total else 0
+
     code_label = ', '.join(counts.get('accepted_codes', ['=', 'j', 'c', 'k', 'm', 'n']))
+
     ax.text(
         0.5,
         0.05,
-        f"Accepted overlap classes: {code_label} | Jaccard = {jaccard:.1%}",
+        f"Overlap: {pred_pct:.1f}% of prediction | {bam_pct:.1f}% of BAM,
         ha='center',
         va='center',
         fontsize=9,
