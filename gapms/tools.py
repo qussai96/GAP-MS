@@ -54,27 +54,6 @@ def run_gffread(genome_path: str, gtf_path: str, output_dir, name):
     return output_file
 
 
-def run_psauron(protdb_path: Path, output_dir):
-    output_file = output_dir / "psauron.csv"
-
-    command = [
-        "psauron",
-        "-i", str(protdb_path),
-        "-o", str(output_file),
-        "-p"
-    ]
-
-    psauron_result = subprocess.run(command, capture_output=True, text=True)
-
-    if psauron_result.returncode != 0:
-        raise RuntimeError(f"psauron failed:\n{psauron_result.stderr}")
-
-    print("STDOUT:\n", psauron_result.stdout)
-    print("STDERR:\n", psauron_result.stderr)
-
-    return output_file
-
-
 def run_gffcompare(reference_gtf_path: str, supported_gtf_path: str, output_dir):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)

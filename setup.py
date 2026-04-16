@@ -20,7 +20,6 @@ setup(
         'scikit-learn',
         'xgboost',
         'shap',
-        'psauron',
     ],
     entry_points={
         'console_scripts': [

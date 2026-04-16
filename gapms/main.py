@@ -11,7 +11,7 @@ from datetime import datetime
 
 from gapms.extract import extract_features
 from gapms.filter import filter_predictions
-from gapms.tools import run_proteomapper, run_psauron, run_gffread, run_gffcompare
+from gapms.tools import run_proteomapper, run_gffread, run_gffcompare
 from gapms.peptides_to_genome import map_peptides_to_genome
 from gapms.parse_gffcompare_tmap import parse_gffcompare_tmap
 from gapms.compare_supp_ref import generate_annotation_report
@@ -36,7 +36,6 @@ def main():
     parser.add_argument("-p", "--peptides", type=Path, required=True, help="Path to the peptides TXT file (required)")
     parser.add_argument("-m", "--mapping", type=Path, help="Optional precomputed peptide-to-protein mapping file")
     parser.add_argument("-s", "--scores", type=Path, help="Optional precomputed external scores CSV file with columns: 'Protein', 'external_score'")
-    parser.add_argument("-c", "--compute_psauron", action="store_true", help="Compute PSAURON scores")
     parser.add_argument("-rg", "--reference_gtf", type=Path, help="Optional reference gtf file")
     parser.add_argument("-rf", "--reference_fasta", type=Path, help="Optional reference fasta file")
     parser.add_argument("-o", "--output", type=Path, help="Optional output directory")
@@ -90,12 +89,10 @@ def main():
             (branch_output_dir / "Compare_to_Reference" / "Novel").mkdir(parents=True, exist_ok=True)
 
         def _resolve_external_scores(branch_label, protein_fasta, branch_output_dir, allow_provided_scores):
+            del protein_fasta, branch_output_dir
             if args.scores and allow_provided_scores:
                 print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Using provided external scores file for {branch_label}: {args.scores}")
                 return args.scores
-            if args.compute_psauron:
-                print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Computing PSAURON scores for {branch_label}...")
-                return run_psauron(protein_fasta, branch_output_dir)
             if args.scores and not allow_provided_scores:
                 print(f"Provided external scores are used only for `prediction_search`; `{branch_label}` is scored without them.")
             return None

@@ -106,7 +106,6 @@ If `-o` is not provided, outputs go to `GAPMS_Output/` in the parent directory o
 -a, --assembly            Path to genome assembly (required if -f is not provided or when --bam is used)
 -m, --mapping             Optional peptide-to-protein mapping file
 -s, --scores              Optional CSV with columns: Protein, external_score
--c, --compute_psauron     Compute PSAURON scores
 -rg, --reference_gtf      Optional reference GTF for comparison
 -rf, --reference_fasta    Optional reference protein FASTA
 -o, --output              Output directory
@@ -121,12 +120,6 @@ Use a precomputed mapping file:
 
 ```bash
 gapms -g annotations.gtf -f proteins.fasta -p peptides.txt -m mapping.tsv
-```
-
-Compute PSAURON scores:
-
-```bash
-gapms -g annotations.gtf -f proteins.fasta -p peptides.txt -c
 ```
 
 Compare with reference annotations:
