@@ -13,71 +13,67 @@ def _get_figures_dir(output_dir):
 
 
 def plot_mapped_percentage_bars(df, output_dir):
-    """
-    Create a combined figure with:
-      1) peptide evidence distribution across all proteins
-      2) GAP-MS supported proteins within the same evidence categories
-
-    Accepted inputs:
-      - a summary DataFrame with columns: `bar_name`, `supported`, `partial`, `unsupported`
-      - or the full `all_proteins_scores.tsv`-style DataFrame with peptide feature columns and
-        an optional `supported` column.
-    """
+    """Create a single stacked panel for peptide mapping support categories."""
     df = df.copy()
 
     def build_summary_from_scores(scores_df):
-        splice_all_mask = (
-            (scores_df['splice_sites'] > 0) &
-            (scores_df['splice_peptides'] >= scores_df['splice_sites'])
-        )
-        splice_some_mask = (
-            (scores_df['splice_sites'] > 0) &
-            (scores_df['splice_peptides'] > 0) &
-            (scores_df['splice_peptides'] < scores_df['splice_sites'])
-        )
-        splice_none_mask = ~(splice_all_mask | splice_some_mask)
+        total_proteins = len(scores_df)
+        gapms_mask = scores_df['supported'].isin(['Yes', '+']) if 'supported' in scores_df.columns else pd.Series(False, index=scores_df.index)
 
-        evidence_df = pd.DataFrame({
-            'bar_name': ['Mapped\npeptides', 'N-terminal\nsupport', 'C-terminal\nsupport', 'Splice-site\nsupport'],
-            'supported': [
-                int((scores_df['mapped_peptides'] > 0).sum()),
-                int((scores_df['N_terminal_peptides'] > 0).sum()),
-                int((scores_df['C_terminal_peptides'] > 0).sum()),
-                int(splice_all_mask.sum())
-            ],
-            'partial': [0, 0, 0, int(splice_some_mask.sum())],
-            'unsupported': [
-                int((scores_df['mapped_peptides'] == 0).sum()),
-                int((scores_df['N_terminal_peptides'] == 0).sum()),
-                int((scores_df['C_terminal_peptides'] == 0).sum()),
-                int(splice_none_mask.sum())
-            ]
-        })
+        evidence_masks = {
+            'Mapped\npeptides': scores_df['mapped_peptides'] > 0,
+            'N-terminal\nsupport': scores_df['N_terminal_peptides'] > 0,
+            'C-terminal\nsupport': scores_df['C_terminal_peptides'] > 0,
+            # Partial splice support is intentionally collapsed into one evidence category.
+            'Splice-site\nsupport': scores_df['splice_peptides'] > 0,
+        }
 
-        supported_summary_df = None
-        if 'supported' in scores_df.columns:
-            gapms_mask = scores_df['supported'].isin(['Yes', '+'])
-            total_proteins = len(scores_df)
-            supported_summary_df = pd.DataFrame({
-                'bar_name': evidence_df['bar_name'],
-                'count': [
-                    int((gapms_mask & (scores_df['mapped_peptides'] > 0)).sum()),
-                    int((gapms_mask & (scores_df['N_terminal_peptides'] > 0)).sum()),
-                    int((gapms_mask & (scores_df['C_terminal_peptides'] > 0)).sum()),
-                    int((gapms_mask & (splice_all_mask | splice_some_mask)).sum())
-                ],
-                'total': [total_proteins] * len(evidence_df)
+        summary_rows = []
+        for bar_name, evidence_mask in evidence_masks.items():
+            evidence_count = int(evidence_mask.sum())
+            gapms_supported = int((evidence_mask & gapms_mask).sum())
+            peptide_only = max(evidence_count - gapms_supported, 0)
+            no_mapped = max(total_proteins - evidence_count, 0)
+            summary_rows.append({
+                'bar_name': bar_name,
+                'gapms_supported': gapms_supported,
+                'peptide_evidence': peptide_only,
+                'no_mapped_peptides': no_mapped,
+                'total': total_proteins,
             })
-        return evidence_df, supported_summary_df
+
+        return pd.DataFrame(summary_rows)
+
+    def build_summary_from_legacy(legacy_df):
+        # Legacy summary input does not include GAP-MS support counts, so blue stays at zero.
+        legacy_df = legacy_df.copy()
+        if {'mapped', 'unmapped'}.issubset(legacy_df.columns):
+            legacy_df = legacy_df.rename(columns={'mapped': 'supported', 'unmapped': 'unsupported'})
+        if 'partial' not in legacy_df.columns:
+            legacy_df['partial'] = 0
+
+        summary_rows = []
+        for _, row in legacy_df.iterrows():
+            evidence_count = int(row.get('supported', 0)) + int(row.get('partial', 0))
+            no_mapped = int(row.get('unsupported', 0))
+            total = evidence_count + no_mapped
+            summary_rows.append({
+                'bar_name': row['bar_name'],
+                'gapms_supported': 0,
+                'peptide_evidence': evidence_count,
+                'no_mapped_peptides': no_mapped,
+                'total': total,
+            })
+
+        return pd.DataFrame(summary_rows)
 
     summary_cols = {'bar_name', 'supported', 'partial', 'unsupported'}
     score_cols = {'mapped_peptides', 'N_terminal_peptides', 'C_terminal_peptides', 'splice_sites', 'splice_peptides'}
 
-    if summary_cols.issubset(df.columns):
-        evidence_df = df.copy()
-        supported_summary_df = None
+    if summary_cols.issubset(df.columns) or {'bar_name', 'supported', 'unsupported'}.issubset(df.columns):
+        evidence_df = build_summary_from_legacy(df)
     elif score_cols.issubset(df.columns):
-        evidence_df, supported_summary_df = build_summary_from_scores(df)
+        evidence_df = build_summary_from_scores(df)
     else:
         missing_cols = sorted(summary_cols - set(df.columns))
         raise ValueError(
@@ -85,36 +81,28 @@ def plot_mapped_percentage_bars(df, output_dir):
             f'or a GAP-MS scores DataFrame. Missing summary columns: {missing_cols}'
         )
 
-    if {'mapped', 'unmapped'}.issubset(evidence_df.columns):
-        evidence_df = evidence_df.rename(columns={'mapped': 'supported', 'unmapped': 'unsupported'})
-    if 'partial' not in evidence_df.columns:
-        evidence_df['partial'] = 0
-
-    value_cols = ['supported', 'partial', 'unsupported']
+    value_cols = ['gapms_supported', 'peptide_evidence', 'no_mapped_peptides']
     evidence_df[value_cols] = evidence_df[value_cols].fillna(0)
-    totals = evidence_df[value_cols].sum(axis=1).replace(0, 1)
+    totals = evidence_df['total'].replace(0, 1)
 
     colors = {
-        'supported': '#2E8B57',
-        'partial': '#F4A261',
-        'unsupported': '#B0B0B0'
+        'gapms_supported': '#4C78A8',
+        'peptide_evidence': '#2E8B57',
+        'no_mapped_peptides': '#B0B0B0'
+    }
+    text_colors = {
+        'gapms_supported': 'white',
+        'peptide_evidence': 'black',
+        'no_mapped_peptides': 'red'
     }
     legend_labels = {
-        'supported': 'Mapped',
-        'partial': 'Partially mapped',
-        'unsupported': 'No mapped peptides'
+        'gapms_supported': 'Supported by GAP-MS',
+        'peptide_evidence': 'Mapped peptides',
+        'no_mapped_peptides': 'No mapped peptides'
     }
 
-    has_supported_panel = supported_summary_df is not None
-    if has_supported_panel:
-        fig, axes = plt.subplots(1, 2, figsize=(15, 5.8), gridspec_kw={'width_ratios': [1.2, 1.0], 'wspace': 0.32})
-        ax = axes[0]
-        ax_supported = axes[1]
-    else:
-        fig, ax = plt.subplots(figsize=(9.5, 5.8))
-        ax_supported = None
-
-    fig.suptitle('Peptide support summary across proteins', fontsize=13, fontweight='bold', y=0.97)
+    fig, ax = plt.subplots(figsize=(10.2, 6.0))
+    fig.suptitle('Peptide mapping summary across proteins', fontsize=13, fontweight='bold', y=0.97)
 
     x = np.arange(len(evidence_df))
     bottoms = np.zeros(len(evidence_df))
@@ -135,7 +123,7 @@ def plot_mapped_percentage_bars(df, output_dir):
                 continue
             pct = (height / total) * 100 if total else 0
             label = f"{int(height)} ({pct:.1f}%)"
-            text_color = 'white' if height >= max(total * 0.08, 4) else 'black'
+            text_color = text_colors.get(col, 'black')
             ax.text(
                 bar.get_x() + bar.get_width() / 2,
                 bottoms[i] + height / 2,
@@ -152,49 +140,21 @@ def plot_mapped_percentage_bars(df, output_dir):
     ax.set_xticks(x)
     ax.set_xticklabels(evidence_df['bar_name'])
     ax.set_ylabel('Number of proteins')
-    ax.set_title('Peptide evidence across all proteins', fontweight='bold', fontsize=11)
     ax.grid(axis='y', linestyle='--', alpha=0.35)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
-    ax.legend(loc='upper left', frameon=False, fontsize=8, handlelength=1.4)
-
-    if has_supported_panel:
-        supported_summary_df = supported_summary_df.copy()
-        supported_summary_df['percent'] = np.where(
-            supported_summary_df['total'] > 0,
-            (supported_summary_df['count'] / supported_summary_df['total']) * 100,
-            0
-        )
-        bar_colors = ['#4C78A8', '#72B7B2', '#E45756', '#B279A2']
-        bars = ax_supported.bar(
-            np.arange(len(supported_summary_df)),
-            supported_summary_df['count'],
-            color=bar_colors,
-            edgecolor='black',
-            width=0.7
-        )
-        for bar, count, pct in zip(bars, supported_summary_df['count'], supported_summary_df['percent']):
-            ax_supported.text(
-                bar.get_x() + bar.get_width() / 2,
-                bar.get_height() + max(supported_summary_df['count'].max() * 0.015, 0.5),
-                f"{int(count)} ({pct:.1f}%)",
-                ha='center',
-                va='bottom',
-                fontsize=9,
-                fontweight='bold'
-            )
-
-        ax_supported.set_xticks(np.arange(len(supported_summary_df)))
-        ax_supported.set_xticklabels(supported_summary_df['bar_name'])
-        ax_supported.set_ylabel('Number of GAP-MS supported proteins')
-        ax_supported.set_title('GAP-MS supported proteins by category', fontweight='bold', fontsize=11)
-        ax_supported.grid(axis='y', linestyle='--', alpha=0.35)
-        ax_supported.spines['top'].set_visible(False)
-        ax_supported.spines['right'].set_visible(False)
+    ax.legend(
+        loc='lower center',
+        bbox_to_anchor=(0.5, 1.02),  # center above plot
+        ncol=max(1, len(legend_labels)),  # keep legend horizontal; avoid zero columns
+        frameon=False,
+        fontsize=8.5,
+        handlelength=1.4
+    )
 
 
     output_dir, figures_dir = _get_figures_dir(output_dir)
-    fig.subplots_adjust(left=0.07, right=0.98, bottom=0.16, top=0.86, wspace=0.32)
+    fig.subplots_adjust(left=0.08, right=0.98, bottom=0.16, top=0.86)
     plt.savefig(figures_dir / 'Peptides_mapping_bars.png', dpi=300, bbox_inches='tight')
     plt.close()
 
@@ -230,8 +190,6 @@ def _load_annotation_summary_counts(compare_dir):
             pass
 
     return counts
-
-
 def _plot_reference_count_bars(ax, compare_dir, title):
     """Plot reference comparison category counts as a compact labeled bar chart."""
     counts = _load_annotation_summary_counts(compare_dir)
@@ -317,7 +275,7 @@ def plot_parent_run_summary(output_dir):
     )
     _draw_existing_figure(
         axes[4],
-        comparisons_dir / 'bam_vs_input_gtf_summary.png',
+        comparisons_dir / 'bam_vs_prediction_supported_summary.png',
         '5. supported and novel overlap between branches'
     )
 
