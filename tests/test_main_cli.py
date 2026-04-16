@@ -98,6 +98,7 @@ class TestMainCli(unittest.TestCase):
             mock_map_peptides_to_genome.assert_called_once_with(generated_gtf, generated_fasta, mock_run_proteomapper.return_value, bam_dir)
 
     @patch("gapms.main.compare_bam_support_to_input_gtf")
+    @patch("gapms.main.write_merged_supported_models")
     @patch("gapms.main.map_peptides_to_genome")
     @patch("gapms.main.filter_predictions")
     @patch("gapms.main.extract_features")
@@ -112,6 +113,7 @@ class TestMainCli(unittest.TestCase):
         mock_extract_features,
         mock_filter_predictions,
         mock_map_peptides_to_genome,
+        mock_write_merged_supported_models,
         mock_compare_bam_support_to_input_gtf,
     ):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -163,6 +165,7 @@ class TestMainCli(unittest.TestCase):
             mock_run_gffread.assert_called_once_with(assembly_path, prediction_gtf, prediction_dir, "predictions")
 
     @patch("gapms.main.compare_bam_support_to_input_gtf")
+    @patch("gapms.main.write_merged_supported_models")
     @patch("gapms.main.map_peptides_to_genome")
     @patch("gapms.main.filter_predictions")
     @patch("gapms.main.extract_features")
@@ -175,6 +178,7 @@ class TestMainCli(unittest.TestCase):
         mock_extract_features,
         mock_filter_predictions,
         mock_map_peptides_to_genome,
+        mock_write_merged_supported_models,
         mock_compare_bam_support_to_input_gtf,
     ):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -243,6 +247,13 @@ class TestMainCli(unittest.TestCase):
                 prediction_supported_gtf=prediction_dir / "supported_proteins.gtf",
                 prediction_novel_gtf=prediction_dir / "Compare_to_Reference" / "Novel" / "new_predicted_proteins.gtf",
                 bam_novel_gtf=bam_dir / "Compare_to_Reference" / "Novel" / "new_predicted_proteins.gtf",
+            )
+            mock_write_merged_supported_models.assert_called_once_with(
+                prediction_supported_gtf=prediction_dir / "supported_proteins.gtf",
+                bam_supported_gtf=bam_dir / "supported_proteins.gtf",
+                prediction_supported_fasta=prediction_dir / "supported_proteins.fa",
+                bam_supported_fasta=bam_dir / "supported_proteins.fa",
+                output_dir=output_dir,
             )
 
 

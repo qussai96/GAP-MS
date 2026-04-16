@@ -19,6 +19,7 @@ from gapms.bam_search import (
     prepare_bam_search_inputs,
     compare_bam_support_to_input_gtf,
     report_high_potential_new_gene_candidates,
+    write_merged_supported_models,
 )
 from gapms.plotting import plot_parent_run_summary
 
@@ -242,6 +243,13 @@ def main():
                 prediction_supported_gtf=prediction_dir / "supported_proteins.gtf",
                 prediction_novel_gtf=prediction_dir / "Compare_to_Reference" / "Novel" / "new_predicted_proteins.gtf",
                 bam_novel_gtf=bam_dir / "Compare_to_Reference" / "Novel" / "new_predicted_proteins.gtf",
+            )
+            write_merged_supported_models(
+                prediction_supported_gtf=prediction_dir / "supported_proteins.gtf",
+                bam_supported_gtf=bam_dir / "supported_proteins.gtf",
+                prediction_supported_fasta=prediction_dir / "supported_proteins.fa",
+                bam_supported_fasta=bam_dir / "supported_proteins.fa",
+                output_dir=output_dir,
             )
             if args.reference_gtf:
                 report_high_potential_new_gene_candidates(

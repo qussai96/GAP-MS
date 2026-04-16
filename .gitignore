@@ -39,6 +39,6 @@ APPTAINER_GUIDE.md
 Web-portal/
 testing/
 gapms_sandbox/
-tests/bam_full_pipeline_output/
+tests/test_pipeline_output/
 tests/gapms_bam_full_*.out
 tests/gapms_bam_full_*.err

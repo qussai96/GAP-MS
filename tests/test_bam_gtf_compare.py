@@ -10,11 +10,47 @@ from gapms.bam_search import (
     _summarize_supported_overlap_from_classes,
     compare_bam_support_to_input_gtf,
     report_high_potential_new_gene_candidates,
+    write_merged_supported_models,
 )
 from gapms.plotting import plot_parent_run_summary
 
 
 class TestBamGtfCompare(unittest.TestCase):
+    def test_write_merged_supported_models_writes_parent_outputs(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            prediction_gtf = tmp_path / "prediction_supported.gtf"
+            bam_gtf = tmp_path / "bam_supported.gtf"
+            prediction_fasta = tmp_path / "prediction_supported.fa"
+            bam_fasta = tmp_path / "bam_supported.fa"
+
+            prediction_gtf.write_text(
+                "chr1\tsrc\tCDS\t1\t90\t.\t+\t0\tID=cds.predA;Parent=predA;protein_id=predA;gene=geneA\n"
+            )
+            bam_gtf.write_text(
+                "chr1\tsrc\tCDS\t200\t290\t.\t+\t0\tgene_id \"STRG.1\"; transcript_id \"bam1\"; protein_id \"bam1\";\n"
+            )
+            prediction_fasta.write_text(">predA\nMPEPTIDE\n")
+            bam_fasta.write_text(">bam1\nMNOVELSEQ\n>predA\nMPEPTIDE\n")
+
+            merged_gtf, merged_fasta = write_merged_supported_models(
+                prediction_supported_gtf=prediction_gtf,
+                bam_supported_gtf=bam_gtf,
+                prediction_supported_fasta=prediction_fasta,
+                bam_supported_fasta=bam_fasta,
+                output_dir=tmp_path,
+            )
+
+            self.assertTrue(merged_gtf.exists())
+            self.assertTrue(merged_fasta.exists())
+            merged_gtf_text = merged_gtf.read_text()
+            self.assertIn("predA", merged_gtf_text)
+            self.assertIn("bam1", merged_gtf_text)
+            merged_fasta_text = merged_fasta.read_text()
+            self.assertIn(">predA", merged_fasta_text)
+            self.assertIn(">bam1", merged_fasta_text)
+            self.assertEqual(merged_fasta_text.count(">predA"), 1)
+
     def test_supported_overlap_summary_uses_selected_gffcompare_classes(self):
         summary_df = pd.DataFrame(
             [
@@ -179,7 +215,19 @@ class TestBamGtfCompare(unittest.TestCase):
                 bam_novel_gtf=bam_novel_gtf,
             )
 
-            mock_run_gffcompare.assert_called_once_with(input_gtf, bam_supported_gtf, compare_dir)
+            mock_run_gffcompare.assert_has_calls([
+                unittest.mock.call(prediction_supported_gtf, bam_supported_gtf, compare_dir),
+                unittest.mock.call(bam_supported_gtf, prediction_supported_gtf, compare_dir / "_tmp_prediction_vs_bam"),
+            ])
+            self.assertEqual(mock_run_gffcompare.call_count, 2)
+            self.assertTrue((compare_dir / "bam_vs_prediction_supported_class_summary.tsv").exists())
+            self.assertTrue((compare_dir / "bam_vs_prediction_supported_summary.png").exists())
+            self.assertTrue((compare_dir / "overlapped_supported_proteins.gtf").exists())
+            self.assertTrue((compare_dir / "overlapped_supported_proteins.faa").exists())
+            self.assertTrue((compare_dir / "bam_supported_no_gtf_overalp.gtf").exists())
+            self.assertTrue((compare_dir / "bam_supported_no_gtf_overalp.faa").exists())
+            self.assertTrue((compare_dir / "gtf_supported_no_bam_overlap.gtf").exists())
+            self.assertTrue((compare_dir / "gtf_supported_no_bam_overlap.faa").exists())
             self.assertTrue((compare_dir / "bam_vs_input_gtf_summary.tsv").exists())
             self.assertTrue((compare_dir / "bam_vs_input_gtf_summary.png").exists())
             self.assertTrue((compare_dir / "bam_supported_no_gene_overlap.tsv").exists())

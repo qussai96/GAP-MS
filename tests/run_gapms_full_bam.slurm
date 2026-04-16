@@ -10,9 +10,9 @@
 set -euo pipefail
 
 REPO=/home/students/q.abbas/Git/GAP-MS
-OUTPUT_DIR="$REPO/tests/bam_full_pipeline_output"
-BAM=/home/students/q.abbas/GAPMS/0-raw_files/from18/GCF_000499845.2_Phaseolus_vulgaris/inputs/varus/sorted_VARUS.bam
-GENOME=/home/students/q.abbas/GAPMS/0-raw_files/from18/GCF_000499845.2_Phaseolus_vulgaris/inputs/genomic/GCF_000499845.2_P._vulgaris_v2.0_genomic.fna
+OUTPUT_DIR="$REPO/tests/test_pipeline_output"
+BAM=/home/students/q.abbas/Git/GAP-MS/tutorials/NC_023759.2.test.bam
+GENOME=/home/students/q.abbas/Git/GAP-MS/tutorials/NC_023759.2_genome_Sequence.fna
 PEPTIDES="$REPO/tutorials/Helixer_MS_identified_peptides.tsv"
 PRED_GTF="$REPO/tutorials/Helixer_prediction.gtf"
 REF_GTF="$REPO/tutorials/Reference_annotation.gtf"
@@ -29,8 +29,8 @@ echo "Output directory: $OUTPUT_DIR"
 
 "$CONDA_BIN" run -n gapms_env --no-capture-output python -m gapms.main \
   -g "$PRED_GTF" \
-  -b "$BAM" \
   -a "$GENOME" \
+  -b "$BAM" \
   -p "$PEPTIDES" \
   -rg "$REF_GTF" \
   -rf "$REF_FASTA" \

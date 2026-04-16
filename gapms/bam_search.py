@@ -330,6 +330,56 @@ def prepare_bam_search_inputs(bam_path, assembly_path, output_dir):
     }
 
 
+def write_merged_supported_models(
+    prediction_supported_gtf,
+    bam_supported_gtf,
+    prediction_supported_fasta,
+    bam_supported_fasta,
+    output_dir,
+):
+    """Write parent-level merged supported GTF and FASTA for combined runs."""
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    merged_gtf = output_dir / "merged_supported_proteins.gtf"
+    merged_fasta = output_dir / "merged_supported_proteins.fa"
+
+    pred_df = gtf_to_df_with_genes(prediction_supported_gtf)
+    bam_df = gtf_to_df_with_genes(bam_supported_gtf)
+    merged_df = pd.concat([pred_df, bam_df], ignore_index=True)
+
+    dedupe_cols = [
+        'Seqid', 'Source', 'Type', 'Start', 'End',
+        'Prediction_score', 'Strand', 'Frame', 'Suppl', 'Protein', 'Gene'
+    ]
+    merged_df = merged_df.drop_duplicates(subset=[col for col in dedupe_cols if col in merged_df.columns])
+    merged_df.drop(columns=['Protein', 'Gene'], errors='ignore').to_csv(
+        merged_gtf,
+        sep='\t',
+        index=False,
+        header=False,
+    )
+
+    seen_ids = set()
+    merged_records = []
+    for fasta_path in [prediction_supported_fasta, bam_supported_fasta]:
+        with open(fasta_path) as fasta_handle:
+            for record in SeqIO.parse(fasta_handle, 'fasta'):
+                protein_id = record.id.split()[0]
+                if protein_id in seen_ids:
+                    continue
+                seen_ids.add(protein_id)
+                merged_records.append(record)
+
+    with open(merged_fasta, 'w') as output_handle:
+        SeqIO.write(merged_records, output_handle, 'fasta')
+
+    print(f"Merged supported GTF written to: {merged_gtf}")
+    print(f"Merged supported FASTA written to: {merged_fasta}")
+    print(f"Merged supported proteins: {len(merged_records)}")
+    return merged_gtf, merged_fasta
+
+
 def _summarize_loci_from_gtf(gtf_path):
     """Summarize each protein model into a genomic locus row."""
     gtf_path = Path(gtf_path)
@@ -663,76 +713,273 @@ def _summarize_supported_overlap_from_classes(summary_df, accepted_codes=None):
     return counts
 
 
+def _summarize_prediction_supported_class_support_from_tmap(
+    prediction_supported_gtf,
+    bam_supported_gtf,
+    bam_tmap_file,
+    accepted_codes=None,
+):
+    """Summarize class-code overlap between prediction-supported and BAM-supported proteins."""
+    accepted_codes = list(accepted_codes or ['=', 'j', 'c', 'k', 'm', 'n'])
+
+    prediction_df = _summarize_loci_from_gtf(prediction_supported_gtf)
+    bam_df = _summarize_loci_from_gtf(bam_supported_gtf)
+    prediction_ids = set(prediction_df['protein'].dropna().astype(str))
+    bam_ids = set(bam_df['protein'].dropna().astype(str))
+    total_prediction = int(len(prediction_ids))
+    total_bam = int(len(bam_ids))
+    counts = {
+        'prediction_total': total_prediction,
+        'bam_total': total_bam,
+        'prediction_matched': 0,
+        'bam_matched': 0,
+        'intersection': 0,
+        'prediction_only': total_prediction,
+        'bam_only': total_bam,
+        'union': total_prediction + total_bam,
+        'jaccard': 0.0,
+        'accepted_codes': accepted_codes,
+    }
+
+    bam_tmap_file = Path(bam_tmap_file) if bam_tmap_file else None
+    if bam_tmap_file is None or not bam_tmap_file.exists() or bam_tmap_file.stat().st_size == 0:
+        return counts
+
+    try:
+        tmap_df = pd.read_csv(bam_tmap_file, sep='\t')
+    except pd.errors.EmptyDataError:
+        return counts
+
+    if not {'qry_id', 'ref_id', 'class_code'}.issubset(tmap_df.columns):
+        return counts
+
+    accepted_set = set(accepted_codes)
+
+    tmap_df = tmap_df[['qry_id', 'ref_id', 'class_code']].copy()
+    tmap_df['qry_id'] = tmap_df['qry_id'].astype(str).str.strip()
+    tmap_df['ref_id'] = tmap_df['ref_id'].astype(str).str.strip()
+    tmap_df['class_code'] = tmap_df['class_code'].fillna('').astype(str).str.strip()
+
+    accepted_rows = tmap_df[
+        tmap_df['ref_id'].isin(prediction_ids) &
+        tmap_df['qry_id'].isin(bam_ids) &
+        tmap_df['class_code'].isin(accepted_set)
+    ]
+
+    counts['prediction_matched'] = int(accepted_rows['ref_id'].nunique())
+    counts['bam_matched'] = int(accepted_rows['qry_id'].nunique())
+    counts['intersection'] = min(counts['prediction_matched'], counts['bam_matched'])
+    counts['prediction_only'] = max(total_prediction - counts['intersection'], 0)
+    counts['bam_only'] = max(total_bam - counts['intersection'], 0)
+    counts['union'] = counts['prediction_total'] + counts['bam_total'] - counts['intersection']
+    counts['jaccard'] = (counts['intersection'] / counts['union']) if counts['union'] else 0.0
+    return counts
+
+
 def _plot_supported_class_pie(ax, counts, title):
-    """Draw the supported-overlap pie using accepted gffcompare class codes."""
-    ax.set_title(title, fontweight='bold')
-    total = counts['total']
-
-    if total <= 0:
-        ax.axis('off')
-        ax.text(0.5, 0.56, 'No supported transcripts', ha='center', va='center', fontsize=12, transform=ax.transAxes)
-        return
-
-    code_label = ', '.join(counts['accepted_codes'])
-    labels = [f'Accepted overlap\n({code_label})', 'Other classes']
-    values = [counts['accepted_overlap'], counts['other_classes']]
-    colors = ['#72B7B2', '#E45756']
-    filtered = [(label, value, color) for label, value, color in zip(labels, values, colors) if value > 0]
-
-    ax.pie(
-        [item[1] for item in filtered],
-        labels=[item[0] for item in filtered],
-        colors=[item[2] for item in filtered],
-        startangle=90,
-        autopct=lambda pct: f"{pct:.1f}%\n({int(round(total * pct / 100.0))})",
-        wedgeprops={'edgecolor': 'white'},
-        textprops={'fontsize': 10},
-    )
-    ax.text(
-        0.5,
-        -0.08,
-        f"Total BAM-supported transcripts: {total}",
-        ha='center',
-        va='top',
-        fontsize=9,
-        transform=ax.transAxes,
-    )
+    """Deprecated pie helper kept for compatibility."""
+    _plot_venn_panel(ax, counts, title)
 
 
 def _plot_novel_class_pie(ax, counts, title):
-    """Draw the novel-support pie using accepted BAM `gffcompare` class codes."""
-    ax.set_title(title, fontweight='bold')
-    total = counts['total']
+    """Deprecated pie helper kept for compatibility."""
+    _plot_venn_panel(ax, counts, title)
 
-    if total <= 0:
-        ax.axis('off')
-        ax.text(0.5, 0.56, 'No prediction novel proteins', ha='center', va='center', fontsize=12, transform=ax.transAxes)
+
+def _plot_venn_panel(ax, counts, title):
+    """Render a two-circle Venn-style panel with Jaccard overlap."""
+    from matplotlib.patches import Circle
+
+    ax.set_title(title, fontweight='bold')
+    ax.axis('off')
+    ax.set_aspect('equal')
+
+    pred_total = int(counts.get('prediction_total', 0))
+    bam_total = int(counts.get('bam_total', 0))
+    intersection = int(counts.get('intersection', 0))
+
+    if pred_total == 0 and bam_total == 0:
+        ax.text(0.5, 0.5, 'No proteins available', ha='center', va='center', fontsize=12, transform=ax.transAxes)
         return
 
-    code_label = ', '.join(counts['accepted_codes'])
-    labels = [f'Accepted BAM support\n({code_label})', 'No accepted BAM support']
-    values = [counts['accepted_overlap'], counts['other_classes']]
-    colors = ['#72B7B2', '#E45756']
-    filtered = [(label, value, color) for label, value, color in zip(labels, values, colors) if value > 0]
+    r_left = max(0.17, min(0.28, 0.17 + 0.11 * (pred_total / max(pred_total, bam_total, 1))**0.5))
+    r_right = max(0.17, min(0.28, 0.17 + 0.11 * (bam_total / max(pred_total, bam_total, 1))**0.5))
+    c_left = (0.43, 0.52)
+    c_right = (0.62, 0.52)
 
-    ax.pie(
-        [item[1] for item in filtered],
-        labels=[item[0] for item in filtered],
-        colors=[item[2] for item in filtered],
-        startangle=90,
-        autopct=lambda pct: f"{pct:.1f}%\n({int(round(total * pct / 100.0))})",
-        wedgeprops={'edgecolor': 'white'},
-        textprops={'fontsize': 10},
-    )
+    pred_color = '#4C78A8'
+    bam_color = '#E45756'
+    overlap_color = '#72B7B2'
+
+    left = Circle(c_left, r_left, facecolor=pred_color, edgecolor='black', alpha=0.35, linewidth=1.5)
+    right = Circle(c_right, r_right, facecolor=bam_color, edgecolor='black', alpha=0.35, linewidth=1.5)
+    ax.add_patch(left)
+    ax.add_patch(right)
+
+    # Visual hint for overlap region.
+    overlap_radius = min(r_left, r_right) * 0.55
+    overlap_center = ((c_left[0] + c_right[0]) / 2, c_left[1])
+    overlap = Circle(overlap_center, overlap_radius, facecolor=overlap_color, edgecolor='none', alpha=0.5)
+    ax.add_patch(overlap)
+
+    pred_only = max(pred_total - intersection, 0)
+    bam_only = max(bam_total - intersection, 0)
+
+    ax.text(c_left[0] - r_left * 0.45, c_left[1], f"{pred_only}", ha='center', va='center', fontsize=14, fontweight='bold')
+    ax.text(c_right[0] + r_right * 0.45, c_right[1], f"{bam_only}", ha='center', va='center', fontsize=14, fontweight='bold')
+    ax.text(overlap_center[0], overlap_center[1], f"{intersection}", ha='center', va='center', fontsize=14, fontweight='bold')
+
+    ax.text(c_left[0] - r_left * 0.25, c_left[1] + r_left + 0.04, 'prediction_search', ha='center', fontsize=10)
+    ax.text(c_right[0] + r_right * 0.25, c_right[1] + r_right + 0.04, 'bam_search', ha='center', fontsize=10)
+
+    jaccard = counts.get('jaccard', 0.0)
+    code_label = ', '.join(counts.get('accepted_codes', ['=', 'j', 'c', 'k', 'm', 'n']))
     ax.text(
         0.5,
-        -0.08,
-        f"Prediction novel proteins: {total} | BAM transcripts in accepted classes: {counts['matched_bam_transcripts']}",
+        0.05,
+        f"Accepted overlap classes: {code_label} | Jaccard = {jaccard:.1%}",
         ha='center',
-        va='top',
+        va='center',
         fontsize=9,
         transform=ax.transAxes,
     )
+
+
+def _summarize_novel_venn_from_tmap(
+    prediction_novel_gtf,
+    bam_novel_gtf,
+    bam_tmap_file,
+    accepted_class_codes=None,
+):
+    """Summarize novel-protein class-code overlap for Venn rendering."""
+    accepted_class_codes = list(accepted_class_codes or ['=', 'j', 'c', 'k', 'm', 'n'])
+
+    pred_df = _summarize_loci_from_gtf(prediction_novel_gtf)
+    bam_df = _summarize_loci_from_gtf(bam_novel_gtf)
+    prediction_ids = set(pred_df['protein'].dropna().astype(str))
+    bam_ids = set(bam_df['protein'].dropna().astype(str))
+
+    counts = {
+        'prediction_total': int(len(prediction_ids)),
+        'bam_total': int(len(bam_ids)),
+        'prediction_matched': 0,
+        'bam_matched': 0,
+        'intersection': 0,
+        'prediction_only': int(len(prediction_ids)),
+        'bam_only': int(len(bam_ids)),
+        'union': int(len(prediction_ids) + len(bam_ids)),
+        'jaccard': 0.0,
+        'accepted_codes': accepted_class_codes,
+    }
+
+    bam_tmap_file = Path(bam_tmap_file) if bam_tmap_file else None
+    if bam_tmap_file is None or not bam_tmap_file.exists() or bam_tmap_file.stat().st_size == 0:
+        return counts
+
+    try:
+        tmap_df = pd.read_csv(bam_tmap_file, sep='\t')
+    except pd.errors.EmptyDataError:
+        return counts
+
+    if not {'qry_id', 'ref_id', 'class_code'}.issubset(tmap_df.columns):
+        return counts
+
+    accepted_set = set(accepted_class_codes)
+    tmap_df = tmap_df[['qry_id', 'ref_id', 'class_code']].copy()
+    tmap_df['qry_id'] = tmap_df['qry_id'].astype(str).str.strip()
+    tmap_df['ref_id'] = tmap_df['ref_id'].astype(str).str.strip()
+    tmap_df['class_code'] = tmap_df['class_code'].fillna('').astype(str).str.strip()
+
+    accepted_rows = tmap_df[
+        tmap_df['ref_id'].isin(prediction_ids) &
+        tmap_df['qry_id'].isin(bam_ids) &
+        tmap_df['class_code'].isin(accepted_set)
+    ]
+
+    counts['prediction_matched'] = int(accepted_rows['ref_id'].nunique())
+    counts['bam_matched'] = int(accepted_rows['qry_id'].nunique())
+    counts['intersection'] = min(counts['prediction_matched'], counts['bam_matched'])
+    counts['prediction_only'] = max(counts['prediction_total'] - counts['intersection'], 0)
+    counts['bam_only'] = max(counts['bam_total'] - counts['intersection'], 0)
+    counts['union'] = counts['prediction_total'] + counts['bam_total'] - counts['intersection']
+    counts['jaccard'] = (counts['intersection'] / counts['union']) if counts['union'] else 0.0
+    return counts
+
+
+def _subset_gtf_by_ids(gtf_path, ids):
+    """Return GTF rows for proteins/genes matching IDs."""
+    gtf_df = gtf_to_df_with_genes(gtf_path)
+    id_set = {str(v) for v in ids}
+    if not id_set:
+        return gtf_df.iloc[0:0].copy()
+    return gtf_df[
+        gtf_df['Protein'].astype(str).isin(id_set) | gtf_df['Gene'].astype(str).isin(id_set)
+    ].copy()
+
+
+def _write_gtf_subset(df, output_path):
+    """Write a normalized GTF subset from a parsed dataframe."""
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    df.drop(columns=['Protein', 'Gene'], errors='ignore').to_csv(
+        output_path,
+        sep='\t',
+        index=False,
+        header=False,
+    )
+
+
+def _write_fasta_subset(source_fasta, ids, output_path):
+    """Write FASTA subset for selected IDs based on record ID."""
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    id_set = {str(v) for v in ids}
+
+    with open(output_path, 'w') as fasta_handle:
+        if source_fasta and id_set:
+            with open(source_fasta) as protein_handle:
+                selected = [
+                    record for record in SeqIO.parse(protein_handle, 'fasta')
+                    if record.id.split()[0] in id_set
+                ]
+            SeqIO.write(selected, fasta_handle, 'fasta')
+
+
+def _merge_gtf_subsets(frames):
+    """Merge and de-duplicate parsed GTF subsets from multiple branches."""
+    valid_frames = [df for df in frames if df is not None and not df.empty]
+    if not valid_frames:
+        return pd.DataFrame(columns=['Seqid', 'Source', 'Type', 'Start', 'End', 'Prediction_score', 'Strand', 'Frame', 'Suppl'])
+
+    merged_df = pd.concat(valid_frames, ignore_index=True)
+    dedupe_cols = [
+        'Seqid', 'Source', 'Type', 'Start', 'End',
+        'Prediction_score', 'Strand', 'Frame', 'Suppl', 'Protein', 'Gene'
+    ]
+    dedupe_cols = [col for col in dedupe_cols if col in merged_df.columns]
+    return merged_df.drop_duplicates(subset=dedupe_cols)
+
+
+def _write_merged_fasta(output_path, fasta_paths):
+    """Write merged FASTA with unique IDs preserving first occurrence."""
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    seen_ids = set()
+    merged_records = []
+    for fasta_path in fasta_paths:
+        if not fasta_path:
+            continue
+        with open(fasta_path) as fasta_handle:
+            for record in SeqIO.parse(fasta_handle, 'fasta'):
+                protein_id = record.id.split()[0]
+                if protein_id in seen_ids:
+                    continue
+                seen_ids.add(protein_id)
+                merged_records.append(record)
+
+    with open(output_path, 'w') as output_handle:
+        SeqIO.write(merged_records, output_handle, 'fasta')
 
 
 def plot_bam_gtf_comparison_summary(
@@ -745,45 +992,49 @@ def plot_bam_gtf_comparison_summary(
     bam_novel_gtf=None,
     bam_tmap_file=None,
 ):
-    """Create the requested two-pie summary of supported and novel overlap using `gffcompare` class codes."""
-    del no_overlap_count, prediction_supported_gtf, bam_novel_gtf  # retained for API compatibility
+    """Create two Venn-style panels for supported and novel overlap using `gffcompare` class codes."""
+    del no_overlap_count  # retained for API compatibility
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    supported_counts = _summarize_supported_overlap_from_classes(summary_df)
-    _, novel_counts = _summarize_novel_class_support_from_tmap(
+    supported_counts = _summarize_prediction_supported_class_support_from_tmap(
+        prediction_supported_gtf=prediction_supported_gtf,
+        bam_supported_gtf=bam_supported_gtf,
+        bam_tmap_file=bam_tmap_file,
+    )
+    novel_counts = _summarize_novel_venn_from_tmap(
         prediction_novel_gtf=prediction_novel_gtf,
-        bam_annotation_gtf=bam_supported_gtf,
+        bam_novel_gtf=bam_novel_gtf,
         bam_tmap_file=bam_tmap_file,
         accepted_class_codes=supported_counts['accepted_codes'],
     )
 
-    if summary_df.empty and novel_counts['total'] == 0:
+    if summary_df.empty and novel_counts['prediction_total'] == 0 and novel_counts['bam_total'] == 0:
         return None
 
-    fig, axes = plt.subplots(1, 2, figsize=(13, 5.6))
-    _plot_supported_class_pie(
+    fig, axes = plt.subplots(1, 2, figsize=(13.8, 6.0))
+    _plot_venn_panel(
         axes[0],
         supported_counts,
-        'Supported overlap by gffcompare classes\naccepted set: =, j, c, k, m, n'
+        'A) Supported proteins: prediction_search vs bam_search'
     )
-    _plot_novel_class_pie(
+    _plot_venn_panel(
         axes[1],
         novel_counts,
-        'Prediction novel proteins with BAM class-code support'
+        'B) Novel proteins: prediction_search vs bam_search'
     )
 
-    fig.suptitle('Comparison summary: bam_search vs prediction_search', fontsize=13, fontweight='bold')
+    fig.suptitle('BAM vs Prediction: Venn Overlap Summary', fontsize=14, fontweight='bold')
     fig.text(
         0.5,
         0.02,
-        'Both pies use accepted `gffcompare` classes: =, j, c, k, m, n  |  Detailed counts remain in bam_vs_input_gtf_summary.tsv',
+        'Overlap uses accepted `gffcompare` class codes: =, j, c, k, m, n',
         ha='center',
         fontsize=9,
     )
     fig.tight_layout(rect=[0, 0.05, 1, 0.93])
-    output_path = output_dir / 'bam_vs_input_gtf_summary.png'
+    output_path = output_dir / 'bam_vs_prediction_supported_summary.png'
     fig.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close(fig)
     return output_path
@@ -798,42 +1049,44 @@ def compare_bam_support_to_input_gtf(
     prediction_novel_gtf=None,
     bam_novel_gtf=None,
 ):
-    """Compare BAM-supported transcripts against the user's original input GTF.
+    """Compare BAM-supported transcripts against prediction-search supported models.
 
-    Writes `gffcmp.*` outputs plus a summary of class codes and the subset of BAM-supported
-    transcripts with no overlap to any gene in the original input GTF (`class_code == 'u'`).
+    Writes branch-comparison files under `comparisons/`, including reciprocal no-overlap
+    subsets and an overlapped-supported merged set for clearer downstream interpretation.
     """
     input_gtf = Path(input_gtf)
     bam_supported_gtf = Path(bam_supported_gtf)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    run_gffcompare(input_gtf, bam_supported_gtf, output_dir)
+    reference_gtf = Path(prediction_supported_gtf) if prediction_supported_gtf else input_gtf
+
+    run_gffcompare(reference_gtf, bam_supported_gtf, output_dir)
 
     tmap_candidates = sorted(output_dir.glob("*.tmap"))
     if not tmap_candidates:
         raise FileNotFoundError(f"No gffcompare .tmap file was produced in {output_dir}")
 
     tmap_file = tmap_candidates[0]
-    print(f"Loading BAM-vs-input TMAP file: {tmap_file}")
+    print(f"Loading BAM-vs-prediction-supported TMAP file: {tmap_file}")
     tmap_df = pd.read_csv(tmap_file, sep='\t')
 
     code_descriptions = {
-        '=': 'exact match to input GTF',
-        'c': 'contained within input transcript',
+        '=': 'exact match to prediction-supported model',
+        'c': 'contained within prediction-supported model',
         'j': 'novel isoform with shared splice junctions',
-        'e': 'single exon transfrag partially covering a reference intron',
-        'i': 'fully contained within a reference intron',
-        'k': 'contains a reference transcript (reverse containment)',
+        'e': 'single exon transfrag partially covering a prediction intron',
+        'i': 'fully contained within a prediction intron',
+        'k': 'contains a prediction-supported transcript (reverse containment)',
         'm': 'retained intron(s); all introns matched or retained',
         'n': 'retained intron(s); not all introns matched/covered',
-        'o': 'other same-strand overlap with reference exons',
+        'o': 'other same-strand overlap with prediction exons',
         'p': 'possible polymerase run-on fragment',
         'r': 'repeat-associated transcript',
-        'u': 'no overlap with any input-GTF gene locus',
+        'u': 'no overlap with any prediction-supported gene locus',
         'x': 'exonic overlap on opposite strand',
         's': 'intron match on the opposite strand',
-        'y': 'contains a reference within its intron(s)',
+        'y': 'contains a prediction-supported model within its intron(s)',
     }
 
     summary_df = (
@@ -846,36 +1099,85 @@ def compare_bam_support_to_input_gtf(
     total = int(summary_df['count'].sum()) if not summary_df.empty else 0
     summary_df['description'] = summary_df['class_code'].map(code_descriptions).fillna('other/unknown')
     summary_df['fraction'] = (summary_df['count'] / total).round(4) if total else 0.0
-    summary_file = output_dir / 'bam_vs_input_gtf_summary.tsv'
+    summary_file = output_dir / 'bam_vs_prediction_supported_class_summary.tsv'
     summary_df.to_csv(summary_file, sep='\t', index=False)
+    legacy_summary_file = output_dir / 'bam_vs_input_gtf_summary.tsv'
+    summary_df.to_csv(legacy_summary_file, sep='\t', index=False)
 
     no_overlap_df = tmap_df[tmap_df['class_code'].fillna('').eq('u')].copy()
-    no_overlap_file = output_dir / 'bam_supported_no_gene_overlap.tsv'
+    no_overlap_file = output_dir / 'bam_supported_no_gtf_overlap.tsv'
     no_overlap_df.to_csv(no_overlap_file, sep='\t', index=False)
 
     no_overlap_ids = set(no_overlap_df['qry_id'].dropna().astype(str))
-    subset_gtf_file = output_dir / 'bam_supported_no_gene_overlap.gtf'
-    subset_faa_file = output_dir / 'bam_supported_no_gene_overlap.faa'
+    subset_gtf_file = output_dir / 'bam_supported_no_gtf_overlap.gtf'
+    subset_faa_file = output_dir / 'bam_supported_no_gtf_overlap.faa'
 
-    bam_gtf_df = gtf_to_df_with_genes(bam_supported_gtf)
-    no_overlap_gtf_df = bam_gtf_df[
-        bam_gtf_df['Protein'].isin(no_overlap_ids) | bam_gtf_df['Gene'].isin(no_overlap_ids)
-    ].copy()
-    no_overlap_gtf_df.drop(columns=['Protein', 'Gene'], errors='ignore').to_csv(
-        subset_gtf_file,
-        sep='\t',
-        index=False,
-        header=False,
-    )
+    bam_gtf_df = _subset_gtf_by_ids(bam_supported_gtf, no_overlap_ids)
+    _write_gtf_subset(bam_gtf_df, subset_gtf_file)
 
-    with open(subset_faa_file, 'w') as fasta_handle:
-        if bam_protein_fasta and no_overlap_ids:
-            with open(bam_protein_fasta) as protein_handle:
-                selected = [
-                    record for record in SeqIO.parse(protein_handle, 'fasta')
-                    if record.id.split()[0] in no_overlap_ids
-                ]
-            SeqIO.write(selected, fasta_handle, 'fasta')
+    _write_fasta_subset(bam_protein_fasta, no_overlap_ids, subset_faa_file)
+
+    # Compatibility aliases for earlier misspelled output naming.
+    _write_gtf_subset(bam_gtf_df, output_dir / 'bam_supported_no_gtf_overalp.gtf')
+    _write_fasta_subset(bam_protein_fasta, no_overlap_ids, output_dir / 'bam_supported_no_gtf_overalp.faa')
+    no_overlap_df.to_csv(output_dir / 'bam_supported_no_gtf_overalp.tsv', sep='\t', index=False)
+
+    # Reciprocal no-overlap from prediction-supported side.
+    reciprocal_dir = output_dir / '_tmp_prediction_vs_bam'
+    reciprocal_dir.mkdir(parents=True, exist_ok=True)
+    run_gffcompare(bam_supported_gtf, reference_gtf, reciprocal_dir)
+    reciprocal_tmaps = sorted(reciprocal_dir.glob('*.tmap'))
+    reciprocal_tmap = reciprocal_tmaps[0] if reciprocal_tmaps else None
+    prediction_no_overlap_ids = set()
+    if reciprocal_tmap and reciprocal_tmap.exists():
+        reciprocal_df = pd.read_csv(reciprocal_tmap, sep='\t')
+        prediction_no_overlap_ids = set(
+            reciprocal_df[reciprocal_df['class_code'].fillna('').eq('u')]['qry_id'].dropna().astype(str)
+        )
+
+    gtf_no_bam_gtf_file = output_dir / 'gtf_supported_no_bam_overlap.gtf'
+    gtf_no_bam_faa_file = output_dir / 'gtf_supported_no_bam_overlap.faa'
+    prediction_gtf_df = _subset_gtf_by_ids(reference_gtf, prediction_no_overlap_ids)
+    _write_gtf_subset(prediction_gtf_df, gtf_no_bam_gtf_file)
+
+    prediction_supported_fasta = None
+    if prediction_supported_gtf:
+        prediction_branch_dir = Path(prediction_supported_gtf).parent
+        fasta_candidate = prediction_branch_dir / 'supported_proteins.fa'
+        if fasta_candidate.exists():
+            prediction_supported_fasta = fasta_candidate
+    _write_fasta_subset(prediction_supported_fasta, prediction_no_overlap_ids, gtf_no_bam_faa_file)
+
+    # Overlapped supported proteins merged from both branches (accepted overlap classes).
+    accepted_codes = {'=', 'j', 'c', 'k', 'm', 'n'}
+    bam_overlap_ids = set(tmap_df[tmap_df['class_code'].isin(accepted_codes)]['qry_id'].dropna().astype(str))
+
+    pred_overlap_ids = set()
+    if reciprocal_tmap and reciprocal_tmap.exists():
+        reciprocal_df = pd.read_csv(reciprocal_tmap, sep='\t')
+        pred_overlap_ids = set(
+            reciprocal_df[reciprocal_df['class_code'].isin(accepted_codes)]['qry_id'].dropna().astype(str)
+        )
+
+    overlapped_gtf = output_dir / 'overlapped_supported_proteins.gtf'
+    overlapped_faa = output_dir / 'overlapped_supported_proteins.faa'
+    bam_overlap_gtf_df = _subset_gtf_by_ids(bam_supported_gtf, bam_overlap_ids)
+    pred_overlap_gtf_df = _subset_gtf_by_ids(reference_gtf, pred_overlap_ids)
+    merged_overlap_gtf_df = _merge_gtf_subsets([pred_overlap_gtf_df, bam_overlap_gtf_df])
+    _write_gtf_subset(merged_overlap_gtf_df, overlapped_gtf)
+
+    _write_merged_fasta(overlapped_faa, [
+        prediction_supported_fasta if pred_overlap_ids else None,
+        bam_protein_fasta if bam_overlap_ids else None,
+    ])
+
+    # Keep legacy names as aliases for compatibility.
+    legacy_no_overlap_gtf = output_dir / 'bam_supported_no_gene_overlap.gtf'
+    legacy_no_overlap_faa = output_dir / 'bam_supported_no_gene_overlap.faa'
+    legacy_no_overlap_tsv = output_dir / 'bam_supported_no_gene_overlap.tsv'
+    _write_gtf_subset(bam_gtf_df, legacy_no_overlap_gtf)
+    _write_fasta_subset(bam_protein_fasta, no_overlap_ids, legacy_no_overlap_faa)
+    no_overlap_df.to_csv(legacy_no_overlap_tsv, sep='\t', index=False)
 
     plot_file = plot_bam_gtf_comparison_summary(
         summary_df,
@@ -887,10 +1189,14 @@ def compare_bam_support_to_input_gtf(
         bam_novel_gtf=bam_novel_gtf,
         bam_tmap_file=tmap_file,
     )
+    legacy_plot_file = output_dir / 'bam_vs_input_gtf_summary.png'
+    if plot_file is not None and plot_file.exists() and plot_file != legacy_plot_file:
+        legacy_plot_file.write_bytes(plot_file.read_bytes())
 
-    print(f"BAM-vs-input GTF summary written to: {summary_file}")
+    print(f"BAM-vs-prediction summary written to: {summary_file}")
     if plot_file is not None:
-        print(f"BAM-vs-input summary figure written to: {plot_file}")
-    print(f"BAM-supported transcripts with no input-GTF overlap: {len(no_overlap_df)}")
+        print(f"BAM-vs-prediction summary figure written to: {plot_file}")
+    print(f"BAM-supported transcripts with no prediction-supported overlap: {len(no_overlap_df)}")
+    print(f"Prediction-supported transcripts with no BAM overlap: {len(prediction_no_overlap_ids)}")
 
     return summary_df, no_overlap_df
