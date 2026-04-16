@@ -876,7 +876,7 @@ def _plot_venn_panel(ax, counts, title):
     ax.text(
         0.5,
         0.05,
-        f"Overlap: {pred_pct:.1f}% of prediction | {bam_pct:.1f}% of BAM,
+        f"Overlap: {pred_pct:.1f}% of prediction | {bam_pct:.1f}% of BAM",
         ha='center',
         va='center',
         fontsize=9,
@@ -1156,11 +1156,6 @@ def compare_bam_support_to_input_gtf(
 
     _write_fasta_subset(bam_protein_fasta, no_overlap_ids, subset_faa_file)
 
-    # Compatibility aliases for earlier misspelled output naming.
-    _write_gtf_subset(bam_gtf_df, output_dir / 'bam_supported_no_gtf_overalp.gtf')
-    _write_fasta_subset(bam_protein_fasta, no_overlap_ids, output_dir / 'bam_supported_no_gtf_overalp.faa')
-    no_overlap_df.to_csv(output_dir / 'bam_supported_no_gtf_overalp.tsv', sep='\t', index=False)
-
     # Reciprocal no-overlap from prediction-supported side.
     reciprocal_dir = output_dir / '_tmp_prediction_vs_bam'
     reciprocal_dir.mkdir(parents=True, exist_ok=True)
@@ -1209,14 +1204,6 @@ def compare_bam_support_to_input_gtf(
         prediction_supported_fasta if pred_overlap_ids else None,
         bam_protein_fasta if bam_overlap_ids else None,
     ])
-
-    # Keep legacy names as aliases for compatibility.
-    legacy_no_overlap_gtf = output_dir / 'bam_supported_no_gene_overlap.gtf'
-    legacy_no_overlap_faa = output_dir / 'bam_supported_no_gene_overlap.faa'
-    legacy_no_overlap_tsv = output_dir / 'bam_supported_no_gene_overlap.tsv'
-    _write_gtf_subset(bam_gtf_df, legacy_no_overlap_gtf)
-    _write_fasta_subset(bam_protein_fasta, no_overlap_ids, legacy_no_overlap_faa)
-    no_overlap_df.to_csv(legacy_no_overlap_tsv, sep='\t', index=False)
 
     plot_file = plot_bam_gtf_comparison_summary(
         summary_df,

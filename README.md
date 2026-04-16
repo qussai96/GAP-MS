@@ -69,28 +69,27 @@ apptainer run gapms.sif -g annotations.gtf -f proteins.fasta -p peptides.txt
 
 ## Usage
 
-### 1) With prediction GTF + protein FASTA
+### 1) With both prediction GTF and BAM input
+
+```bash
+gapms -g predictions.gtf -b rnaseq_alignments.bam -a assembly.fasta -p peptides.txt [-rf reference_proteins.gtf -rg reference_proteins.gff]
+```
+### 2) With prediction GTF + protein FASTA
 
 ```bash
 gapms -g annotations.gtf -f proteins.fasta -p peptides.txt
 ```
 
-### 2) With prediction GTF + genome assembly (proteins will be generated)
+### 3) With prediction GTF + genome assembly (proteins will be generated)
 
 ```bash
 gapms -g annotations.gtf -a assembly.fasta -p peptides.txt
 ```
 
-### 3) With BAM input only
+### 4) With BAM input only
 
 ```bash
 gapms -b rnaseq_alignments.bam -a assembly.fasta -p peptides.txt
-```
-
-### 4) With both prediction GTF and BAM input
-
-```bash
-gapms -g predictions.gtf -b rnaseq_alignments.bam -a assembly.fasta -p peptides.txt
 ```
 
 If `-o` is not provided, outputs go to `GAPMS_Output/` in the parent directory of the GTF or BAM file.
