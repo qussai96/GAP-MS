@@ -201,7 +201,7 @@ def _plot_reference_count_bars(ax, compare_dir, title):
     ]
     labels = ['Novel', 'Diff splice', 'Diff start', 'Diff stop']
     values = [counts[key] for key in categories]
-    colors = ['#4C78A8', '#F58518', '#54A24B', '#E45756']
+    colors = ['#5293A2', '#F58518', '#54A24B', '#E45756']
 
     bars = ax.bar(labels, values, color=colors, edgecolor='black', width=0.68)
     for bar, value in zip(bars, values):
@@ -275,7 +275,7 @@ def plot_parent_run_summary(output_dir):
     )
     _draw_existing_figure(
         axes[4],
-        comparisons_dir / 'bam_vs_prediction_supported_summary.png',
+        comparisons_dir / 'bam_vs_input_gtf_summary.png',
         '5. supported and novel overlap between branches'
     )
 

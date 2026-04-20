@@ -68,8 +68,17 @@ def filter_predictions(
 
     # Collect stats
     all_proteins = set(all_scores_df["Protein"])
-    supported_proteins = high_confident_proteins | xgb_pos_proteins | score_supported
-    
+    original_supported = high_confident_proteins | xgb_pos_proteins | score_supported
+
+    # Require at least one gene-specific peptide for a protein to be considered supported
+    proteins_with_gene_specific_pep = set(
+        all_scores_df.loc[all_scores_df.get('gene_specific_peptides', 0) > 0, 'Protein'].unique()
+    )
+
+    # Apply the requirement by intersecting with proteins that have ≥1 gene-specific peptide
+    supported_proteins = original_supported & proteins_with_gene_specific_pep
+    removed_no_gene_specific = original_supported - supported_proteins
+
     unsupported_proteins = all_proteins - supported_proteins
 
     print(f"\nPipeline completed\nOutputs written to: {output_dir}")
@@ -80,8 +89,11 @@ def filter_predictions(
     print(f"Number of all un-supported proteins = {len(unsupported_proteins)}")
     
     # Step 7: Save protein sets
+    txt_dir = output_dir / "Txt"
+    txt_dir.mkdir(parents=True, exist_ok=True)
+
     def save_protein_list(protein_set, filename):
-        with open(output_dir / "Txt" / filename, "w") as f:
+        with open(txt_dir / filename, "w") as f:
             for p in sorted(protein_set):
                 f.write(f"{p}\n")
     save_protein_list(all_proteins, "all_proteins.txt")
@@ -140,3 +152,5 @@ def filter_predictions(
                 seq += line.strip()
         if header and header[1:] in supported_proteins:
             out.write(header + "\n" + seq + "\n")
+    if removed_no_gene_specific:
+        print(f"Removed {len(removed_no_gene_specific)} proteins lacking gene-specific peptides")

@@ -348,17 +348,61 @@ def write_merged_supported_models(
     bam_df = gtf_to_df_with_genes(bam_supported_gtf)
     merged_df = pd.concat([pred_df, bam_df], ignore_index=True)
 
-    dedupe_cols = [
-        'Seqid', 'Source', 'Type', 'Start', 'End',
-        'Prediction_score', 'Strand', 'Frame', 'Suppl', 'Protein', 'Gene'
-    ]
-    merged_df = merged_df.drop_duplicates(subset=[col for col in dedupe_cols if col in merged_df.columns])
-    merged_df.drop(columns=['Protein', 'Gene'], errors='ignore').to_csv(
-        merged_gtf,
-        sep='\t',
-        index=False,
-        header=False,
-    )
+    # Write a normalized GTF as transcript+CDS only for faster gffcompare inputs.
+    if merged_df.empty:
+        merged_gtf.write_text('')
+    else:
+        cds_df = merged_df[merged_df['Type'] == 'CDS'].copy()
+        if cds_df.empty:
+            merged_gtf.write_text('')
+        else:
+            cds_df['Protein'] = cds_df['Protein'].astype(str).str.strip()
+            cds_df = cds_df[cds_df['Protein'] != '']
+            cds_df = cds_df[
+                ['Seqid', 'Source', 'Start', 'End', 'Prediction_score', 'Strand', 'Frame', 'Protein', 'Gene']
+            ]
+
+            def _clean_attr_value(value):
+                return str(value).replace('"', '').strip()
+
+            with open(merged_gtf, 'w') as handle:
+                for transcript_id, group in cds_df.groupby('Protein', dropna=False, sort=False):
+                    if pd.isna(transcript_id) or str(transcript_id).strip() == '':
+                        continue
+
+                    seqid = group['Seqid'].iloc[0]
+                    source = group['Source'].iloc[0]
+                    strand = group['Strand'].iloc[0]
+                    gene_values = [str(v).strip() for v in group['Gene'].dropna().astype(str) if str(v).strip()]
+                    gene_id = gene_values[0] if gene_values else str(transcript_id)
+
+                    tx_start = int(group['Start'].min())
+                    tx_end = int(group['End'].max())
+
+                    score_series = pd.to_numeric(group['Prediction_score'], errors='coerce')
+                    score = float(score_series.max()) if score_series.notna().any() else 0.0
+                    score_text = f"{score:g}"
+
+                    transcript_id_clean = _clean_attr_value(transcript_id)
+                    gene_id_clean = _clean_attr_value(gene_id)
+                    attributes = f'gene_id "{gene_id_clean}"; transcript_id "{transcript_id_clean}";'
+
+                    handle.write(
+                        f"{seqid}\t{source}\ttranscript\t{tx_start}\t{tx_end}\t{score_text}\t{strand}\t.\t{attributes}\n"
+                    )
+
+                    cds_rows = (
+                        group[['Start', 'End', 'Frame']]
+                        .drop_duplicates()
+                        .sort_values(['Start', 'End'])
+                        .itertuples(index=False)
+                    )
+                    for cds_start, cds_end, frame in cds_rows:
+                        frame_value = str(frame).strip() if pd.notna(frame) else '.'
+                        frame_value = frame_value if frame_value in {'0', '1', '2'} else '.'
+                        handle.write(
+                            f"{seqid}\t{source}\tCDS\t{int(cds_start)}\t{int(cds_end)}\t{score_text}\t{strand}\t{frame_value}\t{attributes}\n"
+                        )
 
     seen_ids = set()
     merged_records = []
@@ -871,8 +915,6 @@ def _plot_venn_panel(ax, counts, title):
     pred_pct = (intersection / pred_total * 100) if pred_total else 0
     bam_pct = (intersection / bam_total * 100) if bam_total else 0
 
-    code_label = ', '.join(counts.get('accepted_codes', ['=', 'j', 'c', 'k', 'm', 'n']))
-
     ax.text(
         0.5,
         0.05,
@@ -1036,6 +1078,7 @@ def plot_bam_gtf_comparison_summary(
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / 'bam_vs_input_gtf_summary.png'
 
     supported_counts = _summarize_prediction_supported_class_support_from_tmap(
         prediction_supported_gtf=prediction_supported_gtf,
@@ -1073,8 +1116,7 @@ def plot_bam_gtf_comparison_summary(
         fontsize=9,
     )
     fig.tight_layout(rect=[0, 0.05, 1, 0.93])
-    output_path = output_dir / 'bam_vs_prediction_supported_summary.png'
-    fig.savefig(output_path, dpi=300, bbox_inches='tight')
+    fig.savefig(output_path)
     plt.close(fig)
     return output_path
 
@@ -1138,10 +1180,8 @@ def compare_bam_support_to_input_gtf(
     total = int(summary_df['count'].sum()) if not summary_df.empty else 0
     summary_df['description'] = summary_df['class_code'].map(code_descriptions).fillna('other/unknown')
     summary_df['fraction'] = (summary_df['count'] / total).round(4) if total else 0.0
-    summary_file = output_dir / 'bam_vs_prediction_supported_class_summary.tsv'
+    summary_file = output_dir / 'bam_vs_input_gtf_summary.tsv'
     summary_df.to_csv(summary_file, sep='\t', index=False)
-    legacy_summary_file = output_dir / 'bam_vs_input_gtf_summary.tsv'
-    summary_df.to_csv(legacy_summary_file, sep='\t', index=False)
 
     no_overlap_df = tmap_df[tmap_df['class_code'].fillna('').eq('u')].copy()
     no_overlap_file = output_dir / 'bam_supported_no_gtf_overlap.tsv'
