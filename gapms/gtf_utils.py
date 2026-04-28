@@ -1,6 +1,7 @@
 import re
 import pandas as pd
 import csv
+from pathlib import Path
 
 
 def extract_attribute(suppl_value, attr_name):
@@ -143,3 +144,125 @@ def read_scores_csv(scores_csv):
         return df[['Protein', 'external_score']]
     else:
         raise ValueError("Could not find both 'Protein' and 'external_score' (or their equivalents).")
+
+def save_gtf_subset_all_features(gtf_file, subset, output_dir, output_file_name):
+    """
+    Read original GTF with ALL features and save only those belonging to supported proteins.
+    This preserves exons, UTRs, start/stop codons, etc.
+    
+    Optimized for large GTF files using line-by-line parsing.
+    Handles both GTF formats:
+    - With explicit protein_id attributes in CDS rows
+    - Where mRNA ID itself IS the protein identifier
+    """
+    gtf_file = Path(gtf_file)
+    output_dir = Path(output_dir)
+    
+    # Parse GTF line by line to build ID mappings
+    id_to_protein = {}  # Maps feature ID -> protein ID
+    id_to_type = {}  # Maps ID -> feature type
+    
+    # First pass: scan for mRNA IDs and CDS protein_ids
+    with open(gtf_file, 'r') as f:
+        for line in f:
+            if line.startswith('#'):
+                continue
+            
+            parts = line.rstrip('\n').split('\t')
+            if len(parts) < 9:
+                continue
+            
+            feature_type = parts[2].lower()
+            attributes = parts[8]
+            
+            # Extract ID
+            id_match = re.search(r'ID=([^;,\s]+)', attributes)
+            feature_id = id_match.group(1) if id_match else None
+            
+            if not feature_id:
+                continue
+            
+            id_to_type[feature_id] = feature_type
+            
+            # For mRNA/transcript rows: ID itself is the protein identifier
+            if feature_type in ['mrna', 'transcript']:
+                id_to_protein[feature_id] = feature_id
+            
+            # For CDS rows: check for explicit protein_id
+            if feature_type == 'cds':
+                protein_id_match = re.search(r'protein_id\s*[= ]?"?([^";,\s]+)"?', attributes)
+                if protein_id_match:
+                    protein_id = protein_id_match.group(1)
+                    parent_match = re.search(r'Parent=([^;,\s]+)', attributes)
+                    if parent_match:
+                        parent_id = parent_match.group(1)
+                        id_to_protein[parent_id] = protein_id
+    
+    # Second pass: link genes to their mRNA children
+    gene_to_mrna = {}  # Maps gene ID -> mRNA ID
+    with open(gtf_file, 'r') as f:
+        for line in f:
+            if line.startswith('#'):
+                continue
+            
+            parts = line.rstrip('\n').split('\t')
+            if len(parts) < 9:
+                continue
+            
+            feature_type = parts[2].lower()
+            attributes = parts[8]
+            
+            if feature_type in ['mrna', 'transcript']:
+                id_match = re.search(r'ID=([^;,\s]+)', attributes)
+                parent_match = re.search(r'Parent=([^;,\s]+)', attributes)
+                
+                if id_match and parent_match:
+                    mrna_id = id_match.group(1)
+                    gene_id = parent_match.group(1)
+                    if gene_id not in gene_to_mrna:
+                        gene_to_mrna[gene_id] = mrna_id  # Use first mRNA found
+    
+    # Link genes to proteins
+    for gene_id, mrna_id in gene_to_mrna.items():
+        if mrna_id in id_to_protein:
+            id_to_protein[gene_id] = id_to_protein[mrna_id]
+    
+    # Third pass: filter and write output
+    with open(gtf_file, 'r') as infile, \
+         open(output_dir / output_file_name, 'w') as outfile:
+        
+        for line in infile:
+            if line.startswith('#'):
+                continue
+            
+            parts = line.rstrip('\n').split('\t')
+            if len(parts) < 9:
+                continue
+            
+            attributes = parts[8]
+            feature_id = None
+            parent_id = None
+            protein_id = None
+            
+            # Try to get protein_id directly from attributes
+            protein_id_match = re.search(r'protein_id\s*[= ]?"?([^";,\s]+)"?', attributes)
+            if protein_id_match:
+                protein_id = protein_id_match.group(1)
+            
+            # Try ID attribute
+            if not protein_id:
+                id_match = re.search(r'ID=([^;,\s]+)', attributes)
+                if id_match:
+                    feature_id = id_match.group(1)
+                    protein_id = id_to_protein.get(feature_id)
+            
+            # Try Parent attribute
+            if not protein_id:
+                parent_match = re.search(r'Parent=([^;,\s]+)', attributes)
+                if parent_match:
+                    parent_id = parent_match.group(1)
+                    protein_id = id_to_protein.get(parent_id)
+            
+            # Write if protein is in subset
+            if protein_id and protein_id in subset:
+                outfile.write(line)

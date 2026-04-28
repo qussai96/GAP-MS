@@ -2,7 +2,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 
-from .gtf_utils import gtf_to_df_with_genes, save_gtf_subset
+from .gtf_utils import gtf_to_df_with_genes, save_gtf_subset, save_gtf_subset_all_features
 from .model_utils import (
     get_high_confident_proteins,
     get_low_confident_proteins,
@@ -105,8 +105,7 @@ def filter_predictions(
     # Step 8: Save subsets 
     gtf_file = Path(gtf_file)
     gtf_df = gtf_to_df_with_genes(gtf_file)
-    save_gtf_subset(gtf_df, supported_proteins, output_dir, 'supported_proteins.gtf')
-
+    save_gtf_subset_all_features(gtf_file, supported_proteins, output_dir, 'supported_proteins.gtf')
 
     all_scores_df['supported'] = np.where(all_scores_df['Protein'].isin(supported_proteins), '+', '-')
     all_scores_df['confidence'] = np.select(
