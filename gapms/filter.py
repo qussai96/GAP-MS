@@ -76,7 +76,7 @@ def filter_predictions(
     )
 
     # Apply the requirement by intersecting with proteins that have ≥1 gene-specific peptide
-    supported_proteins = original_supported & proteins_with_gene_specific_pep
+    supported_proteins = original_supported # & proteins_with_gene_specific_pep
     removed_no_gene_specific = original_supported - supported_proteins
 
     unsupported_proteins = all_proteins - supported_proteins

@@ -587,19 +587,38 @@ def _summarize_novel_class_support_from_tmap(
     if accepted_df.empty:
         return pd.DataFrame(columns=empty_columns), counts
 
+    # Map prediction strand onto each match row for strand-aware filtering
+    pred_strand_map = pred_loci.set_index('prediction_protein')['strand'].to_dict()
+    accepted_df['pred_strand'] = accepted_df['ref_id'].map(pred_strand_map)
+
     bam_loci = _summarize_loci_from_gtf(bam_annotation_gtf).rename(
         columns={'protein': 'bam_protein', 'gene': 'bam_gene'}
-    ) if bam_annotation_gtf else pd.DataFrame(columns=['bam_protein', 'bam_gene'])
+    ) if bam_annotation_gtf else pd.DataFrame(columns=['bam_protein', 'bam_gene', 'strand'])
 
     if not bam_loci.empty:
         accepted_df = accepted_df.merge(
-            bam_loci[['bam_protein', 'bam_gene']].drop_duplicates(),
+            bam_loci[['bam_protein', 'bam_gene', 'strand']].drop_duplicates(),
             left_on='qry_id',
             right_on='bam_protein',
             how='left',
-        )
+        ).rename(columns={'strand': 'bam_strand'})
     else:
         accepted_df['bam_gene'] = pd.NA
+        accepted_df['bam_strand'] = pd.NA
+
+    # Discard matches where the BAM protein strand does not explicitly match the
+    # prediction strand.  Unstranded BAM proteins ('.') are excluded here.
+    accepted_df = accepted_df[
+        accepted_df['bam_strand'].fillna('') == accepted_df['pred_strand'].fillna('')
+    ]
+
+    # Re-compute counts after strand filtering
+    counts['accepted_overlap'] = int(accepted_df['ref_id'].nunique())
+    counts['other_classes'] = max(counts['total'] - counts['accepted_overlap'], 0)
+    counts['matched_bam_transcripts'] = int(accepted_df['qry_id'].nunique())
+
+    if accepted_df.empty:
+        return pd.DataFrame(columns=empty_columns), counts
 
     grouped_matches = (
         accepted_df.groupby('ref_id', dropna=False)

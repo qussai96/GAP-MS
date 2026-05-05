@@ -108,32 +108,54 @@ def main():
                 for line in infile:
                     if line.startswith('#'):
                         outfile.write(line)
-                    else:
-                        fields = line.rstrip('\n').split('\t')
-                        if len(fields) >= 9:
-                            strand = fields[6]
-                            attributes = fields[8]
+                        continue
 
-                            if strand not in ['+', '-']:
-                                removed_count += 1
-                                continue
+                    fields = line.rstrip('\n').split('\t')
+                    if len(fields) < 9:
+                        removed_count += 1
+                        continue
 
-                            id_fields = ['ID=', 'transcript_id=', 'protein_id=', 'gene_id=']
-                            has_valid_id = False
-                            for id_field in id_fields:
-                                if id_field in attributes:
-                                    id_part = [attr.strip() for attr in attributes.split(';') if attr.strip().startswith(id_field)]
-                                    if id_part and id_part[0].split('=')[1]:
-                                        has_valid_id = True
-                                        break
+                    feature = fields[2]
+                    strand = fields[6]
+                    attributes = fields[8]
 
-                            if not has_valid_id:
-                                removed_count += 1
-                                continue
+                    # Skip gene-level rows: gffcompare doesn't use them and they
+                    # typically carry empty transcript_id which causes parse errors
+                    if feature == 'gene':
+                        removed_count += 1
+                        continue
 
-                            outfile.write(line)
-                        else:
-                            removed_count += 1
+                    # Skip records with invalid/ambiguous strand (e.g. trans-spliced '?')
+                    if strand not in ('+', '-'):
+                        removed_count += 1
+                        continue
+
+                    # Check for a non-empty ID in GFF3 format (key=value)
+                    has_valid_id = False
+                    for key in ('ID=', 'transcript_id=', 'protein_id=', 'gene_id='):
+                        if key in attributes:
+                            parts = [a.strip() for a in attributes.split(';') if a.strip().startswith(key)]
+                            if parts and parts[0][len(key):].strip():
+                                has_valid_id = True
+                                break
+
+                    # Also check GTF format (key "value") — e.g. transcript_id "NM_099983.2"
+                    if not has_valid_id:
+                        for key in ('transcript_id', 'gene_id', 'protein_id'):
+                            search = key + ' "'
+                            idx = attributes.find(search)
+                            if idx != -1:
+                                rest = attributes[idx + len(search):]
+                                closing = rest.find('"')
+                                if closing > 0:  # non-empty value between quotes
+                                    has_valid_id = True
+                                    break
+
+                    if not has_valid_id:
+                        removed_count += 1
+                        continue
+
+                    outfile.write(line)
 
             if removed_count > 0:
                 print(f"Removed {removed_count} rows with invalid strand or missing ID from reference GTF")

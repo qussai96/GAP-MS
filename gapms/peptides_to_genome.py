@@ -132,8 +132,8 @@ def export_to_bed(peptide_mappings: List[Dict], output_file: Path):
     valid_mappings = [m for m in peptide_mappings if m.get('genomic_regions')]
     
     # Sort mappings by seqid (chromosome) and then by start position
-    sorted_mappings = sorted(valid_mappings, 
-                            key=lambda m: (m['seqid'], min([r[0] for r in m['genomic_regions']])))
+    sorted_mappings = sorted(valid_mappings,
+                            key=lambda m: (m['seqid'], min([int(r[0]) for r in m['genomic_regions']])))
     
     with open(output_file, 'w') as bed:
         bed.write("track name=Peptides description=\"Mapped Peptides\" itemRgb=\"On\"\n")
