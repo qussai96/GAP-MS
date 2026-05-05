@@ -162,7 +162,7 @@ def save_gtf_subset_all_features(gtf_file, subset, output_dir, output_file_name)
     id_to_protein = {}  # Maps feature ID -> protein ID
     id_to_type = {}  # Maps ID -> feature type
     
-    # First pass: scan for mRNA IDs and CDS protein_ids
+    # First pass: scan for mRNA/transcript IDs and CDS protein IDs
     with open(gtf_file, 'r') as f:
         for line in f:
             if line.startswith('#'):
@@ -175,9 +175,14 @@ def save_gtf_subset_all_features(gtf_file, subset, output_dir, output_file_name)
             feature_type = parts[2].lower()
             attributes = parts[8]
             
-            # Extract ID
-            id_match = re.search(r'ID=([^;,\s]+)', attributes)
-            feature_id = id_match.group(1) if id_match else None
+            # Extract a stable feature identifier from either GFF3 or GTF style attrs
+            feature_id = (
+                extract_attribute(attributes, 'ID')
+                or extract_attribute(attributes, 'transcript_id')
+                # Bare-ID fallback: some tools (e.g. BRAKER) write the raw ID as
+                # the entire column-9 value with no key=value pairs
+                or (attributes.strip() if re.match(r'^[\w.\-]+$', attributes.strip()) else None)
+            )
             
             if not feature_id:
                 continue
@@ -190,13 +195,16 @@ def save_gtf_subset_all_features(gtf_file, subset, output_dir, output_file_name)
             
             # For CDS rows: check for explicit protein_id
             if feature_type == 'cds':
-                protein_id_match = re.search(r'protein_id\s*[= ]?"?([^";,\s]+)"?', attributes)
-                if protein_id_match:
-                    protein_id = protein_id_match.group(1)
-                    parent_match = re.search(r'Parent=([^;,\s]+)', attributes)
-                    if parent_match:
-                        parent_id = parent_match.group(1)
-                        id_to_protein[parent_id] = protein_id
+                protein_id = (
+                    extract_attribute(attributes, 'protein_id')
+                    or extract_attribute(attributes, 'transcript_id')
+                )
+                parent_id = (
+                    extract_attribute(attributes, 'Parent')
+                    or extract_attribute(attributes, 'transcript_id')
+                )
+                if protein_id and parent_id:
+                    id_to_protein[parent_id] = protein_id
     
     # Second pass: link genes to their mRNA children
     gene_to_mrna = {}  # Maps gene ID -> mRNA ID
@@ -213,12 +221,16 @@ def save_gtf_subset_all_features(gtf_file, subset, output_dir, output_file_name)
             attributes = parts[8]
             
             if feature_type in ['mrna', 'transcript']:
-                id_match = re.search(r'ID=([^;,\s]+)', attributes)
-                parent_match = re.search(r'Parent=([^;,\s]+)', attributes)
-                
-                if id_match and parent_match:
-                    mrna_id = id_match.group(1)
-                    gene_id = parent_match.group(1)
+                mrna_id = (
+                    extract_attribute(attributes, 'ID')
+                    or extract_attribute(attributes, 'transcript_id')
+                    or (attributes.strip() if re.match(r'^[\w.\-]+$', attributes.strip()) else None)
+                )
+                gene_id = (
+                    extract_attribute(attributes, 'Parent')
+                    or extract_attribute(attributes, 'gene_id')
+                )
+                if mrna_id and gene_id:
                     if gene_id not in gene_to_mrna:
                         gene_to_mrna[gene_id] = mrna_id  # Use first mRNA found
     
@@ -245,23 +257,33 @@ def save_gtf_subset_all_features(gtf_file, subset, output_dir, output_file_name)
             protein_id = None
             
             # Try to get protein_id directly from attributes
-            protein_id_match = re.search(r'protein_id\s*[= ]?"?([^";,\s]+)"?', attributes)
-            if protein_id_match:
-                protein_id = protein_id_match.group(1)
+            protein_id = (
+                extract_attribute(attributes, 'protein_id')
+                or extract_attribute(attributes, 'transcript_id')
+            )
             
             # Try ID attribute
             if not protein_id:
-                id_match = re.search(r'ID=([^;,\s]+)', attributes)
-                if id_match:
-                    feature_id = id_match.group(1)
+                feature_id = (
+                    extract_attribute(attributes, 'ID')
+                    or extract_attribute(attributes, 'transcript_id')
+                )
+                if feature_id:
                     protein_id = id_to_protein.get(feature_id)
             
             # Try Parent attribute
             if not protein_id:
-                parent_match = re.search(r'Parent=([^;,\s]+)', attributes)
-                if parent_match:
-                    parent_id = parent_match.group(1)
+                parent_id = (
+                    extract_attribute(attributes, 'Parent')
+                    or extract_attribute(attributes, 'gene_id')
+                )
+                if parent_id:
                     protein_id = id_to_protein.get(parent_id)
+            
+            # Bare-ID fallback: attrs column is a plain identifier with no key=value pairs
+            if not protein_id and re.match(r'^[\w.\-]+$', attributes.strip()):
+                bare = attributes.strip()
+                protein_id = id_to_protein.get(bare) or (bare if bare in subset else None)
             
             # Write if protein is in subset
             if protein_id and protein_id in subset:
