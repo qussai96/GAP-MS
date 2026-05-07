@@ -52,8 +52,8 @@ def get_high_confident_proteins(df):
             for _, row in group.iterrows():
                 cond1 = row["protein_specific_peptides"] >= 2
                 cond2 = row["sequence_coverage"] >= 0.8
-                cond3 = row["N_terminal_peptides"] >= 1 and row["C_terminal_peptides"] >= 1
-                cond4 = row["splice_peptides"] == row["splice_sites"] and row["splice_peptides"] > 0
+                cond3 = row["N_terminal_peptides"] >= 1 and row["C_terminal_peptides"] >= 1 and row["gene_specific_peptides"] > 0
+                cond4 = row["splice_peptides"] == row["splice_sites"] and row["splice_peptides"] > 0 and row["gene_specific_peptides"] > 0
                 if cond1 or cond2 or cond3 or cond4:
                     high_confident.append(row)
                     break
@@ -68,8 +68,8 @@ def get_low_confident_proteins(df):
             for _, row in group.iterrows():
                 cond1 = row["mapped_peptides"] < 2
                 cond2 = row["gene_specific_peptides"] == 0
-                # cond3 = row["protein_length"] < 200 or row["protein_length"] > 500
-                if cond1 and cond2:  # and cond3:
+                cond3 = row["protein_length"] < 200 or row["protein_length"] > 500
+                if cond1 and cond2 and cond3:
                     low_confident.append(row)
                     break
         print(f"Number of low confident proteins: {len(low_confident)}")

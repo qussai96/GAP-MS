@@ -70,7 +70,7 @@ def main():
         prediction_dir = output_dir / "prediction_search"
         bam_dir = output_dir / "bam_search"
         comparisons_dir = output_dir / "comparisons"
-        prediction_output_dir = prediction_dir if args.bam else output_dir
+        prediction_output_dir = prediction_dir
 
         # Prepare logging
         log_file_path = output_dir / "log.txt"

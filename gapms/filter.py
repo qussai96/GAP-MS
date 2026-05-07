@@ -48,7 +48,11 @@ def filter_predictions(
     )
     print(f"Protein classifier mode used: {model_mode}")
 
-    xgb_pos_proteins = set(labeled_df[labeled_df["final_label"] == 1]["Protein"])
+    all_proteins = set(all_scores_df["Protein"])
+    unlabeled_proteins = all_proteins - high_confident_proteins - low_confident_proteins
+    xgb_pos_proteins = (
+        set(labeled_df[labeled_df["final_label"] == 1]["Protein"]) & unlabeled_proteins
+    )
     
     
     # Step 3: Apply ROC-based score filtering only when user provided external scores
@@ -67,7 +71,6 @@ def filter_predictions(
 
 
     # Collect stats
-    all_proteins = set(all_scores_df["Protein"])
     original_supported = high_confident_proteins | xgb_pos_proteins | score_supported
 
     # Require at least one gene-specific peptide for a protein to be considered supported
