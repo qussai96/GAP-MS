@@ -143,19 +143,28 @@ def classify_difference(pred_info, ref_info):
     
     pred_first, pred_last = get_first_and_last_cds(pred_cds, strand)
     ref_first, ref_last = get_first_and_last_cds(ref_cds, strand)
+    pred_junctions = get_splice_junctions(pred_cds)
+    ref_junctions = get_splice_junctions(ref_cds)
     
     # Count exons
     pred_exons = len(pred_cds)
     ref_exons = len(ref_cds)
+
+    # Junction differences are the strongest evidence for a splice change.
+    if pred_junctions != ref_junctions:
+        return "different_splice"
     
     same_first = (pred_first == ref_first)
     same_last = (pred_last == ref_last)
+    last_boundary_diff = abs(pred_last - ref_last) if pred_last is not None and ref_last is not None else None
     
     # Classify based on CDS structure
     if same_first and same_last:
         return "same_start_same_stop" if pred_exons == ref_exons else "same_start_same_stop_different_exons"
-    elif same_first and not same_last:
+    elif same_first and not same_last and (last_boundary_diff is None or last_boundary_diff > 3):
         return "same_start_different_stop"
+    elif same_first and not same_last:
+        return "same_start_same_stop"
     elif not same_first and same_last:
         return "different_start_same_stop"
     elif pred_first < ref_first if strand == '+' else pred_first > ref_first:
@@ -289,19 +298,32 @@ def get_peptides_supporting_different_junctions(protein_id, pred_info, ref_info,
     if not different_junctions:
         return 0
     
+    # Some BED files do not carry protein IDs. In that case, fall back to
+    # chromosome-only matching instead of returning zero for every query.
+    has_any_protein_ids = any(
+        loc.get('protein')
+        for locations in peptide_bed_dict.values()
+        for loc in locations
+    )
+
     # Find peptides for this protein
     supporting_peptides = set()
     
     # Search through all peptides in the BED file
     for peptide_name, locations in peptide_bed_dict.items():
         for loc in locations:
-            # Check if this peptide location is on the same chromosome and matches protein
-            if loc['seqid'] == seqid:
-                # Check if peptide spans any of the different junctions
-                for junction in different_junctions:
-                    if peptide_spans_junction(loc, junction):
-                        supporting_peptides.add(peptide_name)
-                        break
+            # Only count peptides mapped to this protein on the same chromosome.
+            if loc['seqid'] != seqid:
+                continue
+
+            if has_any_protein_ids and loc.get('protein') not in (None, protein_id):
+                continue
+
+            # Check if peptide spans any of the different junctions
+            for junction in different_junctions:
+                if peptide_spans_junction(loc, junction):
+                    supporting_peptides.add(peptide_name)
+                    break
     
     return len(supporting_peptides)
 
@@ -440,27 +462,26 @@ def generate_annotation_report(output_dir, supported_gtf, reference_gtf,
         # Categories where stop position differs
         stop_diff_categories = ['same_start_different_stop']
         # Categories where splice sites differ
-        splice_diff_categories = ['same_start_same_stop_different_exons', 'exon_structure_difference', 
+        splice_diff_categories = ['different_splice', 'same_start_same_stop_different_exons', 'exon_structure_difference', 
                                   'more_exons', 'fewer_exons']
-        
-        # Check if gene has different start AND N-terminal peptide
-        if classification in start_diff_categories and n_term_peptides > 0:
-            category = 'peptide_support_different_start'
-        
-        # Check if gene has different stop AND C-terminal peptide
-        elif classification in stop_diff_categories and c_term_peptides > 0:
-            category = 'peptide_support_different_stop'
-        
-        # Check if gene has different splice sites AND peptides spanning the DIFFERENT junctions
-        elif classification in splice_diff_categories:
-            # FIXED LOGIC: Check if peptides actually span the different splice junctions
+
+        # Check splice differences first so mixed splice/start/stop cases are not
+        # collapsed into boundary-only categories.
+        if classification in splice_diff_categories:
             splice_support_count = get_peptides_supporting_different_junctions(
                 qry_id, pred_info, ref_info, peptide_bed_dict
             )
             if splice_support_count > 0:
                 category = 'peptide_support_different_splice'
-                # Update splice_peptides to reflect peptides supporting DIFFERENT junctions
                 splice_peptides = splice_support_count
+        
+        # Check if gene has different start AND N-terminal peptide
+        elif classification in start_diff_categories and n_term_peptides > 0:
+            category = 'peptide_support_different_start'
+        
+        # Check if gene has different stop AND C-terminal peptide
+        elif classification in stop_diff_categories and c_term_peptides > 0:
+            category = 'peptide_support_different_stop'
         
         # Only include if it matches one of our 3 categories
         if category:

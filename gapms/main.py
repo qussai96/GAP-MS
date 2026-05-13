@@ -186,19 +186,19 @@ def main():
                     mapping = branch_output_dir / Path(mapping).name
 
             print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Extracting Features for {branch_name}....")
-            extract_features(branch_gtf, branch_protein_fasta, mapping, branch_output_dir, external_scores_csv)
+            # extract_features(branch_gtf, branch_protein_fasta, mapping, branch_output_dir, external_scores_csv)
 
             print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Running GAPMS for {branch_name}....")
-            filter_predictions(
-                branch_gtf,
-                branch_protein_fasta,
-                branch_output_dir,
-                plot_external_scores_enabled=bool(external_scores_csv),
-                use_iterative_training=args.iterative,
-            )
+            # filter_predictions(
+            #     branch_gtf,
+            #     branch_protein_fasta,
+            #     branch_output_dir,
+            #     plot_external_scores_enabled=bool(external_scores_csv),
+            #     use_iterative_training=args.iterative,
+            # )
 
             print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Mapping peptides to genome coordinates for {branch_name}....")
-            map_peptides_to_genome(branch_gtf, branch_protein_fasta, mapping, branch_output_dir)
+            # map_peptides_to_genome(branch_gtf, branch_protein_fasta, mapping, branch_output_dir)
 
             _run_reference_comparison(branch_name, branch_gtf, branch_protein_fasta, branch_output_dir)
             return {
