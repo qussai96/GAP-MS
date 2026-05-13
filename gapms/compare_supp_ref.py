@@ -548,6 +548,13 @@ def generate_annotation_report(output_dir, supported_gtf, reference_gtf,
     gtf_dir = compare_dir
     different_dir = compare_dir / "Different"
     different_dir.mkdir(parents=True, exist_ok=True)
+
+    # Remove stale category files from previous runs so old categories
+    # (e.g. different_stop) do not persist when they are no longer present.
+    for stale in different_dir.glob("peptide_support_different_*.gtf"):
+        stale.unlink()
+    for stale in different_dir.glob("peptide_support_different_*.faa"):
+        stale.unlink()
     
     # Load the supported GTF file
     supported_gtf_path = Path(supported_gtf)
