@@ -182,6 +182,37 @@ def classify_difference(pred_info, ref_info):
             return "exon_structure_difference"
 
 
+def has_stop_difference(pred_info, ref_info, tolerance_nt=3):
+    """
+    Return True when translation start is unchanged but translation stop differs.
+
+    This check is independent of splice classification so mixed splice+stop
+    changes can still be categorized as stop differences.
+    """
+    if not pred_info or not ref_info:
+        return False
+
+    if pred_info.get('seqid') != ref_info.get('seqid') or pred_info.get('strand') != ref_info.get('strand'):
+        return False
+
+    pred_cds = pred_info.get('cds_regions', [])
+    ref_cds = ref_info.get('cds_regions', [])
+    if not pred_cds or not ref_cds:
+        return False
+
+    strand = pred_info.get('strand') or ref_info.get('strand')
+    pred_first, pred_last = get_first_and_last_cds(pred_cds, strand)
+    ref_first, ref_last = get_first_and_last_cds(ref_cds, strand)
+
+    if pred_first != ref_first:
+        return False
+
+    if pred_last is None or ref_last is None:
+        return False
+
+    return abs(pred_last - ref_last) > tolerance_nt
+
+
 def get_splice_junctions(cds_regions):
     """
     Extract splice junctions from CDS regions.
@@ -208,7 +239,16 @@ def load_peptides_bed(bed_file):
     Load peptides_mapped.bed file and return peptide locations.
     
     Returns: dict mapping peptide_name to list of genomic locations
-        {peptide_name: [{'seqid': chr, 'start': pos, 'end': pos, 'strand': strand, 'protein': protein_id}, ...]}
+        {
+            peptide_name: [{
+                'seqid': chr,
+                'start': pos,
+                'end': pos,
+                'strand': strand,
+                'protein': protein_id,
+                'blocks': [(block_start_1based, block_end_1based), ...]
+            }, ...]
+        }
     """
     peptide_locations = defaultdict(list)
     
@@ -231,6 +271,23 @@ def load_peptides_bed(bed_file):
             name = fields[3]  # peptide sequence (may be reversed for minus strand)
             score = fields[4]
             strand = fields[5]
+
+            # Parse BED12 blocks when available.
+            # BED is 0-based, end-exclusive. Convert blocks to 1-based inclusive
+            # to match GTF-derived junction coordinates.
+            blocks = []
+            if len(fields) >= 12:
+                try:
+                    block_count = int(fields[9])
+                    block_sizes = [int(x) for x in fields[10].rstrip(',').split(',') if x]
+                    block_starts = [int(x) for x in fields[11].rstrip(',').split(',') if x]
+                    if block_count == len(block_sizes) == len(block_starts):
+                        for rel_start, size in zip(block_starts, block_sizes):
+                            b_start_0 = start + rel_start
+                            b_end_0 = b_start_0 + size
+                            blocks.append((b_start_0 + 1, b_end_0))
+                except ValueError:
+                    blocks = []
             
             # Extract protein ID from additional fields if available
             protein_id = None
@@ -246,7 +303,8 @@ def load_peptides_bed(bed_file):
                 'start': start,
                 'end': end,
                 'strand': strand,
-                'protein': protein_id
+                'protein': protein_id,
+                'blocks': blocks
             })
     
     return peptide_locations
@@ -257,24 +315,54 @@ def peptide_spans_junction(peptide_loc, junction):
     Check if a peptide spans a specific splice junction.
     
     Args:
-        peptide_loc: dict with 'seqid', 'start', 'end', 'strand'
+        peptide_loc: dict with 'blocks' parsed from BED12
         junction: tuple (exon_end, next_exon_start)
-    
-    Returns: True if peptide spans the junction
+
+    Returns: True only when peptide has a split mapping with adjacent blocks that
+    exactly flank the junction boundaries.
     """
     exon_end, next_exon_start = junction
-    pep_start = peptide_loc['start']
-    pep_end = peptide_loc['end']
-    
-    # A peptide spans a junction if it overlaps both the end of one exon
-    # and the start of the next exon (i.e., it crosses the intron boundary)
-    # This means: pep_start <= exon_end and pep_end >= next_exon_start
-    return pep_start <= exon_end and pep_end >= next_exon_start
+    blocks = peptide_loc.get('blocks', [])
+
+    # Without split blocks, a peptide cannot provide true splice-junction support.
+    if len(blocks) < 2:
+        return False
+
+    blocks = sorted(blocks, key=lambda x: x[0])
+    for i in range(len(blocks) - 1):
+        left_end = blocks[i][1]
+        right_start = blocks[i + 1][0]
+        if left_end == exon_end and right_start == next_exon_start:
+            return True
+
+    return False
+
+
+def get_corresponding_ref_junctions(pred_junction, ref_only_junctions):
+    """
+    Get reference-only junctions that correspond to a predicted-only junction.
+
+    "Corresponding" means they share one splice boundary (same donor or acceptor)
+    and differ on the other boundary.
+    """
+    pred_exon_end, pred_next_exon_start = pred_junction
+    corresponding = []
+
+    for ref_junction in ref_only_junctions:
+        ref_exon_end, ref_next_exon_start = ref_junction
+        if pred_exon_end == ref_exon_end or pred_next_exon_start == ref_next_exon_start:
+            corresponding.append(ref_junction)
+
+    return corresponding
 
 
 def get_peptides_supporting_different_junctions(protein_id, pred_info, ref_info, peptide_bed_dict):
     """
-    Find peptides that span splice junctions that differ between predicted and reference.
+    Find peptides that discriminatively support predicted-only splice junctions.
+
+    A peptide is counted only if it:
+    1) spans a predicted-only junction, and
+    2) does NOT span the corresponding reference-only junction(s).
     
     Returns: number of peptides supporting the different junctions
     """
@@ -292,8 +380,9 @@ def get_peptides_supporting_different_junctions(protein_id, pred_info, ref_info,
     pred_junctions = get_splice_junctions(pred_cds)
     ref_junctions = get_splice_junctions(ref_cds)
     
-    # Find junctions that are different (in predicted but not in reference)
+    # Predicted-only and reference-only junction sets
     different_junctions = pred_junctions - ref_junctions
+    ref_only_junctions = ref_junctions - pred_junctions
     
     if not different_junctions:
         return 0
@@ -306,7 +395,13 @@ def get_peptides_supporting_different_junctions(protein_id, pred_info, ref_info,
         for loc in locations
     )
 
-    # Find peptides for this protein
+    # Map each predicted-only junction to corresponding reference-only junction(s)
+    corresponding_ref_by_pred = {
+        junction: get_corresponding_ref_junctions(junction, ref_only_junctions)
+        for junction in different_junctions
+    }
+
+    # Find discriminative peptides for this protein
     supporting_peptides = set()
     
     # Search through all peptides in the BED file
@@ -319,11 +414,18 @@ def get_peptides_supporting_different_junctions(protein_id, pred_info, ref_info,
             if has_any_protein_ids and loc.get('protein') not in (None, protein_id):
                 continue
 
-            # Check if peptide spans any of the different junctions
+            # Count only discriminative support: spans pred-only junction and not
+            # the corresponding ref-only junction(s).
             for junction in different_junctions:
-                if peptide_spans_junction(loc, junction):
-                    supporting_peptides.add(peptide_name)
-                    break
+                if not peptide_spans_junction(loc, junction):
+                    continue
+
+                corresponding_ref = corresponding_ref_by_pred.get(junction, [])
+                if any(peptide_spans_junction(loc, ref_j) for ref_j in corresponding_ref):
+                    continue
+
+                supporting_peptides.add(peptide_name)
+                break
     
     return len(supporting_peptides)
 
@@ -459,15 +561,18 @@ def generate_annotation_report(output_dir, supported_gtf, reference_gtf,
         
         # Categories where start position differs
         start_diff_categories = ['different_start_same_stop', 'upstream_extension', 'downstream_truncation']
-        # Categories where stop position differs
-        stop_diff_categories = ['same_start_different_stop']
         # Categories where splice sites differ
         splice_diff_categories = ['different_splice', 'same_start_same_stop_different_exons', 'exon_structure_difference', 
                                   'more_exons', 'fewer_exons']
 
-        # Check splice differences first so mixed splice/start/stop cases are not
-        # collapsed into boundary-only categories.
-        if classification in splice_diff_categories:
+        stop_is_different = has_stop_difference(pred_info, ref_info)
+
+        # Report stop differences first, even when there is also a splice change.
+        if stop_is_different and c_term_peptides > 0:
+            category = 'peptide_support_different_stop'
+
+        # Check splice differences and require peptide support on differing junctions.
+        elif classification in splice_diff_categories:
             splice_support_count = get_peptides_supporting_different_junctions(
                 qry_id, pred_info, ref_info, peptide_bed_dict
             )
@@ -478,10 +583,6 @@ def generate_annotation_report(output_dir, supported_gtf, reference_gtf,
         # Check if gene has different start AND N-terminal peptide
         elif classification in start_diff_categories and n_term_peptides > 0:
             category = 'peptide_support_different_start'
-        
-        # Check if gene has different stop AND C-terminal peptide
-        elif classification in stop_diff_categories and c_term_peptides > 0:
-            category = 'peptide_support_different_stop'
         
         # Only include if it matches one of our 3 categories
         if category:
@@ -549,11 +650,10 @@ def generate_annotation_report(output_dir, supported_gtf, reference_gtf,
     different_dir = compare_dir / "Different"
     different_dir.mkdir(parents=True, exist_ok=True)
 
-    # Remove stale category files from previous runs so old categories
-    # (e.g. different_stop) do not persist when they are no longer present.
-    for stale in different_dir.glob("peptide_support_different_*.gtf"):
+    # Remove stale category files from previous runs.
+    for stale in different_dir.glob("*.gtf"):
         stale.unlink()
-    for stale in different_dir.glob("peptide_support_different_*.faa"):
+    for stale in different_dir.glob("*.faa"):
         stale.unlink()
     
     # Load the supported GTF file
@@ -578,10 +678,14 @@ def generate_annotation_report(output_dir, supported_gtf, reference_gtf,
                     'attributes': fields[8]
                 })
     
-    # Load protein sequences from the provided protein FASTA
+    # Load protein sequences from the provided protein FASTA (or auto-detect).
     protein_sequences = {}
     if not protein_fasta:
-        raise ValueError("protein_fasta is required to export category .faa files")
+        autodetected_fasta = output_dir / "supported_proteins.fa"
+        if autodetected_fasta.exists():
+            protein_fasta = str(autodetected_fasta)
+        else:
+            raise ValueError("protein_fasta is required to export category .faa files")
 
     fasta_file = Path(protein_fasta)
     if fasta_file.exists():
@@ -617,7 +721,7 @@ def generate_annotation_report(output_dir, supported_gtf, reference_gtf,
         if category_gtf_lines:
             # Sanitize filename
             safe_category = category.replace('/', '_').replace(' ', '_')
-            category_dir = different_dir if safe_category.startswith("peptide_support_different_") else gtf_dir
+            category_dir = different_dir
             gtf_file = category_dir / f"{safe_category}.gtf"
             faa_file = category_dir / f"{safe_category}.faa"
             
