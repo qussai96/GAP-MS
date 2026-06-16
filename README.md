@@ -72,7 +72,7 @@ apptainer run gapms.sif -g annotations.gtf -f proteins.fasta -p peptides.txt
 ### 1) With both prediction GTF and BAM input
 
 ```bash
-gapms -g predictions.gtf -b rnaseq_alignments.bam -a assembly.fasta -p peptides.txt [-rg reference_proteins.gtf -rf reference_proteins.gff]
+gapms -g predictions.gtf -b rnaseq_alignments.bam -a assembly.fasta -p peptides.txt [-rg reference_proteins.gtf -rf reference_proteins.faa]
 ```
 ### 2) With prediction GTF + protein FASTA
 
