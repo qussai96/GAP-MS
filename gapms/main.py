@@ -8,6 +8,7 @@ import sys
 import argparse
 from pathlib import Path
 from datetime import datetime
+from importlib.metadata import PackageNotFoundError, version as pkg_version
 
 from gapms.extract import extract_features
 from gapms.filter import filter_predictions
@@ -25,10 +26,16 @@ from gapms.plotting import plot_parent_run_summary
 
 def main():
     start_time = time.time()
+    try:
+        gapms_version = pkg_version("gapms")
+    except PackageNotFoundError:
+        # Fallback when running from source without an installed package.
+        gapms_version = "0.1.3"
 
     parser = argparse.ArgumentParser(
         description="Filter GTF predictions using mass-spec data and mapping information."
     )
+    parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {gapms_version}")
     parser.add_argument("-f", "--proteins", type=Path, help="Path to the protein FASTA file (optional if --gtf and --assembly are provided)")
     parser.add_argument("-g", "--gtf", type=Path, help="Path to the prediction GTF file (required unless --bam is used)")
     parser.add_argument("-b", "--bam", type=Path, help="Optional RNA-seq BAM file. When provided, GAP-MS assembles transcripts with StringTie and predicts ORFs with TransDecoder before peptide searching.")

@@ -6,6 +6,11 @@ def mapping_file_to_df(mapping_file):
     mapping_df = mapping_df[['Peptide', 'Protein']]
     mapping_df.drop_duplicates(inplace=True)
     mapping_df = mapping_df[~mapping_df['Protein'].str.lower().eq('unmapped')]
+    
+    # Split multiple proteins on same line (separated by spaces) into separate rows
+    mapping_df['Protein'] = mapping_df['Protein'].str.split()
+    mapping_df = mapping_df.explode('Protein')
+    
     mapping_df['peptide_length'] = mapping_df['Peptide'].apply(len)
     print(f'Total peptides loaded: {mapping_df["Peptide"].nunique()}')
     return mapping_df
