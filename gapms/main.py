@@ -70,7 +70,7 @@ def main():
             output_dir = args.output
             output_dir.mkdir(parents=True, exist_ok=True)
         else:
-            base_dir = args.gtf.parent.parent if args.gtf else args.bam.parent
+            base_dir = args.gtf.parent.parent if args.gtf else args.bam.parent.parent
             output_dir = base_dir / "GAPMS_Output"
             output_dir.mkdir(parents=True, exist_ok=True)
             

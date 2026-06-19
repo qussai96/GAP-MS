@@ -86,12 +86,30 @@ def run_gffread_transcripts(assembly_path, transcripts_gtf, output_dir):
 
 
 def run_transdecoder(transcripts_fa, output_dir):
-    """Predict likely coding ORFs and translated peptide sequences."""
-    output_dir = Path(output_dir)
-    _run_command(["TransDecoder.LongOrfs", "-t", str(transcripts_fa)], "TransDecoder.LongOrfs", cwd=output_dir)
-    _run_command(["TransDecoder.Predict", "-t", str(transcripts_fa)], "TransDecoder.Predict", cwd=output_dir)
-    return Path(f"{transcripts_fa}.transdecoder.pep")
+    transcripts_fa = Path(transcripts_fa).resolve()
+    output_dir = Path(output_dir).resolve()
 
+    _run_command(
+        [
+            "/opt/conda/envs/gapms_env/opt/transdecoder/TransDecoder.LongOrfs",
+            "-t",
+            str(transcripts_fa),
+        ],
+        "TransDecoder.LongOrfs",
+        cwd=output_dir,
+    )
+
+    _run_command(
+        [
+            "/opt/conda/envs/gapms_env/opt/transdecoder/TransDecoder.Predict",
+            "-t",
+            str(transcripts_fa),
+        ],
+        "TransDecoder.Predict",
+        cwd=output_dir,
+    )
+
+    return Path(f"{transcripts_fa}.transdecoder.pep")
 
 def _parse_attributes(attributes_text):
     """Parse GTF/GFF attributes into a dict."""
@@ -310,6 +328,10 @@ def prepare_bam_search_inputs(bam_path, assembly_path, output_dir):
 
     transcripts_gtf = run_stringtie(bam_path, bam_dir)
     transcript_fasta = run_gffread_transcripts(assembly_path, transcripts_gtf, bam_dir)
+    print("transcript_fasta =", transcript_fasta)
+    print("output_dir =", bam_dir)
+    print("transcript_fasta exists =", Path(transcript_fasta).exists())
+    print("transcript_fasta abs =", Path(transcript_fasta).resolve())
     protein_fasta = run_transdecoder(transcript_fasta, bam_dir)
     transdecoder_gff3 = Path(f"{transcript_fasta}.transdecoder.gff3")
 
