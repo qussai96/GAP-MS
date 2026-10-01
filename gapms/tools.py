@@ -23,8 +23,14 @@ def run_proteomapper(protdb_path: str, peptides_path: str, output_dir):
         raise RuntimeError(f"clips.pl failed:\n{clips_result.stderr}")
 
     # Run promast.pl
-    promast_cmd = f"perl {promast_path} {protdb_path} {peptides_path} > {output_file}"
-    promast_result = subprocess.run(promast_cmd, shell=True, capture_output=True, text=True)
+    promast_cmd = ["perl", promast_path, str(protdb_path), str(peptides_path)]
+    with open(output_file, "w") as output_handle:
+        promast_result = subprocess.run(
+            promast_cmd,
+            stdout=output_handle,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
 
     if promast_result.returncode != 0:
         raise RuntimeError(f"promast.pl failed:\n{promast_result.stderr}")

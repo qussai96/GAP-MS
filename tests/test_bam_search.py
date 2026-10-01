@@ -76,6 +76,53 @@ class TestBamSearch(unittest.TestCase):
             self.assertIn('transcript_id "STRG.1.1.p1"', contents)
             self.assertNotIn("STRG.1.1\ttransdecoder\tCDS\t50\t170", contents)
 
+    def test_convert_transdecoder_composes_orf_strand_and_recalculates_phase(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            transcripts_gtf = tmp_path / "transcripts.gtf"
+            transdecoder_gff3 = tmp_path / "transcripts.fa.transdecoder.gff3"
+            output_gtf = tmp_path / "transcripts.fa.transdecoder.genome.gtf"
+
+            transcripts_gtf.write_text(
+                "chr1\tStringTie\ttranscript\t100\t399\t.\t+\t.\tgene_id \"gplus\"; transcript_id \"tplus\";\n"
+                "chr1\tStringTie\texon\t100\t199\t.\t+\t.\tgene_id \"gplus\"; transcript_id \"tplus\";\n"
+                "chr1\tStringTie\texon\t300\t399\t.\t+\t.\tgene_id \"gplus\"; transcript_id \"tplus\";\n"
+                "chr1\tStringTie\ttranscript\t500\t799\t.\t-\t.\tgene_id \"gminus\"; transcript_id \"tminus\";\n"
+                "chr1\tStringTie\texon\t500\t599\t.\t-\t.\tgene_id \"gminus\"; transcript_id \"tminus\";\n"
+                "chr1\tStringTie\texon\t700\t799\t.\t-\t.\tgene_id \"gminus\"; transcript_id \"tminus\";\n"
+                "chr1\tStringTie\ttranscript\t1000\t1299\t.\t.\t.\tgene_id \"gdot\"; transcript_id \"tdot\";\n"
+                "chr1\tStringTie\texon\t1000\t1099\t.\t.\t.\tgene_id \"gdot\"; transcript_id \"tdot\";\n"
+                "chr1\tStringTie\texon\t1200\t1299\t.\t.\t.\tgene_id \"gdot\"; transcript_id \"tdot\";\n"
+            )
+            transdecoder_gff3.write_text(
+                "##gff-version 3\n"
+                "tplus\ttransdecoder\tmRNA\t1\t200\t.\t-\t.\tID=tplus.p1\n"
+                "tplus\ttransdecoder\tCDS\t49\t170\t.\t-\t0\tParent=tplus.p1\n"
+                "tminus\ttransdecoder\tmRNA\t1\t200\t.\t-\t.\tID=tminus.p1\n"
+                "tminus\ttransdecoder\tCDS\t49\t170\t.\t-\t0\tParent=tminus.p1\n"
+                "tdot\ttransdecoder\tmRNA\t1\t200\t.\t+\t.\tID=tdot.p1\n"
+                "tdot\ttransdecoder\tCDS\t49\t170\t.\t+\t0\tParent=tdot.p1\n"
+                "tdot\ttransdecoder\tmRNA\t1\t200\t.\t-\t.\tID=tdot.p2\n"
+                "tdot\ttransdecoder\tCDS\t49\t170\t.\t-\t0\tParent=tdot.p2\n"
+            )
+
+            convert_transdecoder_to_genome_gtf(transdecoder_gff3, transcripts_gtf, output_gtf)
+            contents = output_gtf.read_text()
+
+            # Plus transcript × reverse ORF becomes genomic minus.  Phase is
+            # propagated in translation order (high coordinate to low).
+            self.assertIn("CDS\t300\t369\t.\t-\t0\t", contents)
+            self.assertIn("CDS\t148\t199\t.\t-\t2\t", contents)
+            # Minus transcript × reverse ORF becomes genomic plus.
+            self.assertIn("CDS\t530\t599\t.\t+\t0\t", contents)
+            self.assertIn("CDS\t700\t751\t.\t+\t2\t", contents)
+            # Unstranded transcript coordinates follow gffread's ascending
+            # transcript sequence; the ORF orientation sets genomic strand.
+            self.assertIn("CDS\t1048\t1099\t.\t+\t0\t", contents)
+            self.assertIn("CDS\t1200\t1269\t.\t+\t2\t", contents)
+            self.assertIn("CDS\t1200\t1269\t.\t-\t0\t", contents)
+            self.assertIn("CDS\t1048\t1099\t.\t-\t2\t", contents)
+
     @patch("gapms.bam_search.subprocess.run")
     def test_run_gffread_transcripts_regenerates_stale_fai_on_coordinate_error(self, mock_run):
         mock_run.side_effect = [

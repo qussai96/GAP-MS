@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
-import warnings
 import time
 import traceback
-warnings.filterwarnings("ignore")
 
 import sys
 import argparse
@@ -10,12 +8,15 @@ from pathlib import Path
 from datetime import datetime
 from importlib.metadata import PackageNotFoundError, version as pkg_version
 
+import pandas as pd
+
 from gapms.extract import extract_features
 from gapms.filter import filter_predictions
 from gapms.tools import run_proteomapper, run_gffread, run_gffcompare
 from gapms.peptides_to_genome import map_peptides_to_genome
 from gapms.parse_gffcompare_tmap import parse_gffcompare_tmap
 from gapms.compare_supp_ref import generate_annotation_report
+from gapms.gtf_utils import save_gtf_subset_all_features
 from gapms.bam_search import (
     prepare_bam_search_inputs,
     compare_bam_support_to_input_gtf,
@@ -61,6 +62,14 @@ def main():
     if not args.proteins and not args.assembly:
         parser.error("If --proteins is not provided, --assembly must be specified.")
 
+    for option_name in (
+        "gtf", "bam", "assembly", "peptides", "proteins", "mapping",
+        "scores", "reference_gtf", "reference_fasta",
+    ):
+        input_path = getattr(args, option_name)
+        if input_path is not None and not input_path.is_file():
+            parser.error(f"--{option_name.replace('_', '-')} file does not exist: {input_path}")
+
     log_file = None
     original_stdout = sys.stdout
     original_stderr = sys.stderr
@@ -77,7 +86,9 @@ def main():
         prediction_dir = output_dir / "prediction_search"
         bam_dir = output_dir / "bam_search"
         comparisons_dir = output_dir / "comparisons"
-        prediction_output_dir = prediction_dir
+        combined_run = bool(args.gtf and args.bam)
+        prediction_output_dir = prediction_dir if combined_run else output_dir
+        bam_output_dir = bam_dir if combined_run else output_dir
 
         # Prepare logging
         log_file_path = output_dir / "log.txt"
@@ -108,75 +119,134 @@ def main():
             if not args.reference_gtf:
                 return
 
-            print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Getting New Supported Proteins for {branch_name}....")
-            cleaned_reference_gtf = branch_output_dir / "reference_cleaned.gtf"
-            with open(args.reference_gtf, 'r') as infile, open(cleaned_reference_gtf, 'w') as outfile:
+            def _clean_gtf_for_gffcompare(input_gtf_path, output_gtf_path):
                 removed_count = 0
-                for line in infile:
-                    if line.startswith('#'):
-                        outfile.write(line)
-                        continue
+                with open(input_gtf_path, 'r') as infile, open(output_gtf_path, 'w') as outfile:
+                    for line in infile:
+                        if line.startswith('#'):
+                            outfile.write(line)
+                            continue
 
-                    fields = line.rstrip('\n').split('\t')
-                    if len(fields) < 9:
-                        removed_count += 1
-                        continue
+                        fields = line.rstrip('\n').split('\t')
+                        if len(fields) < 9:
+                            removed_count += 1
+                            continue
 
-                    feature = fields[2]
-                    strand = fields[6]
-                    attributes = fields[8]
+                        feature = fields[2]
+                        strand = fields[6]
+                        attributes = fields[8]
 
-                    # Skip gene-level rows: gffcompare doesn't use them and they
-                    # typically carry empty transcript_id which causes parse errors
-                    if feature == 'gene':
-                        removed_count += 1
-                        continue
+                        # Skip gene-level rows: gffcompare doesn't use them and they
+                        # typically carry empty transcript_id which causes parse errors
+                        if feature == 'gene':
+                            removed_count += 1
+                            continue
 
-                    # Skip records with invalid/ambiguous strand (e.g. trans-spliced '?')
-                    if strand not in ('+', '-'):
-                        removed_count += 1
-                        continue
+                        # Skip records with invalid/ambiguous strand (e.g. trans-spliced '?')
+                        if strand not in ('+', '-'):
+                            removed_count += 1
+                            continue
 
-                    # Check for a non-empty ID in GFF3 format (key=value)
-                    has_valid_id = False
-                    for key in ('ID=', 'transcript_id=', 'protein_id=', 'gene_id='):
-                        if key in attributes:
-                            parts = [a.strip() for a in attributes.split(';') if a.strip().startswith(key)]
-                            if parts and parts[0][len(key):].strip():
-                                has_valid_id = True
-                                break
-
-                    # Also check GTF format (key "value") — e.g. transcript_id "NM_099983.2"
-                    if not has_valid_id:
-                        for key in ('transcript_id', 'gene_id', 'protein_id'):
-                            search = key + ' "'
-                            idx = attributes.find(search)
-                            if idx != -1:
-                                rest = attributes[idx + len(search):]
-                                closing = rest.find('"')
-                                if closing > 0:  # non-empty value between quotes
+                        # Check for a non-empty identifier in GFF3 format (key=value).
+                        # Child features (CDS/exon/UTR) commonly use Parent instead of ID.
+                        has_valid_id = False
+                        for key in ('ID=', 'Parent=', 'transcript_id=', 'protein_id=', 'gene_id='):
+                            if key in attributes:
+                                parts = [a.strip() for a in attributes.split(';') if a.strip().startswith(key)]
+                                if parts and parts[0][len(key):].strip():
                                     has_valid_id = True
                                     break
 
-                    if not has_valid_id:
-                        removed_count += 1
-                        continue
+                        # Also check GTF format (key "value") — e.g. transcript_id "NM_099983.2"
+                        if not has_valid_id:
+                            for key in ('transcript_id', 'gene_id', 'protein_id'):
+                                search = key + ' "'
+                                idx = attributes.find(search)
+                                if idx != -1:
+                                    rest = attributes[idx + len(search):]
+                                    closing = rest.find('"')
+                                    if closing > 0:  # non-empty value between quotes
+                                        has_valid_id = True
+                                        break
 
-                    outfile.write(line)
+                        if not has_valid_id:
+                            removed_count += 1
+                            continue
+
+                        outfile.write(line)
+
+                return removed_count
+
+            print(
+                f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} "
+                f"Comparing peptide-mapped proteins with the reference for {branch_name}...."
+            )
+            cleaned_reference_gtf = branch_output_dir / "reference_cleaned.gtf"
+            removed_count = _clean_gtf_for_gffcompare(args.reference_gtf, cleaned_reference_gtf)
 
             if removed_count > 0:
                 print(f"Removed {removed_count} rows with invalid strand or missing ID from reference GTF")
 
+            # Reference-event discovery is peptide-driven, not classifier-
+            # driven. Build the gffcompare query from every model with at least
+            # one mapped peptide while keeping supported_proteins.gtf as the
+            # separate classifier output.
+            score_table = pd.read_csv(
+                branch_output_dir / "all_proteins_scores.tsv", sep='\t'
+            )
+            peptide_mapped_proteins = set(
+                score_table.loc[
+                    pd.to_numeric(
+                        score_table['mapped_peptides'], errors='coerce'
+                    ).fillna(0) > 0,
+                    'Protein',
+                ].dropna().astype(str)
+            )
+            peptide_mapped_gtf = branch_output_dir / "peptide_mapped_proteins.gtf"
+            save_gtf_subset_all_features(
+                branch_gtf,
+                peptide_mapped_proteins,
+                branch_output_dir,
+                peptide_mapped_gtf.name,
+            )
+
             branch_compare_dir = branch_output_dir / "Compare_to_Reference"
-            gtf_out = branch_output_dir / "supported_proteins.gtf"
-            run_gffcompare(cleaned_reference_gtf, gtf_out, branch_compare_dir)
-            parse_gffcompare_tmap(branch_output_dir, branch_gtf, args.reference_gtf, args.reference_fasta)
+            cleaned_peptide_mapped_gtf = (
+                branch_output_dir / "peptide_mapped_proteins_cleaned.gtf"
+            )
+            removed_mapped_count = _clean_gtf_for_gffcompare(
+                peptide_mapped_gtf, cleaned_peptide_mapped_gtf
+            )
+            if removed_mapped_count > 0:
+                print(
+                    f"Removed {removed_mapped_count} rows with invalid strand or "
+                    "missing ID from peptide-mapped proteins GTF"
+                )
+
+            run_gffcompare(
+                cleaned_reference_gtf,
+                cleaned_peptide_mapped_gtf,
+                branch_compare_dir,
+            )
+            current_tmap = (
+                branch_compare_dir
+                / f"gffcmp.{cleaned_peptide_mapped_gtf.name}.tmap"
+            )
+            parse_gffcompare_tmap(
+                branch_output_dir,
+                branch_gtf,
+                args.reference_gtf,
+                args.reference_fasta,
+                prediction_fasta=branch_protein_fasta,
+                tmap_file=current_tmap,
+            )
 
             print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Generating Annotation Comparison Report for {branch_name}....")
             generate_annotation_report(
                 branch_output_dir,
                 branch_gtf,
                 args.reference_gtf,
+                tmap_file=current_tmap,
                 protein_fasta=branch_protein_fasta,
             )
 
@@ -243,18 +313,18 @@ def main():
 
         if args.bam:
             print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Building BAM-derived transcript and ORF search branch...")
-            bam_outputs = prepare_bam_search_inputs(args.bam, args.assembly, bam_dir)
+            bam_outputs = prepare_bam_search_inputs(args.bam, args.assembly, bam_output_dir)
             bam_external_scores_csv = _resolve_external_scores(
                 "bam_search",
                 bam_outputs["protein_fasta"],
-                bam_dir,
+                bam_output_dir,
                 allow_provided_scores=not args.gtf,
             )
             branch_results["bam_search"] = run_gapms_branch(
                 "bam_search",
                 bam_outputs["gtf"],
                 bam_outputs["protein_fasta"],
-                bam_dir,
+                bam_output_dir,
                 external_scores_csv=bam_external_scores_csv,
             )
 
@@ -288,6 +358,8 @@ def main():
             print(f"Combined parent summary figure written to: {summary_figure}")
 
         total_time = (time.time() - start_time) / 60
+        print("\nPipeline completed successfully")
+        print(f"Total time run: {total_time:.2f} minutes")
         print("\n✅ Pipeline completed", file=sys.__stdout__)
         print(f"\nTotal time run: {total_time:.2f} minutes", file=sys.__stdout__)
 

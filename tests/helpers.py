@@ -107,7 +107,7 @@ def create_mini_gapms_dataset(base_dir: Path):
     write_text(
         peptides_bed,
         """
-        chr1\t0\t12\tMACD\t0\t+
+        chr1\t0\t12\tMACD\t0\t+\t0\t12\t0,255,0\t1\t12\t0\tprotein=protA\tpep_start=1\tpep_end=4\tprot_len=11
         """,
     )
 

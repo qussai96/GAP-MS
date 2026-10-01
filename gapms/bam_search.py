@@ -91,7 +91,7 @@ def run_transdecoder(transcripts_fa, output_dir):
 
     _run_command(
         [
-            "/opt/conda/envs/gapms_env/opt/transdecoder/TransDecoder.LongOrfs",
+            "TransDecoder.LongOrfs",
             "-t",
             str(transcripts_fa),
         ],
@@ -101,7 +101,7 @@ def run_transdecoder(transcripts_fa, output_dir):
 
     _run_command(
         [
-            "/opt/conda/envs/gapms_env/opt/transdecoder/TransDecoder.Predict",
+            "TransDecoder.Predict",
             "-t",
             str(transcripts_fa),
         ],
@@ -207,7 +207,10 @@ def _map_transcript_interval_to_genome(feature_start, feature_end, transcript_mo
         overlap_start = max(feature_start, transcript_exon_start)
         overlap_end = min(feature_end, transcript_exon_end)
         if overlap_start <= overlap_end:
-            if strand == '+':
+            # gffread emits unstranded StringTie transcripts in ascending
+            # genomic order, so "." must be projected like a plus-strand
+            # transcript here.
+            if strand != '-':
                 genomic_start = exon_start + (overlap_start - transcript_exon_start)
                 genomic_end = exon_start + (overlap_end - transcript_exon_start)
             else:
@@ -219,6 +222,23 @@ def _map_transcript_interval_to_genome(feature_start, feature_end, transcript_mo
         transcript_cursor = transcript_exon_end + 1
 
     return sorted(genomic_segments, key=lambda segment: segment[0])
+
+
+def _genomic_orf_strand(transcript_strand, orf_strand):
+    """Compose transcript and TransDecoder ORF orientation on the genome."""
+    if orf_strand not in {'+', '-'}:
+        return transcript_strand
+    if transcript_strand == '-':
+        return '+' if orf_strand == '-' else '-'
+    # A "." StringTie transcript is extracted by gffread in genomic-plus
+    # orientation, so the ORF strand directly determines its genomic strand.
+    return orf_strand
+
+
+def _next_cds_phase(segment_length, phase):
+    """Return the GFF phase for the next CDS segment in translation order."""
+    coding_length = max(int(segment_length) - int(phase), 0)
+    return (3 - (coding_length % 3)) % 3
 
 
 def convert_transdecoder_to_genome_gtf(transdecoder_gff3, transcripts_gtf, output_gtf):
@@ -251,9 +271,17 @@ def convert_transdecoder_to_genome_gtf(transdecoder_gff3, transcripts_gtf, outpu
                     continue
                 entry = orf_records.setdefault(
                     orf_id,
-                    {'transcript_id': transcript_id, 'source': source, 'score': score, 'cds_features': []},
+                    {
+                        'transcript_id': transcript_id,
+                        'source': source,
+                        'score': score,
+                        'orf_strand': strand,
+                        'cds_features': [],
+                    },
                 )
                 entry['transcript_id'] = transcript_id
+                if strand in {'+', '-'}:
+                    entry['orf_strand'] = strand
                 if score not in {None, ''}:
                     entry['score'] = score
             elif feature_type == 'cds':
@@ -262,10 +290,18 @@ def convert_transdecoder_to_genome_gtf(transdecoder_gff3, transcripts_gtf, outpu
                     continue
                 entry = orf_records.setdefault(
                     orf_id,
-                    {'transcript_id': transcript_id, 'source': source, 'score': score, 'cds_features': []},
+                    {
+                        'transcript_id': transcript_id,
+                        'source': source,
+                        'score': score,
+                        'orf_strand': strand,
+                        'cds_features': [],
+                    },
                 )
                 entry['transcript_id'] = transcript_id
                 entry['cds_features'].append((int(start), int(end), frame if frame != '.' else '0'))
+                if strand in {'+', '-'}:
+                    entry['orf_strand'] = strand
                 if score not in {None, ''}:
                     entry['score'] = score
 
@@ -283,25 +319,42 @@ def convert_transdecoder_to_genome_gtf(transdecoder_gff3, transcripts_gtf, outpu
 
             gene_id = transcript_model['gene_id']
             seqid = transcript_model['seqid']
-            strand = transcript_model['strand']
+            orf_strand = entry.get('orf_strand', '+')
+            strand = _genomic_orf_strand(transcript_model['strand'], orf_strand)
             score = transcript_model.get('score', '.')
             attributes = f'gene_id "{gene_id}"; transcript_id "{orf_id}"; protein_id "{orf_id}";'
+
+            cds_features = sorted(
+                entry['cds_features'],
+                key=lambda feature: feature[0],
+                reverse=orf_strand == '-',
+            )
+            projected_segments = []
+            for cds_start, cds_end, _ in cds_features:
+                genomic_segments = _map_transcript_interval_to_genome(cds_start, cds_end, transcript_model)
+                projected_segments.extend(genomic_segments)
+
+            if not projected_segments:
+                continue
+
+            projected_segments.sort(key=lambda segment: segment[0], reverse=strand == '-')
+            try:
+                phase = int(cds_features[0][2])
+            except (TypeError, ValueError):
+                phase = 0
+            if phase not in {0, 1, 2}:
+                phase = 0
 
             handle.write(
                 f"{seqid}\tGAPMS\ttranscript\t{transcript_model['start']}\t{transcript_model['end']}\t{score}\t{strand}\t.\t{attributes}\n"
             )
+            for genomic_start, genomic_end in projected_segments:
+                handle.write(
+                    f"{seqid}\tGAPMS\tCDS\t{genomic_start}\t{genomic_end}\t{score}\t{strand}\t{phase}\t{attributes}\n"
+                )
+                phase = _next_cds_phase(genomic_end - genomic_start + 1, phase)
 
-            wrote_cds = False
-            for cds_start, cds_end, frame in sorted(entry['cds_features'], key=lambda feature: feature[0]):
-                genomic_segments = _map_transcript_interval_to_genome(cds_start, cds_end, transcript_model)
-                for genomic_start, genomic_end in genomic_segments:
-                    handle.write(
-                        f"{seqid}\tGAPMS\tCDS\t{genomic_start}\t{genomic_end}\t{score}\t{strand}\t{frame}\t{attributes}\n"
-                    )
-                    wrote_cds = True
-
-            if wrote_cds:
-                converted_orfs += 1
+            converted_orfs += 1
 
     if converted_orfs == 0:
         raise RuntimeError(
@@ -323,7 +376,9 @@ def prepare_bam_search_inputs(bam_path, assembly_path, output_dir):
     derived from the TransDecoder predictions, the transcript FASTA, and the peptide FASTA.
     """
     output_dir = Path(output_dir)
-    bam_dir = output_dir if output_dir.name in {"bam_search", "Bam_Search"} else output_dir / "bam_search"
+    # The caller chooses the branch directory. Keeping that contract makes
+    # single-branch outputs land directly in the requested output directory.
+    bam_dir = output_dir
     bam_dir.mkdir(parents=True, exist_ok=True)
 
     transcripts_gtf = run_stringtie(bam_path, bam_dir)

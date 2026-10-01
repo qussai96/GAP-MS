@@ -70,21 +70,14 @@ def filter_predictions(
     print(f"Number of supported proteins by scores: {len(score_supported)}")
 
 
-    # Collect stats
-    original_supported = high_confident_proteins | xgb_pos_proteins | score_supported
-
-    # Require at least one gene-specific peptide for a protein to be considered supported
-    proteins_with_gene_specific_pep = set(
-        all_scores_df.loc[all_scores_df.get('gene_specific_peptides', 0) > 0, 'Protein'].unique()
-    )
-
-    # Apply the requirement by intersecting with proteins that have ≥1 gene-specific peptide
-    supported_proteins = original_supported # & proteins_with_gene_specific_pep
-    removed_no_gene_specific = original_supported - supported_proteins
+    # Keep the classifier/seed/score decision as the definition of a supported
+    # protein. Gene-specific evidence remains available in all_proteins_scores.tsv
+    # for users who want to apply that additional filter themselves.
+    supported_proteins = high_confident_proteins | xgb_pos_proteins | score_supported
 
     unsupported_proteins = all_proteins - supported_proteins
 
-    print(f"\nPipeline completed\nOutputs written to: {output_dir}")
+    print(f"\nProtein filtering completed\nIntermediate outputs written to: {output_dir}")
     print(f"\nNumber of all proteins = {len(set(all_scores_df['Protein']))}")
     print(f"Number of high confident proteins = {len(high_confident_proteins)}")
     print(f"Number of low confident proteins = {len(low_confident_proteins)}")
@@ -145,14 +138,18 @@ def filter_predictions(
     output_fasta = output_dir / "supported_proteins.fa"
     with open(protein_fasta) as fasta, open(output_fasta, "w") as out:
         header, seq = "", ""
+
+        def _header_id(h):
+            # FASTA descriptions often contain spaces after the primary ID.
+            # GAP-MS protein lists store only the ID token, so match on token 1.
+            return h[1:].split()[0] if h else ""
+
         for line in fasta:
             if line.startswith(">"):
-                if header and header[1:] in supported_proteins:
+                if header and _header_id(header) in supported_proteins:
                     out.write(header + "\n" + seq + "\n")
                 header, seq = line.strip(), ""
             else:
                 seq += line.strip()
-        if header and header[1:] in supported_proteins:
+        if header and _header_id(header) in supported_proteins:
             out.write(header + "\n" + seq + "\n")
-    if removed_no_gene_specific:
-        print(f"Removed {len(removed_no_gene_specific)} proteins lacking gene-specific peptides")

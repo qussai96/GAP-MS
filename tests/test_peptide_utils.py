@@ -4,7 +4,11 @@ from pathlib import Path
 
 import pandas as pd
 
-from gapms.peptide_utils import calculate_sequence_coverage, mapping_file_to_df
+from gapms.peptide_utils import (
+    calculate_sequence_coverage,
+    mapping_file_to_df,
+    resolve_peptide_starts,
+)
 from tests.helpers import write_text
 
 
@@ -28,6 +32,32 @@ class TestPeptideUtils(unittest.TestCase):
             self.assertEqual(len(df), 2)
             self.assertSetEqual(set(df["Protein"]), {"protA", "protB"})
             self.assertSetEqual(set(df["peptide_length"]), {8})
+
+    def test_mapping_file_preserves_distinct_locations_for_repeated_peptide(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            mapping_path = Path(tmpdir) / "mapping.tsv"
+            write_text(
+                mapping_path,
+                """
+                Peptide\tProtein\tlocation
+                PEPTIDE\tprotA\t0
+                PEPTIDE\tprotA\t8
+                """,
+            )
+
+            df = mapping_file_to_df(mapping_path)
+
+            self.assertEqual(df["location"].tolist(), [0, 8])
+
+    def test_resolve_peptide_starts_uses_proteomapper_one_based_locations(self):
+        sequence = "AAETKXXAAETK"
+
+        self.assertEqual(resolve_peptide_starts(sequence, "AAETK", 1), [1])
+        self.assertEqual(resolve_peptide_starts(sequence, "AAETK", 8), [8])
+        self.assertEqual(resolve_peptide_starts(sequence, "AAETK", None), [1, 8])
+
+    def test_resolve_peptide_starts_retains_zero_based_input_compatibility(self):
+        self.assertEqual(resolve_peptide_starts("MACDE", "MACD", 0), [1])
 
     def test_calculate_sequence_coverage_merges_overlapping_intervals(self):
         peptide_df = pd.DataFrame(

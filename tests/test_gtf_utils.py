@@ -2,7 +2,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from gapms.gtf_utils import gtf_to_df_with_genes, read_scores_csv
+from gapms.gtf_utils import (
+    gtf_to_df_with_genes,
+    read_scores_csv,
+    save_gtf_subset_all_features,
+)
 from tests.helpers import write_text
 
 
@@ -29,6 +33,52 @@ class TestGtfUtils(unittest.TestCase):
             self.assertIn("gene2", set(df["Gene"]))
             self.assertIn("prot1", set(df["Protein"]))
             self.assertIn("prot2", set(df["Protein"]))
+
+    def test_gtf_ids_are_selected_from_the_fasta_namespace(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            gtf_path = Path(tmpdir) / "ensembl.gtf"
+            write_text(
+                gtf_path,
+                """
+                chr1\tsrc\ttranscript\t1\t9\t0.9\t+\t.\tgene_id "gene1"; transcript_id "tx1";
+                chr1\tsrc\tCDS\t1\t9\t0.9\t+\t0\tgene_id "gene1"; transcript_id "tx1"; protein_id "prot1";
+                """,
+            )
+
+            transcript_df = gtf_to_df_with_genes(gtf_path, valid_protein_ids={"tx1"})
+            protein_df = gtf_to_df_with_genes(gtf_path, valid_protein_ids={"prot1"})
+
+            self.assertSetEqual(set(transcript_df["Protein"]), {"tx1"})
+            self.assertSetEqual(set(protein_df["Protein"]), {"prot1"})
+
+    def test_gtf_ids_match_versioned_fasta_headers(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            gtf_path = Path(tmpdir) / "ensembl.gtf"
+            write_text(
+                gtf_path,
+                "chr1\tsrc\tCDS\t1\t9\t.\t+\t0\tgene_id \"gene1\"; transcript_id \"tx1\"; protein_id \"prot1\";",
+            )
+
+            df = gtf_to_df_with_genes(gtf_path, valid_protein_ids={"prot1.4"})
+
+            self.assertEqual(df.iloc[0]["Protein"], "prot1.4")
+
+    def test_save_subset_uses_matching_transcript_namespace(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = Path(tmpdir)
+            gtf_path = tmpdir / "ensembl.gtf"
+            write_text(
+                gtf_path,
+                """
+                chr1\tsrc\ttranscript\t1\t9\t.\t+\t.\tgene_id "gene1"; transcript_id "tx1";
+                chr1\tsrc\texon\t1\t9\t.\t+\t.\tgene_id "gene1"; transcript_id "tx1";
+                chr1\tsrc\tCDS\t1\t9\t.\t+\t0\tgene_id "gene1"; transcript_id "tx1"; protein_id "prot1";
+                """,
+            )
+
+            save_gtf_subset_all_features(gtf_path, {"tx1"}, tmpdir, "subset.gtf")
+
+            self.assertEqual(len((tmpdir / "subset.gtf").read_text().splitlines()), 3)
 
     def test_read_scores_csv_skips_metadata_lines(self):
         with tempfile.TemporaryDirectory() as tmpdir:

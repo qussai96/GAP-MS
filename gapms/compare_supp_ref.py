@@ -16,8 +16,26 @@ import sys
 import pandas as pd
 from pathlib import Path
 from collections import defaultdict
+from bisect import bisect_right
 import re
 from Bio import SeqIO
+
+
+def _pick_tmap_file(candidates):
+    existing = [Path(path) for path in candidates if Path(path).exists()]
+    if not existing:
+        return None
+
+    for path in existing:
+        try:
+            with path.open('r') as handle:
+                next(handle)
+                next(handle)
+            return path
+        except StopIteration:
+            continue
+
+    return existing[0]
 
 
 def extract_attribute(suppl_value, attr_name):
@@ -46,7 +64,12 @@ def parse_gtf_to_cds_dict(gtf_file):
     Parse GTF file and return dictionary of CDS regions keyed by transcript/protein ID.
     Returns: {transcript_id: {'seqid': chr, 'strand': strand, 'cds_regions': [(start, end), ...], 'gene_id': id}}
     """
-    cds_dict = defaultdict(lambda: {'seqid': None, 'strand': None, 'cds_regions': [], 'gene_id': None})
+    cds_dict = defaultdict(
+        lambda: {
+            'seqid': None, 'strand': None, 'cds_regions': [],
+            'gene_id': None, 'protein_id': None,
+        }
+    )
     
     with open(gtf_file, 'r') as f:
         for line in f:
@@ -68,22 +91,29 @@ def parse_gtf_to_cds_dict(gtf_file):
             if feature_type != 'cds':
                 continue
             
-            # Extract transcript ID (Parent)
-            transcript_id = extract_attribute(attributes, 'Parent')
-            if not transcript_id:
-                transcript_id = extract_attribute(attributes, 'transcript_id')
-            if not transcript_id:
+            parent_id = extract_attribute(attributes, 'Parent')
+            transcript_id = extract_attribute(attributes, 'transcript_id')
+            protein_id = extract_attribute(attributes, 'protein_id')
+            aliases = list(dict.fromkeys(
+                value for value in (parent_id, transcript_id, protein_id) if value
+            ))
+            if not aliases:
                 continue
             
             # Extract gene ID
             gene_id = extract_attribute(attributes, 'gene_id')
             if not gene_id:
                 gene_id = extract_attribute(attributes, 'GeneID')
+            if not gene_id:
+                gene_id = extract_attribute(attributes, 'gene')
             
-            cds_dict[transcript_id]['seqid'] = seqid
-            cds_dict[transcript_id]['strand'] = strand
-            cds_dict[transcript_id]['gene_id'] = gene_id
-            cds_dict[transcript_id]['cds_regions'].append((start, end))
+            preferred_protein_id = protein_id or transcript_id or parent_id
+            for alias in aliases:
+                cds_dict[alias]['seqid'] = seqid
+                cds_dict[alias]['strand'] = strand
+                cds_dict[alias]['gene_id'] = gene_id
+                cds_dict[alias]['protein_id'] = preferred_protein_id
+                cds_dict[alias]['cds_regions'].append((start, end))
     
     # Sort CDS regions for each transcript
     for transcript_id in cds_dict:
@@ -234,6 +264,188 @@ def get_splice_junctions(cds_regions):
     return junctions
 
 
+def _donor_acceptor(junction, strand):
+    """Return transcript-direction donor and acceptor CDS boundaries."""
+    left_end, right_start = junction
+    if strand == '-':
+        return right_start, left_end
+    return left_end, right_start
+
+
+def build_reference_event_index(reference_cds):
+    """Collect coding boundaries from every reference isoform."""
+    index = defaultdict(
+        lambda: {
+            'starts': set(), 'stops': set(), 'donors': set(),
+            'acceptors': set(), 'cds_regions': [], 'cds_starts': [],
+        }
+    )
+    for info in reference_cds.values():
+        seqid = info.get('seqid')
+        strand = info.get('strand')
+        cds_regions = info.get('cds_regions', [])
+        if not seqid or strand not in {'+', '-'} or not cds_regions:
+            continue
+        key = (seqid, strand)
+        first, last = get_first_and_last_cds(cds_regions, strand)
+        index[key]['starts'].add(first)
+        index[key]['stops'].add(last)
+        index[key]['cds_regions'].extend(cds_regions)
+        for junction in get_splice_junctions(cds_regions):
+            donor, acceptor = _donor_acceptor(junction, strand)
+            index[key]['donors'].add(donor)
+            index[key]['acceptors'].add(acceptor)
+    for values in index.values():
+        merged_regions = []
+        for start, end in sorted(values['cds_regions']):
+            if merged_regions and start <= merged_regions[-1][1] + 1:
+                merged_regions[-1] = (merged_regions[-1][0], max(merged_regions[-1][1], end))
+            else:
+                merged_regions.append((start, end))
+        values['cds_regions'] = merged_regions
+        values['cds_starts'] = [start for start, _ in merged_regions]
+    return index
+
+
+def _has_same_strand_reference_cds_overlap(pred_info, reference_event_index):
+    if not pred_info:
+        return False
+    key = (pred_info.get('seqid'), pred_info.get('strand'))
+    reference_values = reference_event_index.get(key, {})
+    reference_regions = reference_values.get('cds_regions', [])
+    reference_starts = reference_values.get('cds_starts', [])
+    for pred_start, pred_end in pred_info.get('cds_regions', []):
+        index = bisect_right(reference_starts, pred_end) - 1
+        if index >= 0 and reference_regions[index][1] >= pred_start:
+            return True
+    return False
+
+
+def _location_matches_protein_and_model(location, protein_id, pred_info):
+    return (
+        location.get('protein') == protein_id
+        and location.get('seqid') == pred_info.get('seqid')
+        and location.get('strand') == pred_info.get('strand')
+    )
+
+
+def build_protein_peptide_index(peptide_bed_dict):
+    """Index peptide names by mapped protein without losing global ambiguity."""
+    index = defaultdict(set)
+    for peptide_name, locations in peptide_bed_dict.items():
+        for location in locations:
+            protein_id = location.get('protein')
+            if protein_id:
+                index[protein_id].add(peptide_name)
+    return index
+
+
+def get_terminal_supporting_peptides(
+    protein_id, pred_info, peptide_bed_dict, terminal,
+    protein_peptide_index=None,
+):
+    """Return peptides whose every mapping supports the same coding terminus."""
+    if not pred_info or terminal not in {'start', 'stop'}:
+        return set()
+
+    strand = pred_info.get('strand')
+    pred_start, pred_stop = get_first_and_last_cds(pred_info.get('cds_regions', []), strand)
+    target = pred_start if terminal == 'start' else pred_stop
+    supporting = set()
+
+    candidate_peptides = (
+        protein_peptide_index.get(protein_id, set())
+        if protein_peptide_index is not None
+        else peptide_bed_dict
+    )
+    for peptide_name in candidate_peptides:
+        locations = peptide_bed_dict.get(peptide_name, [])
+        if not locations or not any(
+            _location_matches_protein_and_model(location, protein_id, pred_info)
+            for location in locations
+        ):
+            continue
+
+        def supports_same_terminal(location):
+            blocks = location.get('blocks', [])
+            if (
+                not blocks
+                or location.get('seqid') != pred_info.get('seqid')
+                or location.get('strand') != strand
+            ):
+                return False
+
+            if terminal == 'start':
+                # pep_start=1 means there is no preceding amino acid and thus no
+                # preceding R/K tryptic cleavage site.
+                if (
+                    location.get('pep_start') != 1
+                    or location.get('previous_aa', '').upper() in {'R', 'K'}
+                ):
+                    return False
+                peptide_boundary = min(start for start, _ in blocks) if strand == '+' else max(end for _, end in blocks)
+                return peptide_boundary == target
+
+            if location.get('pep_end') != location.get('prot_len'):
+                return False
+            if peptide_name.upper().endswith(('R', 'K')):
+                return False
+            peptide_boundary = max(end for _, end in blocks) if strand == '+' else min(start for start, _ in blocks)
+            # A terminal stop codon is inconsistently included as three CDS
+            # bases, so a terminal peptide may end at the boundary or 3 nt in.
+            return abs(peptide_boundary - target) <= 3
+
+        # A peptide mapping internally or to another genomic event has an
+        # ambiguous origin and cannot support this event. The same peptide may
+        # map to multiple isoforms only when every mapping supports this exact
+        # genomic terminus.
+        if all(supports_same_terminal(location) for location in locations):
+            supporting.add(peptide_name)
+
+    return supporting
+
+
+def get_peptides_supporting_novel_splice_sites(
+    protein_id, pred_info, reference_event_index, peptide_bed_dict,
+    protein_peptide_index=None,
+):
+    """Return peptide-supported junctions with novel donor and acceptor sites."""
+    if not pred_info:
+        return {}
+    key = (pred_info.get('seqid'), pred_info.get('strand'))
+    reference_sites = reference_event_index.get(key, {})
+    reference_donors = reference_sites.get('donors', set())
+    reference_acceptors = reference_sites.get('acceptors', set())
+    strand = pred_info.get('strand')
+    supported = defaultdict(set)
+    candidate_peptides = (
+        protein_peptide_index.get(protein_id, set())
+        if protein_peptide_index is not None
+        else peptide_bed_dict
+    )
+
+    for junction in get_splice_junctions(pred_info.get('cds_regions', [])):
+        donor, acceptor = _donor_acceptor(junction, strand)
+        if donor in reference_donors or acceptor in reference_acceptors:
+            continue
+        for peptide_name in candidate_peptides:
+            locations = peptide_bed_dict.get(peptide_name, [])
+            supports_current_protein = any(
+                _location_matches_protein_and_model(location, protein_id, pred_info)
+                and peptide_spans_junction(location, junction)
+                for location in locations
+            )
+            supports_only_this_event = bool(locations) and all(
+                location.get('seqid') == pred_info.get('seqid')
+                and location.get('strand') == strand
+                and peptide_spans_junction(location, junction)
+                for location in locations
+            )
+            if supports_current_protein and supports_only_this_event:
+                supported[junction].add(peptide_name)
+    return dict(supported)
+
+
 def load_peptides_bed(bed_file):
     """
     Load peptides_mapped.bed file and return peptide locations.
@@ -268,7 +480,7 @@ def load_peptides_bed(bed_file):
             seqid = fields[0]
             start = int(fields[1])
             end = int(fields[2])
-            name = fields[3]  # peptide sequence (may be reversed for minus strand)
+            name = fields[3]  # peptide sequence in N-to-C orientation
             score = fields[4]
             strand = fields[5]
 
@@ -289,22 +501,29 @@ def load_peptides_bed(bed_file):
                 except ValueError:
                     blocks = []
             
-            # Extract protein ID from additional fields if available
-            protein_id = None
-            if len(fields) > 6:
-                # Try to extract protein ID from attributes
-                for attr in fields[6:]:
-                    if 'protein' in attr.lower() or 'parent' in attr.lower():
-                        protein_id = attr.split('=')[-1].split(';')[0]
-                        break
+            metadata = {}
+            for attr in fields[12:]:
+                if '=' in attr:
+                    key, value = attr.split('=', 1)
+                    metadata[key] = value
+
+            def _metadata_int(key):
+                try:
+                    return int(metadata[key])
+                except (KeyError, TypeError, ValueError):
+                    return None
             
             peptide_locations[name].append({
                 'seqid': seqid,
                 'start': start,
                 'end': end,
                 'strand': strand,
-                'protein': protein_id,
-                'blocks': blocks
+                'protein': metadata.get('protein'),
+                'blocks': blocks,
+                'pep_start': _metadata_int('pep_start'),
+                'pep_end': _metadata_int('pep_end'),
+                'prot_len': _metadata_int('prot_len'),
+                'previous_aa': metadata.get('previous_aa', ''),
             })
     
     return peptide_locations
@@ -408,7 +627,7 @@ def get_peptides_supporting_different_junctions(protein_id, pred_info, ref_info,
     for peptide_name, locations in peptide_bed_dict.items():
         for loc in locations:
             # Only count peptides mapped to this protein on the same chromosome.
-            if loc['seqid'] != seqid:
+            if loc['seqid'] != seqid or loc.get('strand') != pred_info.get('strand'):
                 continue
 
             if has_any_protein_ids and loc.get('protein') not in (None, protein_id):
@@ -436,8 +655,9 @@ def generate_annotation_report(output_dir, supported_gtf, reference_gtf,
     """
     Generate comprehensive annotation comparison report.
     
-    Classifies transcripts by comparing predicted GTF with reference GTF using gffcompare statistics.
-    Novel genes include those with class codes: '-' (unknown), 'u' (intergenic), 'x' (antisense).
+    Report event-specific peptide support at coding boundaries absent from every
+    reference isoform. Novel-gene export is handled separately by strict CDS
+    non-overlap in parse_gffcompare_tmap.py.
     
     Args:
         output_dir: Path to output directory
@@ -454,13 +674,17 @@ def generate_annotation_report(output_dir, supported_gtf, reference_gtf,
     # Auto-detect file paths if not provided
     if tmap_file is None:
         tmap_candidates = (
-            sorted(compare_dir.glob("*.tmap"))
-            + sorted(output_dir.glob("*.tmap"))
-            + [
+            [
+                compare_dir / "gffcmp.peptide_mapped_proteins_cleaned.gtf.tmap",
+                output_dir / "gffcmp.peptide_mapped_proteins_cleaned.gtf.tmap",
+                compare_dir / "gffcmp.supported_proteins_cleaned.gtf.tmap",
+                output_dir / "gffcmp.supported_proteins_cleaned.gtf.tmap",
                 compare_dir / "gffcmp.supported_proteins.gtf.tmap",
                 output_dir / "gffcmp.supported_proteins.gtf.tmap",
                 output_dir / "gffcompare.supported_proteins.gtf.tmap",
             ]
+            + sorted(compare_dir.glob("*.tmap"))
+            + sorted(output_dir.glob("*.tmap"))
         )
     else:
         provided_tmap = Path(tmap_file)
@@ -470,7 +694,7 @@ def generate_annotation_report(output_dir, supported_gtf, reference_gtf,
             output_dir / provided_tmap.name,
         ]
 
-    tmap_file = next((Path(path) for path in tmap_candidates if Path(path).exists()), Path(tmap_candidates[0]))
+    tmap_file = _pick_tmap_file(tmap_candidates) or Path(tmap_candidates[0])
 
     if all_proteins_scores is None:
         all_proteins_scores = output_dir / "all_proteins_scores.tsv"
@@ -493,9 +717,11 @@ def generate_annotation_report(output_dir, supported_gtf, reference_gtf,
     print(f"Parsing GTF files...")
     supported_cds = parse_gtf_to_cds_dict(supported_gtf)
     reference_cds = parse_gtf_to_cds_dict(reference_gtf)
+    reference_event_index = build_reference_event_index(reference_cds)
     
     print(f"Loading peptides BED file: {peptides_bed}")
     peptide_bed_dict = load_peptides_bed(peptides_bed)
+    protein_peptide_index = build_protein_peptide_index(peptide_bed_dict)
     print(f"Loaded {len(peptide_bed_dict)} unique peptides from BED file")
     
     print(f"Loading protein scores: {all_proteins_scores}")
@@ -520,19 +746,39 @@ def generate_annotation_report(output_dir, supported_gtf, reference_gtf,
     report_data = []
     category_counts = defaultdict(lambda: {'count': 0, 'ids': set()})
     
-    # Iterate through TMAP entries
-    for _, row in tmap_df.iterrows():
-        qry_id = row['qry_id']  # Predicted protein ID
-        ref_id = row['ref_id']  # Reference protein/gene ID
-        class_code = row['class_code']
+    # Event discovery is peptide-driven and must not be gated by the protein
+    # classifier. Iterate over every peptide-mapped model in the score table;
+    # gffcompare metadata is attached when available but does not determine
+    # eligibility for an event call.
+    tmap_by_query = {
+        str(row.qry_id): row
+        for row in tmap_df.drop_duplicates(subset=['qry_id']).itertuples()
+    }
+    candidate_proteins = {
+        str(protein_id)
+        for protein_id, score_values in scores_dict.items()
+        if pd.to_numeric(score_values.get('mapped_peptides', 0), errors='coerce') > 0
+    }
+    if not candidate_proteins:
+        candidate_proteins = set(protein_peptide_index)
+
+    for qry_id in sorted(candidate_proteins):
+        tmap_row = tmap_by_query.get(qry_id)
+        ref_id = getattr(tmap_row, 'ref_id', '-')
+        class_code = getattr(tmap_row, 'class_code', 'not_evaluated')
         
+        pred_info = supported_cds.get(qry_id)
+        protein_id = pred_info.get('protein_id') if pred_info else qry_id
+        if protein_id not in scores_dict and qry_id in scores_dict:
+            protein_id = qry_id
+
         # Get peptide support metrics
-        if qry_id in scores_dict:
-            peptides = scores_dict[qry_id].get('mapped_peptides', 0)
-            coverage = scores_dict[qry_id].get('sequence_coverage', 0)
-            n_term_peptides = scores_dict[qry_id].get('N_terminal_peptides', 0)
-            c_term_peptides = scores_dict[qry_id].get('C_terminal_peptides', 0)
-            splice_peptides = scores_dict[qry_id].get('splice_peptides', 0)
+        if protein_id in scores_dict:
+            peptides = scores_dict[protein_id].get('mapped_peptides', 0)
+            coverage = scores_dict[protein_id].get('sequence_coverage', 0)
+            n_term_peptides = scores_dict[protein_id].get('N_terminal_peptides', 0)
+            c_term_peptides = scores_dict[protein_id].get('C_terminal_peptides', 0)
+            splice_peptides = scores_dict[protein_id].get('splice_peptides', 0)
         else:
             peptides = 0
             coverage = 0
@@ -540,74 +786,92 @@ def generate_annotation_report(output_dir, supported_gtf, reference_gtf,
             c_term_peptides = 0
             splice_peptides = 0
         
-        # Skip identical matches and novel genes - we only care about differences
-        if class_code == '=':
+        # Get predicted CDS info. A prediction without
+        # same-strand CDS overlap is handled as a novel/antisense candidate,
+        # not as an alternative event at a known coding locus.
+        if not pred_info or not _has_same_strand_reference_cds_overlap(pred_info, reference_event_index):
             continue
-        
-        # Skip novel genes
-        novel_codes = ['s', 'x', 'i', 'y', 'p', 'u']
-        if class_code in novel_codes:
-            continue
-        
-        # Get predicted and reference CDS info
-        pred_info = supported_cds.get(qry_id)
-        ref_info = reference_cds.get(ref_id)
-        
-        # Classify the difference
-        classification = classify_difference(pred_info, ref_info)
-        
-        # Determine which peptide-evidence category this belongs to
-        category = None
-        
-        # Categories where start position differs
-        start_diff_categories = ['different_start_same_stop', 'upstream_extension', 'downstream_truncation']
-        # Categories where splice sites differ
-        splice_diff_categories = ['different_splice', 'same_start_same_stop_different_exons', 'exon_structure_difference', 
-                                  'more_exons', 'fewer_exons']
 
-        stop_is_different = has_stop_difference(pred_info, ref_info)
+        key = (pred_info.get('seqid'), pred_info.get('strand'))
+        reference_boundaries = reference_event_index.get(key, {})
+        pred_start, pred_stop = get_first_and_last_cds(
+            pred_info.get('cds_regions', []), pred_info.get('strand')
+        )
 
-        # Report stop differences first, even when there is also a splice change.
-        if stop_is_different and c_term_peptides > 0:
-            category = 'peptide_support_different_stop'
+        events = []
 
-        # Check splice differences and require peptide support on differing junctions.
-        elif classification in splice_diff_categories:
-            splice_support_count = get_peptides_supporting_different_junctions(
-                qry_id, pred_info, ref_info, peptide_bed_dict
+        start_support = get_terminal_supporting_peptides(
+            protein_id, pred_info, peptide_bed_dict, 'start',
+            protein_peptide_index,
+        )
+        if pred_start not in reference_boundaries.get('starts', set()) and start_support:
+            events.append((
+                'peptide_support_different_start',
+                f"start:{pred_start}",
+                start_support,
+            ))
+
+        stop_support = get_terminal_supporting_peptides(
+            protein_id, pred_info, peptide_bed_dict, 'stop',
+            protein_peptide_index,
+        )
+        reference_stops = reference_boundaries.get('stops', set())
+        stop_absent_from_reference = not any(
+            abs(pred_stop - reference_stop) <= 3
+            for reference_stop in reference_stops
+        )
+        if stop_absent_from_reference and stop_support:
+            events.append((
+                'peptide_support_different_stop',
+                f"stop:{pred_stop}",
+                stop_support,
+            ))
+
+        supported_junctions = get_peptides_supporting_novel_splice_sites(
+            protein_id, pred_info, reference_event_index, peptide_bed_dict,
+            protein_peptide_index,
+        )
+        if supported_junctions:
+            junction_peptides = set().union(*supported_junctions.values())
+            junction_text = ';'.join(
+                f"junction:{left_end}-{right_start}"
+                for left_end, right_start in sorted(supported_junctions)
             )
-            if splice_support_count > 0:
-                category = 'peptide_support_different_splice'
-                splice_peptides = splice_support_count
-        
-        # Check if gene has different start AND N-terminal peptide
-        elif classification in start_diff_categories and n_term_peptides > 0:
-            category = 'peptide_support_different_start'
-        
-        # Only include if it matches one of our 3 categories
-        if category:
-            # Update category counts
-            if category not in category_counts:
-                category_counts[category] = {'count': 0, 'ids': set()}
-            
+            events.append((
+                'peptide_support_different_splice',
+                junction_text,
+                junction_peptides,
+            ))
+
+        for category, event_coordinates, evidence_peptides in events:
             category_counts[category]['count'] += 1
-            category_counts[category]['ids'].add(qry_id)
-            
-            # Add to report
+            category_counts[category]['ids'].add(protein_id)
             report_data.append({
-                'predicted_id': qry_id,
+                'predicted_id': protein_id,
+                'gffcompare_query_id': qry_id,
                 'reference_id': ref_id,
-                'structural_difference': classification,
+                'gffcompare_class_code': class_code,
+                'structural_difference': category.removeprefix('peptide_support_'),
                 'peptide_evidence_category': category,
-                'N_terminal_peptides': n_term_peptides,
-                'C_terminal_peptides': c_term_peptides,
-                'splice_peptides': splice_peptides,
+                'event_coordinates': event_coordinates,
+                'event_supporting_peptides': ','.join(sorted(evidence_peptides)),
+                'N_terminal_peptides': len(start_support),
+                'C_terminal_peptides': len(stop_support),
+                'splice_peptides': len(set().union(*supported_junctions.values())) if supported_junctions else 0,
                 'mapped_peptides': peptides,
                 'sequence_coverage': coverage
             })
     
     # Generate TSV report
-    report_df = pd.DataFrame(report_data)
+    report_columns = [
+        'predicted_id', 'gffcompare_query_id', 'reference_id',
+        'gffcompare_class_code', 'structural_difference',
+        'peptide_evidence_category', 'event_coordinates',
+        'event_supporting_peptides', 'N_terminal_peptides',
+        'C_terminal_peptides', 'splice_peptides', 'mapped_peptides',
+        'sequence_coverage',
+    ]
+    report_df = pd.DataFrame(report_data, columns=report_columns)
     print(f"Total genes with peptide evidence at difference sites: {len(report_df)}")
     
     # Write summary report
@@ -640,7 +904,10 @@ def generate_annotation_report(output_dir, supported_gtf, reference_gtf,
     report_df.to_csv(report_file, sep='\t', index=False)
     print(f"\nDetailed report written to: {report_file}")
     
-    summary_df = pd.DataFrame(summary_report)
+    summary_df = pd.DataFrame(
+        summary_report,
+        columns=['Category', 'Count', 'Protein_IDs'],
+    )
     summary_df.to_csv(summary_file, sep='\t', index=False)
     print(f"Summary report written to: {summary_file}")
     
@@ -707,11 +974,15 @@ def generate_annotation_report(output_dir, supported_gtf, reference_gtf,
         for entry in gtf_data:
             # Extract protein/transcript ID from either GFF3-style or GTF-style attributes.
             attrs = entry['attributes']
-            protein_id = (
-                extract_attribute(attrs, 'protein_id')
-                or extract_attribute(attrs, 'transcript_id')
-                or extract_attribute(attrs, 'Parent')
-                or extract_attribute(attrs, 'ID')
+            candidates = (
+                extract_attribute(attrs, 'protein_id'),
+                extract_attribute(attrs, 'transcript_id'),
+                extract_attribute(attrs, 'Parent'),
+                extract_attribute(attrs, 'ID'),
+            )
+            protein_id = next(
+                (candidate for candidate in candidates if candidate in protein_ids),
+                None,
             )
 
             if protein_id in protein_ids:

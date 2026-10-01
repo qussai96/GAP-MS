@@ -27,6 +27,31 @@ class TestScoreFilter(unittest.TestCase):
         self.assertIn("p2", supported)
         self.assertNotIn("p4", supported)
 
+    def test_equal_positive_and_negative_scores_are_not_dropped_from_roc(self):
+        df = pd.DataFrame(
+            {
+                "Protein": ["positive", "negative_same_score", "negative_low"],
+                "external_score": [0.9, 0.9, 0.1],
+            }
+        )
+
+        plotted = {}
+
+        def capture_plot(fpr, tpr, cutoff, best_fpr, best_tpr, output_dir, score_column):
+            plotted["best_fpr"] = best_fpr
+
+        find_cutoff(
+            df,
+            {"positive"},
+            "external_score",
+            output_dir="unused",
+            plot_roc=capture_plot,
+        )
+
+        # One of the two negatives shares the positive's score and must be
+        # counted as a false positive at the selected threshold.
+        self.assertEqual(plotted["best_fpr"], 0.5)
+
 
 if __name__ == "__main__":
     unittest.main()

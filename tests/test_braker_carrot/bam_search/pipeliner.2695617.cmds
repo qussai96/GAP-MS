@@ -1,0 +1,1 @@
+/home/students/q.abbas/anaconda3/envs/gapms_env/opt/transdecoder/util/compute_base_probs.pl /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/transcripts.fa 0 > /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/transcripts.fa.transdecoder_dir/base_freqs.dat

@@ -35,9 +35,12 @@ def find_cutoff(proteins_scores_df, high_confident_proteins, score_column, outpu
     if not high_confident_proteins_scores:
         return 0  # fallback if no high-confidence proteins
 
-    # Pre-calculate unsupported scores once (expensive operation)
-    high_conf_set = set(high_confident_proteins_scores)
-    unsupported_scores = [s for s in scores if s not in high_conf_set]
+    # Select negatives by protein identity. Selecting them by score value would
+    # incorrectly discard a negative whenever it happened to share a score with
+    # a high-confidence protein.
+    unsupported_scores = proteins_scores_df.loc[
+        ~proteins_scores_df['Protein'].isin(high_confident_proteins), score_column
+    ].tolist()
 
     # Generate cutoff thresholds from 1.0 → 0.0 with finer granularity
     cutoffs = np.linspace(1.0, 0.0, 1000)
@@ -99,7 +102,7 @@ def find_cutoff(proteins_scores_df, high_confident_proteins, score_column, outpu
 def find_apply_score_filter(proteins_scores_df, high_confident_proteins, score_column, output_dir=None, plot_roc=None):
     cutoff = find_cutoff(proteins_scores_df, high_confident_proteins, score_column, output_dir, plot_roc)
     cutoff = max(cutoff, 0.5)
-    high_scoring = set(proteins_scores_df[proteins_scores_df[score_column] > cutoff]['Protein'])
+    high_scoring = set(proteins_scores_df[proteins_scores_df[score_column] >= cutoff]['Protein'])
     print(f"Determined cutoff of {score_column}: {cutoff}")
     print(f"Number of {score_column} supported proteins: {len(high_scoring)}")
     return cutoff, high_scoring

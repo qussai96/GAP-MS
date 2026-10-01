@@ -10,10 +10,89 @@ from Bio import SeqIO
 from typing import List, Tuple, Dict
 
 from .gtf_utils import gtf_to_df_with_genes
-from .peptide_utils import mapping_file_to_df, get_gene_protein_specific_peps
+from .peptide_utils import (
+    mapping_file_to_df,
+    get_gene_protein_specific_peps,
+    resolve_peptide_starts,
+)
 
 
-def get_protein_to_cds_mapping(gtf_df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
+def _frame_value(value) -> int:
+    """Return a valid GTF/GFF CDS phase, defaulting missing values to zero."""
+    try:
+        phase = int(value)
+    except (TypeError, ValueError):
+        return 0
+    return phase if phase in {0, 1, 2} else 0
+
+
+def _coding_nt_positions(cds_features: pd.DataFrame) -> List[int]:
+    """Return CDS genomic positions in translation order.
+
+    The phase on the first CDS trims an incomplete leading codon. Later phases
+    describe codons split across adjacent CDS records; concatenating the records
+    preserves those split codons.
+    """
+    if cds_features.empty:
+        return []
+
+    strand = cds_features.iloc[0]['Strand']
+    ordered = cds_features.sort_values('Start', ascending=strand != '-')
+    positions = []
+    for index, (_, cds) in enumerate(ordered.iterrows()):
+        start, end = int(cds['Start']), int(cds['End'])
+        feature_positions = (
+            list(range(start, end + 1))
+            if strand == '+'
+            else list(range(end, start - 1, -1))
+        )
+        if index == 0:
+            feature_positions = feature_positions[_frame_value(cds.get('Frame')):]
+        positions.extend(feature_positions)
+    return positions
+
+
+def annotate_cds_coordinates(cds_df: pd.DataFrame) -> pd.DataFrame:
+    """Add translation-space nucleotide/amino-acid bounds to CDS rows."""
+    annotated_groups = []
+    for _, group in cds_df.groupby('Protein', sort=False, dropna=False):
+        if group.empty:
+            continue
+        strand = group.iloc[0]['Strand']
+        ordered = group.sort_values('Start', ascending=strand != '-').copy()
+        cumulative_nt = 0
+        nt_starts = []
+        nt_ends = []
+        for index, (_, cds) in enumerate(ordered.iterrows()):
+            nt_length = int(cds['End']) - int(cds['Start']) + 1
+            if index == 0:
+                nt_length -= _frame_value(cds.get('Frame'))
+            nt_length = max(nt_length, 0)
+            nt_starts.append(cumulative_nt + 1)
+            cumulative_nt += nt_length
+            nt_ends.append(cumulative_nt)
+
+        ordered['cds_nt_start'] = nt_starts
+        ordered['cds_nt_end'] = nt_ends
+        ordered['cds_start'] = ((ordered['cds_nt_start'] - 1) // 3) + 1
+        ordered['cds_end'] = (ordered['cds_nt_end'] + 2) // 3
+        ordered['cds_len'] = ordered['cds_nt_end'] - ordered['cds_nt_start'] + 1
+        annotated_groups.append(ordered)
+
+    if not annotated_groups:
+        return cds_df.assign(
+            cds_nt_start=pd.Series(dtype='Int64'),
+            cds_nt_end=pd.Series(dtype='Int64'),
+            cds_start=pd.Series(dtype='Int64'),
+            cds_end=pd.Series(dtype='Int64'),
+            cds_len=pd.Series(dtype='Int64'),
+        )
+    return pd.concat(annotated_groups).sort_index()
+
+
+def get_protein_to_cds_mapping(
+    gtf_df: pd.DataFrame, protein_ids=None
+) -> Dict[str, pd.DataFrame]:
     """
     Create a mapping from protein ID to sorted CDS features.
     
@@ -21,35 +100,19 @@ def get_protein_to_cds_mapping(gtf_df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
         Dict mapping protein ID to DataFrame of CDS features sorted by genomic position
     """
     cds_df = gtf_df[gtf_df['Type'] == 'CDS'].copy()
+    if protein_ids is not None:
+        protein_ids = set(protein_ids)
+        cds_df = cds_df[cds_df['Protein'].isin(protein_ids)]
     
-    # Sort CDS by genomic position for each protein
-    cds_df = cds_df.sort_values(['Protein', 'Start'])
-    
-    # Calculate cumulative codon positions
     df_CDSs = cds_df.drop_duplicates(subset=['Seqid', 'Start', 'End', 'Protein']).copy()
-    df_CDSs['cds_len'] = ((df_CDSs['End'] - df_CDSs['Start']) / 3).round().astype(int)
+    df_CDSs = annotate_cds_coordinates(df_CDSs)
     
-    # Forward strand (+)
-    forward = df_CDSs['Strand'] == '+'
-    df_CDSs.loc[forward, 'cds_start'] = (
-        df_CDSs[forward].groupby('Protein')['cds_len'].cumsum() - df_CDSs[forward]['cds_len'] + 1
-    )
-    df_CDSs.loc[forward, 'cds_end'] = df_CDSs[forward].groupby('Protein')['cds_len'].cumsum()
-
-    # Reverse strand (-)
-    reverse = ~forward
-    reverse_group = df_CDSs[reverse].groupby('Protein')['cds_len']
-    cumsum_reverse = reverse_group.cumsum()
-    max_len = reverse_group.transform('sum')
-    df_CDSs.loc[reverse, 'cds_end'] = max_len - cumsum_reverse + df_CDSs.loc[reverse, 'cds_len']
-    df_CDSs.loc[reverse, 'cds_start'] = df_CDSs.loc[reverse, 'cds_end'] - df_CDSs.loc[reverse, 'cds_len'] + 1
-    
-    # Group by protein
-    protein_cds_dict = {}
-    for protein in df_CDSs['Protein'].unique():
-        protein_cds_dict[protein] = df_CDSs[df_CDSs['Protein'] == protein].copy()
-    
-    return protein_cds_dict
+    # A boolean scan for every protein is quadratic on large annotations.
+    # Group once so construction remains linear in the number of CDS rows.
+    return {
+        protein: group.copy()
+        for protein, group in df_CDSs.groupby('Protein', sort=False)
+    }
 
 
 def map_codon_to_genome(codon_start: int, codon_end: int, 
@@ -66,39 +129,29 @@ def map_codon_to_genome(codon_start: int, codon_end: int,
     Returns:
         List of (genomic_start, genomic_end) tuples (1-based genomic coordinates)
     """
+    if codon_start < 1 or codon_end < codon_start:
+        return []
+
+    positions = _coding_nt_positions(cds_features)
+    nt_start = (codon_start - 1) * 3
+    nt_end = codon_end * 3
+    if nt_end > len(positions):
+        return []
+
+    selected = positions[nt_start:nt_end]
+    if not selected:
+        return []
+
     genomic_regions = []
-    
-    for _, cds in cds_features.iterrows():
-        cds_start_codon = cds['cds_start']
-        cds_end_codon = cds['cds_end']
-        
-        # Check if peptide overlaps with this CDS
-        if codon_end < cds_start_codon or codon_start > cds_end_codon:
-            continue
-        
-        # Calculate overlap
-        overlap_start = max(codon_start, cds_start_codon)
-        overlap_end = min(codon_end, cds_end_codon)
-        
-        # Convert codon positions to nucleotide offsets within this CDS
-        if strand == '+':
-            # Forward strand: codon position increases with genomic position
-            nt_offset_start = (overlap_start - cds_start_codon) * 3
-            nt_offset_end = (overlap_end - cds_start_codon + 1) * 3 - 1
-            
-            genomic_start = cds['Start'] + nt_offset_start
-            genomic_end = cds['Start'] + nt_offset_end
+    region = [selected[0]]
+    for position in selected[1:]:
+        if abs(position - region[-1]) == 1:
+            region.append(position)
         else:
-            # Reverse strand: codon position decreases with genomic position
-            nt_offset_start = (overlap_start - cds_start_codon) * 3
-            nt_offset_end = (overlap_end - cds_start_codon + 1) * 3 - 1
-            
-            genomic_end = cds['End'] - nt_offset_start
-            genomic_start = cds['End'] - nt_offset_end
-        
-        genomic_regions.append((int(genomic_start), int(genomic_end)))
-    
-    return genomic_regions
+            genomic_regions.append((min(region), max(region)))
+            region = [position]
+    genomic_regions.append((min(region), max(region)))
+    return sorted(genomic_regions)
 
 
 def classify_peptide_type(genomic_regions: List[Tuple[int, int]], 
@@ -132,14 +185,19 @@ def export_to_bed(peptide_mappings: List[Dict], output_file: Path):
     valid_mappings = [m for m in peptide_mappings if m.get('genomic_regions')]
     
     # Sort mappings by seqid (chromosome) and then by start position
-    sorted_mappings = sorted(valid_mappings,
-                            key=lambda m: (m['seqid'], min([int(r[0]) for r in m['genomic_regions']])))
+    sorted_mappings = sorted(
+        valid_mappings,
+        key=lambda m: (
+            str(m['seqid']),
+            min(int(region[0]) for region in m['genomic_regions']),
+        ),
+    )
     
     with open(output_file, 'w') as bed:
         bed.write("track name=Peptides description=\"Mapped Peptides\" itemRgb=\"On\"\n")
 
         for mapping in sorted_mappings:
-            chrom = mapping['seqid']
+            chrom = str(mapping['seqid'])
             strand = mapping['strand']
             peptide = mapping['peptide']
             regions = mapping['genomic_regions']
@@ -167,14 +225,20 @@ def export_to_bed(peptide_mappings: List[Dict], output_file: Path):
             block_sizes = ','.join([str(end - start + 1) for start, end in regions])
             block_starts = ','.join([str(start - 1 - chrom_start) for start, _ in regions])
 
-            # Name is peptide sequence (reversed for reverse strand for proper IGV display)
-            name = peptide[::-1] if strand == '-' else peptide
+            # Peptide sequences are always written N-to-C; genomic strand does
+            # not reverse an amino-acid sequence.
+            name = peptide
             score = 0
 
             # BED fields: chrom, start, end, name, score, strand, thickStart, thickEnd, itemRgb, blockCount, blockSizes, blockStarts
             bed.write(f"{chrom}\t{chrom_start}\t{chrom_end}\t{name}\t{score}\t{strand}\t")
             bed.write(f"{chrom_start}\t{chrom_end}\t{color}\t")
-            bed.write(f"{block_count}\t{block_sizes}\t{block_starts}\n")
+            bed.write(f"{block_count}\t{block_sizes}\t{block_starts}\t")
+            bed.write(
+                f"protein={mapping['protein']}\tpep_start={mapping['pep_start']}\t"
+                f"pep_end={mapping['pep_end']}\tprot_len={mapping['prot_len']}\t"
+                f"previous_aa={mapping['previous_aa']}\n"
+            )
 
 
 def map_peptides_to_genome(gtf_file: Path, protein_fasta: Path, mapping_file: Path,
@@ -185,22 +249,26 @@ def map_peptides_to_genome(gtf_file: Path, protein_fasta: Path, mapping_file: Pa
     This function ONLY writes a BED12 file (peptides_mapped.bed) in the output_dir.
     The BED "name" field will contain only the peptide sequence.
     """
-    print("Loading GTF annotations...")
-    gtf_df = gtf_to_df_with_genes(gtf_file)
-    
     print("Loading protein sequences...")
     seq_dict = {record.id: str(record.seq).replace('I', 'L').replace('*', '') 
                 for record in SeqIO.parse(protein_fasta, "fasta")}
+
+    print("Loading GTF annotations...")
+    gtf_df = gtf_to_df_with_genes(gtf_file, valid_protein_ids=seq_dict)
     
     print("Loading peptide mappings...")
     mapping_df = mapping_file_to_df(mapping_file)
     # Normalize peptides: replace I with L (isoleucine/leucine are isomeric in MS)
     mapping_df['Peptide'] = mapping_df['Peptide'].str.replace('I', 'L')
     pep_df = get_gene_protein_specific_peps(gtf_df, mapping_df)
-    pep_df = pep_df.drop_duplicates(
-    subset=["Peptide", "Protein", "Gene"], keep='first')
+    dedupe_columns = ["Peptide", "Protein", "Gene"]
+    if 'location' in pep_df.columns:
+        dedupe_columns.append('location')
+    pep_df = pep_df.drop_duplicates(subset=dedupe_columns, keep='first')
     print("Building protein-to-CDS mapping...")
-    protein_cds_dict = get_protein_to_cds_mapping(gtf_df)
+    protein_cds_dict = get_protein_to_cds_mapping(
+        gtf_df, protein_ids=pep_df['Protein'].dropna().unique()
+    )
     
     print("Mapping peptides to genomic coordinates...")
     peptide_mappings = []
@@ -218,69 +286,60 @@ def map_peptides_to_genome(gtf_file: Path, protein_fasta: Path, mapping_file: Pa
             skipped_no_cds.append((peptide, protein, "protein not in seq_dict"))
             continue
         
-        pep_start = prot_seq.find(peptide) + 1  # 1-based
-        if pep_start == 0:
+        pep_starts = resolve_peptide_starts(
+            prot_seq,
+            peptide,
+            row.get('location'),
+        )
+        if not pep_starts:
             skipped_not_found.append((peptide, protein, "peptide not found in protein"))
             continue
-        
-        pep_end = pep_start + len(peptide) - 1
-        prot_len = len(prot_seq)
-        
+
         # Get CDS features for this protein
         if protein not in protein_cds_dict:
             continue
-        
+
         cds_features = protein_cds_dict[protein].copy()
         if cds_features.empty:
             continue
-        
+
         seqid = cds_features.iloc[0]['Seqid']
         strand = cds_features.iloc[0]['Strand']
-        
-        # For selenoproteins: extend CDS if peptide is beyond annotated CDS
-        # This handles cases where protein extends beyond stop codon
-        max_cds_end = cds_features['cds_end'].max()
-        if pep_end > max_cds_end:
-            # Extend the last CDS feature to cover the full protein
-            last_cds_idx = cds_features['cds_end'].idxmax()
-            additional_codons = pep_end - max_cds_end
-            additional_nt = additional_codons * 3
-            
-            # Extend genomic coordinates based on strand
-            if strand == '+':
-                cds_features.loc[last_cds_idx, 'End'] += additional_nt
-            else:
-                cds_features.loc[last_cds_idx, 'Start'] -= additional_nt
-            
-            # Update CDS end position
-            cds_features.loc[last_cds_idx, 'cds_end'] = pep_end
-            cds_features.loc[last_cds_idx, 'cds_len'] = int((cds_features.loc[last_cds_idx, 'End'] - 
-                                                              cds_features.loc[last_cds_idx, 'Start']) / 3)
-        
-        # Map peptide to genomic coordinates
-        genomic_regions = map_codon_to_genome(pep_start, pep_end, cds_features, strand)
-        
-        # Skip peptides with no genomic regions
-        if not genomic_regions:
-            skipped_no_cds.append((peptide, protein, "no genomic regions found"))
-            continue
-        
-        # Classify peptide type
-        is_first_aa = (pep_start == 1)
-        is_last_aa = (pep_end == prot_len)
-        pep_type = classify_peptide_type(genomic_regions, is_first_aa, is_last_aa)
-        
-        peptide_mappings.append({
-            'seqid': seqid,
-            'strand': strand,
-            'peptide': peptide,
-            'protein': protein,
-            'gene': gene,
-            'type': pep_type,
-            'pep_start': pep_start,
-            'pep_end': pep_end,
-            'genomic_regions': genomic_regions
-        })
+
+        prot_len = len(prot_seq)
+        for pep_start in pep_starts:
+            pep_end = pep_start + len(peptide) - 1
+
+            # Map peptide to genomic coordinates
+            genomic_regions = map_codon_to_genome(
+                pep_start, pep_end, cds_features, strand
+            )
+
+            # Skip peptides with no genomic regions
+            if not genomic_regions:
+                skipped_no_cds.append((peptide, protein, "no genomic regions found"))
+                continue
+
+            # Classify peptide type
+            is_first_aa = (pep_start == 1)
+            is_last_aa = (pep_end == prot_len)
+            pep_type = classify_peptide_type(
+                genomic_regions, is_first_aa, is_last_aa
+            )
+
+            peptide_mappings.append({
+                'seqid': seqid,
+                'strand': strand,
+                'peptide': peptide,
+                'protein': protein,
+                'gene': gene,
+                'type': pep_type,
+                'pep_start': pep_start,
+                'pep_end': pep_end,
+                'prot_len': prot_len,
+                'previous_aa': prot_seq[pep_start - 2] if pep_start > 1 else '',
+                'genomic_regions': genomic_regions
+            })
     
     print(f"Mapped {len(peptide_mappings)} peptides to genomic coordinates")
     
@@ -295,14 +354,18 @@ def map_peptides_to_genome(gtf_file: Path, protein_fasta: Path, mapping_file: Pa
     if skipped_no_cds:
         print(f"Skipped (protein not in seq_dict): {len(skipped_no_cds)}")
     
-    # Remove duplicate entries: same seqid, strand, and genomic regions
-    # (even if from different proteins or genes)
+    # Remove only true duplicate mappings. Keep the same genomic peptide once
+    # per protein because downstream event calls require protein-specific
+    # evidence and otherwise one isoform could incorrectly consume another's
+    # terminal or junction peptide.
     seen = set()
     unique_mappings = []
     for m in peptide_mappings:
         # Create a hashable key for the genomic location and peptide
-        key = (m['seqid'], m['strand'], m['peptide'], 
-               tuple(sorted(m['genomic_regions'])))
+        key = (
+            m['seqid'], m['strand'], m['peptide'], m['protein'],
+            m['pep_start'], m['pep_end'], tuple(sorted(m['genomic_regions'])),
+        )
         if key not in seen:
             seen.add(key)
             unique_mappings.append(m)

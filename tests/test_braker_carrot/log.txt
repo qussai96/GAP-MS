@@ -1,0 +1,234 @@
+
+2026-09-27 01:43:10 - Generating protein FASTA from GTF and genome assembly using Gffread...
+Running gffread: gffread -C -g /home/students/q.abbas/GAPMS/0-raw_files/GCF_001625215.2_Daucus_carota/inputs/genomic/GCF_001625215.2_DH1_v3.0_genomic.fna -y /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/prediction_search/translated_predictions_proteins.fa /home/students/q.abbas/GAPMS/0-raw_files/GCF_001625215.2_Daucus_carota/inputs/braker/GCF_001625215.2_Daucus_carota.braker.gtf
+
+2026-09-27 01:43:13 Mapping peptides to proteins with Proteomapper for prediction_search....
+
+2026-09-27 01:44:26 Extracting Features for prediction_search....
+2026-09-27 01:44:26 [extract] Loading protein FASTA sequences...
+2026-09-27 01:44:27 [extract] Parsing GTF/GFF...
+2026-09-27 01:44:34 [extract] GTF parsed: 416079 rows. Building CDS features...
+Sample protein IDs from GTF: ['g1', 'g1.t1', 'g1.t1', 'g1.t1', 'g1.t1']
+2026-09-27 01:50:25 [extract] Loading mapping file...
+2026-09-27 01:50:25 [extract] Saved 1 unmapped peptides to /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/prediction_search/Unmpped_pepides.txt
+Total peptides loaded: 230269
+2026-09-27 01:50:26 [extract] Resolving gene/protein-specific peptides...
+2026-09-27 01:50:28 [extract] Computing peptide positions for 308716 pep-protein pairs...
+2026-09-27 01:50:51 [extract] Computing sequence coverage...
+2026-09-27 01:50:51 [extract] Merging CDS and peptide features (276689 CDS rows × 308716 pep-protein pairs)...
+2026-09-27 01:50:53 [extract] Computing splice-site flags on 2609561 rows...
+2026-09-27 01:55:35 [extract] Aggregating protein-level scores...
+2026-09-27 01:56:02 [extract] Saved all_proteins_scores.tsv
+Number of proteins with mapped peptide: 29014
+Number of proteins without mapped peptide: 43200
+Number of proteins with mapped Nterm peptide: 2184
+Number of proteins with mapped Cterm peptide: 527
+Number of proteins with all splice sites supported: 1418
+Number of proteins with some splice sites supported: 10987
+Number of proteins with no splice support: 59809
+
+2026-09-27 01:56:03 Running GAPMS for prediction_search....
+Number of high confident proteins: 15271
+Number of low confident proteins: 31339
+Using pre-trained XGBoost model: /home/students/q.abbas/Git/GAP-MS/xgb_protein_classifier.pkl
+Pre-trained model predictions complete: 22897 positive, 49317 negative
+Protein classifier mode used: pretrained
+Number of supported proteins by scores: 0
+
+Pipeline completed
+Outputs written to: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/prediction_search
+
+Number of all proteins = 72214
+Number of high confident proteins = 15271
+Number of low confident proteins = 31339
+Number of all supported proteins = 17546
+Number of all un-supported proteins = 54668
+Removed 5351 proteins lacking gene-specific peptides
+
+2026-09-27 01:57:02 Mapping peptides to genome coordinates for prediction_search....
+Loading protein sequences...
+Loading GTF annotations...
+Loading peptide mappings...
+Total peptides loaded: 230269
+Building protein-to-CDS mapping...
+Mapping peptides to genomic coordinates...
+Mapped 617432 peptides to genomic coordinates
+After deduplication: 308716 unique peptide mappings (removed 308716 duplicates)
+Writing BED file: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/prediction_search/peptides_mapped.bed
+
+Peptide type summary:
+  internal: 261006
+  spliced: 46384
+  N-terminal: 737
+  C-terminal: 589
+
+Done! Files ready for genome browser visualization.
+
+2026-09-27 02:12:36 Comparing peptide-mapped proteins with the reference for prediction_search....
+Removed 38185 rows with invalid strand or missing ID from reference GTF
+Removed 29014 rows with invalid strand or missing ID from peptide-mapped proteins GTF
+Running gffcompare: gffcompare -o /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/prediction_search/Compare_to_Reference/gffcmp -r /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/prediction_search/reference_cleaned.gtf /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/prediction_search/peptide_mapped_proteins_cleaned.gtf
+Parsing TMAP file: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/prediction_search/Compare_to_Reference/gffcmp.peptide_mapped_proteins_cleaned.gtf.tmap
+Number of reference transcripts = 49321
+Number of peptide-supported predicted transcripts = 29014
+Number of matching-intron-chain predicted transcripts = 13303
+Number of entirely novel genes = 602
+Number of supported proteins from entirely novel genes = 632
+Generating GTF for new proteins...
+Generating FASTA for new proteins...
+Extracting scores for new proteins...
+Creating combined FASTA (Reference + New)...
+Combined FASTA file saved at: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/prediction_search/Compare_to_Reference/Novel/reference+new_proteins.fa
+
+2026-09-27 02:14:27 Generating Annotation Comparison Report for prediction_search....
+Loading TMAP file: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/prediction_search/Compare_to_Reference/gffcmp.peptide_mapped_proteins_cleaned.gtf.tmap
+Parsing GTF files...
+Loading peptides BED file: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/prediction_search/peptides_mapped.bed
+Loaded 230269 unique peptides from BED file
+Loading protein scores: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/prediction_search/all_proteins_scores.tsv
+Total genes with peptide evidence at difference sites: 82
+peptide_support_different_splice:
+  Total: 54
+  Examples: {g12602.t1,g21878.t1,g22528.t1,g35231.t1,g39977.t1,g48731.t1,g48731.t2,g4977.t1,g57057.t1,g65134.t1,...}
+
+peptide_support_different_start:
+  Total: 28
+  Examples: {g10936.t1,g12317.t1,g15835.t1,g29103.t1,g33234.t1,g39651.t1,g42022.t1,g4765.t1,g5552.t1,g66721.t1,...}
+
+
+Detailed report written to: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/prediction_search/Compare_to_Reference/annotation_comparison_report.tsv
+Summary report written to: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/prediction_search/Compare_to_Reference/annotation_comparison_summary.tsv
+
+Extracting GTF entries by category...
+Loading protein sequences: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/prediction_search/translated_predictions_proteins.fa
+Loaded 72214 protein sequences
+ peptide_support_different_splice.gtf (1719 entries) and peptide_support_different_splice.faa (54 sequences)
+ peptide_support_different_start.gtf (706 entries) and peptide_support_different_start.faa (28 sequences)
+
+2026-09-27 02:15:16 - Building BAM-derived transcript and ORF search branch...
+Running StringTie: stringtie /home/students/q.abbas/GAPMS/0-raw_files/GCF_001625215.2_Daucus_carota/inputs/varus/sorted_VARUS.bam -o /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/transcripts.gtf
+Running gffread: gffread /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/transcripts.gtf -g /home/students/q.abbas/GAPMS/0-raw_files/GCF_001625215.2_Daucus_carota/inputs/genomic/GCF_001625215.2_DH1_v3.0_genomic.fna -w /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/transcripts.fa
+transcript_fasta = /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/transcripts.fa
+output_dir = /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search
+transcript_fasta exists = True
+transcript_fasta abs = /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/transcripts.fa
+Running TransDecoder.LongOrfs: TransDecoder.LongOrfs -t /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/transcripts.fa
+Running TransDecoder.Predict: TransDecoder.Predict -t /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/transcripts.fa
+
+2026-09-27 02:37:29 Mapping peptides to proteins with Proteomapper for bam_search....
+
+2026-09-27 02:38:18 Extracting Features for bam_search....
+2026-09-27 02:38:18 [extract] Loading protein FASTA sequences...
+2026-09-27 02:38:19 [extract] Parsing GTF/GFF...
+2026-09-27 02:38:24 [extract] GTF parsed: 323475 rows. Building CDS features...
+Sample protein IDs from GTF: ['STRG.1.1.p1', 'STRG.1.1.p1', 'STRG.1.1.p1', 'STRG.1000.1.p2', 'STRG.1000.1.p2']
+2026-09-27 02:42:06 [extract] Loading mapping file...
+2026-09-27 02:42:06 [extract] Saved 15086 unmapped peptides to /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/Unmpped_pepides.txt
+Total peptides loaded: 215184
+2026-09-27 02:42:07 [extract] Resolving gene/protein-specific peptides...
+2026-09-27 02:42:10 [extract] Computing peptide positions for 458313 pep-protein pairs...
+2026-09-27 02:42:44 [extract] Computing sequence coverage...
+2026-09-27 02:42:45 [extract] Merging CDS and peptide features (275007 CDS rows × 458313 pep-protein pairs)...
+2026-09-27 02:42:48 [extract] Computing splice-site flags on 4101310 rows...
+2026-09-27 02:49:51 [extract] Aggregating protein-level scores...
+2026-09-27 02:50:23 [extract] Saved all_proteins_scores.tsv
+Number of proteins with mapped peptide: 36129
+Number of proteins without mapped peptide: 12339
+Number of proteins with mapped Nterm peptide: 2743
+Number of proteins with mapped Cterm peptide: 788
+Number of proteins with all splice sites supported: 1914
+Number of proteins with some splice sites supported: 20201
+Number of proteins with no splice support: 26353
+
+2026-09-27 02:50:24 Running GAPMS for bam_search....
+Number of high confident proteins: 10746
+Number of low confident proteins: 8593
+Using pre-trained XGBoost model: /home/students/q.abbas/Git/GAP-MS/xgb_protein_classifier.pkl
+Pre-trained model predictions complete: 33107 positive, 15361 negative
+Protein classifier mode used: pretrained
+Number of supported proteins by scores: 0
+
+Pipeline completed
+Outputs written to: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search
+
+Number of all proteins = 48468
+Number of high confident proteins = 10746
+Number of low confident proteins = 8593
+Number of all supported proteins = 29879
+Number of all un-supported proteins = 18589
+Removed 3235 proteins lacking gene-specific peptides
+
+2026-09-27 02:50:56 Mapping peptides to genome coordinates for bam_search....
+Loading protein sequences...
+Loading GTF annotations...
+Loading peptide mappings...
+Total peptides loaded: 215184
+Building protein-to-CDS mapping...
+Mapping peptides to genomic coordinates...
+Mapped 458313 peptides to genomic coordinates
+After deduplication: 458313 unique peptide mappings (removed 0 duplicates)
+Writing BED file: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/peptides_mapped.bed
+
+Peptide type summary:
+  internal: 375672
+  spliced: 80792
+  N-terminal: 992
+  C-terminal: 857
+
+Done! Files ready for genome browser visualization.
+
+2026-09-27 03:02:59 Comparing peptide-mapped proteins with the reference for bam_search....
+Removed 38185 rows with invalid strand or missing ID from reference GTF
+Running gffcompare: gffcompare -o /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/Compare_to_Reference/gffcmp -r /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/reference_cleaned.gtf /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/peptide_mapped_proteins_cleaned.gtf
+Parsing TMAP file: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/Compare_to_Reference/gffcmp.peptide_mapped_proteins_cleaned.gtf.tmap
+Number of reference transcripts = 49321
+Number of peptide-supported predicted transcripts = 36129
+Number of matching-intron-chain predicted transcripts = 12784
+Number of entirely novel genes = 207
+Number of supported proteins from entirely novel genes = 280
+Generating GTF for new proteins...
+Generating FASTA for new proteins...
+Extracting scores for new proteins...
+Creating combined FASTA (Reference + New)...
+Combined FASTA file saved at: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/Compare_to_Reference/Novel/reference+new_proteins.fa
+
+2026-09-27 03:03:52 Generating Annotation Comparison Report for bam_search....
+Loading TMAP file: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/Compare_to_Reference/gffcmp.peptide_mapped_proteins_cleaned.gtf.tmap
+Parsing GTF files...
+Loading peptides BED file: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/peptides_mapped.bed
+Loaded 215184 unique peptides from BED file
+Loading protein scores: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/all_proteins_scores.tsv
+Total genes with peptide evidence at difference sites: 65
+peptide_support_different_start:
+  Total: 33
+  Examples: {STRG.10307.1.p1,STRG.15257.1.p1,STRG.15714.1.p1,STRG.20040.1.p1,STRG.4158.1.p1,STRG.6762.1.p1,STRG.8031.1.p1,STRG.8953.2.p2,STRG.9641.3.p1,STRG.9834.1.p1,...}
+
+peptide_support_different_splice:
+  Total: 32
+  Examples: {STRG.10853.1.p1,STRG.11109.2.p1,STRG.1369.1.p1,STRG.20529.1.p1,STRG.26616.1.p1,STRG.26991.1.p1,STRG.2798.1.p1,STRG.28578.1.p1,STRG.30566.1.p1,STRG.5548.1.p1,...}
+
+
+Detailed report written to: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/Compare_to_Reference/annotation_comparison_report.tsv
+Summary report written to: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/Compare_to_Reference/annotation_comparison_summary.tsv
+
+Extracting GTF entries by category...
+Loading protein sequences: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/transcripts.fa.transdecoder.pep
+Loaded 48468 protein sequences
+ peptide_support_different_start.gtf (218 entries) and peptide_support_different_start.faa (33 sequences)
+ peptide_support_different_splice.gtf (224 entries) and peptide_support_different_splice.faa (32 sequences)
+
+2026-09-27 03:04:28 Comparing bam_search against prediction_search....
+Running gffcompare: gffcompare -o /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/comparisons/gffcmp -r /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/prediction_search/supported_proteins.gtf /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/supported_proteins.gtf
+Loading BAM-vs-prediction-supported TMAP file: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/comparisons/gffcmp.supported_proteins.gtf.tmap
+Running gffcompare: gffcompare -o /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/comparisons/_tmp_prediction_vs_bam/gffcmp -r /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/supported_proteins.gtf /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/prediction_search/supported_proteins.gtf
+BAM-vs-prediction summary written to: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/comparisons/bam_vs_input_gtf_summary.tsv
+BAM-vs-prediction summary figure written to: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/comparisons/bam_vs_input_gtf_summary.png
+BAM-supported transcripts with no prediction-supported overlap: 481
+Prediction-supported transcripts with no BAM overlap: 1771
+Merged supported GTF written to: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/merged_supported_proteins.gtf
+Merged supported FASTA written to: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/merged_supported_proteins.fa
+Merged supported proteins: 47425
+High-potential new gene candidate loci written to: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/high_potential_new_gene_candidates.tsv
+Accepted BAM class codes used: =, j, c, k, m, n
+Prediction novel proteins with accepted BAM support: 188/632
+Combined parent summary figure written to: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/combined_gapms_summary.png

@@ -1,0 +1,30 @@
+# gffcompare v0.12.6 | Command line was:
+#gffcompare -o /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/comparisons/_tmp_prediction_vs_bam/gffcmp -r /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/bam_search/supported_proteins.gtf /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/prediction_search/supported_proteins.gtf
+#
+
+#= Summary for dataset: /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/prediction_search/supported_proteins.gtf 
+#     Query mRNAs :   17546 in   17014 loci  (15052 multi-exon transcripts)
+#            (477 multi-transcript loci, ~1.0 transcripts per locus)
+# Reference mRNAs :   25959 in   15186 loci  (23972 multi-exon)
+# Super-loci w/ reference transcripts:    14701
+#-----------------| Sensitivity | Precision  |
+        Base level:    96.7     |    87.0    |
+        Exon level:    84.0     |    88.5    |
+      Intron level:    89.9     |    91.2    |
+Intron chain level:    46.4     |    73.9    |
+  Transcript level:    48.8     |    72.2    |
+       Locus level:    82.2     |    73.9    |
+
+     Matching intron chains:   11117
+       Matching transcripts:   12661
+              Matching loci:   12480
+
+          Missed exons:    3879/117568	(  3.3%)
+           Novel exons:    9095/111194	(  8.2%)
+        Missed introns:    2687/95443	(  2.8%)
+         Novel introns:    6566/94085	(  7.0%)
+           Missed loci:     257/15186	(  1.7%)
+            Novel loci:    1846/17014	( 10.8%)
+
+ Total union super-loci across all input datasets: 16547 
+17546 out of 17546 consensus transcripts written in /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot/comparisons/_tmp_prediction_vs_bam/gffcmp.annotated.gtf (0 discarded as redundant)

@@ -23,3 +23,7 @@ dependencies = [
 
 [project.scripts]
 gapms = "gapms.main:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = ["gapms_sandbox", "dist", "build"]

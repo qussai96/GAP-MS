@@ -10,6 +10,84 @@ from tests.helpers import create_mini_gapms_dataset
 
 
 class TestMainCli(unittest.TestCase):
+    def test_reference_events_use_all_peptide_mapped_models(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            output = root / "output"
+            prediction_gtf = root / "predictions.gtf"
+            prediction_fasta = root / "predictions.fa"
+            reference_gtf = root / "reference.gtf"
+            reference_fasta = root / "reference.fa"
+            peptides = root / "peptides.txt"
+            mapping = root / "mapping.tsv"
+
+            prediction_gtf.write_text(
+                'chr1\tsrc\tCDS\t1\t30\t.\t+\t0\tgene_id "g1"; transcript_id "P1";\n'
+            )
+            prediction_fasta.write_text(">P1\nMAAAAAAAAA\n>P2\nMCCCCCCCCC\n")
+            reference_gtf.write_text(
+                'chr1\tref\tCDS\t4\t30\t.\t+\t0\tgene_id "r1"; transcript_id "R1";\n'
+            )
+            reference_fasta.write_text(">R1\nAAAAAAAAA\n")
+            peptides.write_text("MAAA\n")
+            mapping.write_text("Peptide\tProtein\tlocation\nMAAA\tP1\t1\n")
+
+            def fake_extract(_, __, ___, branch_output, ____):
+                branch_output.mkdir(parents=True, exist_ok=True)
+                (branch_output / "all_proteins_scores.tsv").write_text(
+                    "Protein\tmapped_peptides\nP1\t1\nP2\t0\n"
+                )
+
+            def fake_filter(_, __, branch_output, **___):
+                (branch_output / "supported_proteins.gtf").write_text("")
+                (branch_output / "supported_proteins.fa").write_text("")
+
+            def fake_save(gtf_path, proteins, branch_output, filename):
+                self.assertEqual(Path(gtf_path), prediction_gtf)
+                self.assertSetEqual(set(proteins), {"P1"})
+                (Path(branch_output) / filename).write_text(prediction_gtf.read_text())
+
+            argv = [
+                "gapms.main",
+                "-g", str(prediction_gtf),
+                "-f", str(prediction_fasta),
+                "-p", str(peptides),
+                "-m", str(mapping),
+                "-rg", str(reference_gtf),
+                "-rf", str(reference_fasta),
+                "-o", str(output),
+            ]
+
+            with (
+                patch.object(gapms_main, "extract_features", side_effect=fake_extract),
+                patch.object(gapms_main, "filter_predictions", side_effect=fake_filter),
+                patch.object(gapms_main, "map_peptides_to_genome"),
+                patch.object(gapms_main, "save_gtf_subset_all_features", side_effect=fake_save),
+                patch.object(gapms_main, "run_gffcompare") as mock_gffcompare,
+                patch.object(gapms_main, "parse_gffcompare_tmap") as mock_parse,
+                patch.object(gapms_main, "generate_annotation_report") as mock_report,
+                patch.object(sys, "argv", argv),
+            ):
+                gapms_main.main()
+
+            query_gtf = output / "peptide_mapped_proteins_cleaned.gtf"
+            mock_gffcompare.assert_called_once_with(
+                output / "reference_cleaned.gtf",
+                query_gtf,
+                output / "Compare_to_Reference",
+            )
+            self.assertEqual(mock_report.call_args.args[1], prediction_gtf)
+            self.assertEqual(
+                mock_parse.call_args.kwargs["prediction_fasta"],
+                prediction_fasta,
+            )
+            current_tmap = (
+                output / "Compare_to_Reference"
+                / "gffcmp.peptide_mapped_proteins_cleaned.gtf.tmap"
+            )
+            self.assertEqual(mock_parse.call_args.kwargs["tmap_file"], current_tmap)
+            self.assertEqual(mock_report.call_args.kwargs["tmap_file"], current_tmap)
+
     def test_cli_smoke_run_with_precomputed_inputs(self):
         repo_root = Path(__file__).resolve().parents[1]
 
@@ -41,6 +119,8 @@ class TestMainCli(unittest.TestCase):
             self.assertTrue((paths["output_dir"] / "supported_proteins.fa").exists())
             self.assertTrue((paths["output_dir"] / "peptides_mapped.bed").exists())
             self.assertTrue((paths["output_dir"] / "Txt" / "supported_proteins.txt").exists())
+            log_text = (paths["output_dir"] / "log.txt").read_text()
+            self.assertIn("Pipeline completed successfully", log_text)
 
     @patch("gapms.main.map_peptides_to_genome")
     @patch("gapms.main.filter_predictions")
@@ -61,18 +141,17 @@ class TestMainCli(unittest.TestCase):
             assembly_path = tmp_path / "genome.fa"
             peptides_path = tmp_path / "peptides.txt"
             output_dir = tmp_path / "output"
-            bam_dir = output_dir / "bam_search"
-            generated_gtf = bam_dir / "transcripts.fa.transdecoder.gff3"
-            generated_fasta = bam_dir / "transcripts.fa.transdecoder.pep"
+            generated_gtf = output_dir / "transcripts.fa.transdecoder.gff3"
+            generated_fasta = output_dir / "transcripts.fa.transdecoder.pep"
 
             bam_path.write_text("bam\n")
             assembly_path.write_text(">chr1\nATGCATGCATGC\n")
             peptides_path.write_text("PEPTIDE\n")
 
             mock_prepare_bam_search_inputs.return_value = {
-                "assembled_gtf": bam_dir / "transcripts.gtf",
+                "assembled_gtf": output_dir / "transcripts.gtf",
                 "gtf": generated_gtf,
-                "transcript_fasta": bam_dir / "transcripts.fa",
+                "transcript_fasta": output_dir / "transcripts.fa",
                 "protein_fasta": generated_fasta,
             }
             mock_run_proteomapper.return_value = output_dir / "proteomapper.tsv"
@@ -92,10 +171,10 @@ class TestMainCli(unittest.TestCase):
             with patch.object(sys, "argv", argv):
                 gapms_main.main()
 
-            mock_prepare_bam_search_inputs.assert_called_once_with(bam_path, assembly_path, bam_dir)
-            mock_extract_features.assert_called_once_with(generated_gtf, generated_fasta, mock_run_proteomapper.return_value, bam_dir, None)
+            mock_prepare_bam_search_inputs.assert_called_once_with(bam_path, assembly_path, output_dir)
+            mock_extract_features.assert_called_once_with(generated_gtf, generated_fasta, mock_run_proteomapper.return_value, output_dir, None)
             mock_filter_predictions.assert_called_once()
-            mock_map_peptides_to_genome.assert_called_once_with(generated_gtf, generated_fasta, mock_run_proteomapper.return_value, bam_dir)
+            mock_map_peptides_to_genome.assert_called_once_with(generated_gtf, generated_fasta, mock_run_proteomapper.return_value, output_dir)
 
     @patch("gapms.main.compare_bam_support_to_input_gtf")
     @patch("gapms.main.write_merged_supported_models")

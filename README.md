@@ -148,6 +148,7 @@ GAPMS_Output/
 ├── all_proteins_scores.tsv          # Feature/evidence table for all proteins
 ├── supported_proteins.gtf           # Supported proteins in genome coordinates
 ├── supported_proteins.fa
+├── peptide_mapped_proteins.gtf      # all mapped models used for event discovery
 ├── peptides_mapped.bed
 ├── Unmpped_pepides.txt
 ├── Figures/
@@ -165,6 +166,7 @@ GAPMS_Output/
     ├── annotation_comparison_report.tsv
     ├── annotation_comparison_summary.tsv
     ├── Novel/
+    │   ├── new_predicted_genes.tsv
     │   ├── new_predicted_proteins.gtf
     │   ├── new_predicted_proteins.fa
     │   └── new_predicted_proteins_scores.tsv
@@ -173,6 +175,19 @@ GAPMS_Output/
         ├── peptide_support_different_stop.gtf
         └── peptide_support_different_splice.gtf
 ```
+
+`supported_proteins.gtf/.fa` remain the classifier-supported protein set.
+Reference-event discovery is intentionally broader: the strict novel-gene and
+alternative start/stop/splice reports evaluate every peptide-mapped model, so a
+valid event is not discarded by the protein classifier. In
+`all_proteins_scores.tsv`, `splice_peptides` counts distinct peptide sequences,
+whereas `supported_splice_sites` counts distinct annotated junctions with
+unambiguous peptide support.
+
+The bundled ProteoMapper output uses one-based peptide locations. GAP-MS
+validates those positions against the protein sequence and retains compatibility
+with validated zero-based precomputed mappings; missing positions are expanded
+to every matching sequence occurrence.
 
 ### B) Combined output when both `-g` and `-b` are supplied
 

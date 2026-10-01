@@ -3,7 +3,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import StratifiedKFold, RandomizedSearchCV
+from sklearn.base import clone
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
+from sklearn.model_selection import StratifiedKFold, RandomizedSearchCV, cross_val_predict
 from xgboost import XGBClassifier
 
 from .score_filter import (
@@ -53,7 +55,12 @@ def get_high_confident_proteins(df):
                 cond1 = row["protein_specific_peptides"] >= 2
                 cond2 = row["sequence_coverage"] >= 0.8
                 cond3 = row["N_terminal_peptides"] >= 1 and row["C_terminal_peptides"] >= 1 and row["gene_specific_peptides"] > 0
-                cond4 = row["splice_peptides"] == row["splice_sites"] and row["splice_peptides"] > 0 and row["gene_specific_peptides"] > 0
+                supported_splice_sites = row.get("supported_splice_sites", 0)
+                cond4 = (
+                    supported_splice_sites == row["splice_sites"]
+                    and supported_splice_sites > 0
+                    and row["gene_specific_peptides"] > 0
+                )
                 if cond1 or cond2 or cond3 or cond4:
                     high_confident.append(row)
                     break
@@ -91,11 +98,18 @@ def train_iterative_model(df, high_confident_df, low_confident_df, pos_thr=0.90,
     X_labeled = df_labeled[feature_cols]
     y_labeled = df_labeled["label"]
 
-    if (y_labeled == 0).sum() == 0:
-        raise ValueError("No negative labels found. Cannot train model.")
+    if y_labeled.nunique() < 2:
+        raise ValueError("Both positive and negative seed labels are required to train the iterative model.")
+
+    cv_folds = min(5, int(y_labeled.value_counts().min()))
+    if cv_folds < 2:
+        raise ValueError(
+            "At least two positive and two negative seed labels are required "
+            "to train the iterative model."
+        )
 
     # Stratified CV for imbalance handling
-    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    skf = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=42)
 
     # Initialize model + hyperparameter search
     base_model = XGBClassifier(eval_metric="logloss", random_state=42)
@@ -122,6 +136,21 @@ def train_iterative_model(df, high_confident_df, low_confident_df, pos_thr=0.90,
 
     random_search.fit(X_labeled, y_labeled)
     model = random_search.best_estimator_
+
+    # Report out-of-fold diagnostics on the original rule-derived seed labels.
+    # These are not independent biological validation, but unlike training-set
+    # metrics they do not score the fitted model on the same rows it saw.
+    seed_y_pred = cross_val_predict(model, X_labeled, y_labeled, cv=skf, method="predict")
+    seed_y_proba = cross_val_predict(
+        model, X_labeled, y_labeled, cv=skf, method="predict_proba"
+    )[:, 1]
+    seed_metrics = {
+        "accuracy": accuracy_score(y_labeled, seed_y_pred),
+        "precision": precision_score(y_labeled, seed_y_pred, zero_division=0),
+        "recall": recall_score(y_labeled, seed_y_pred, zero_division=0),
+        "f1": f1_score(y_labeled, seed_y_pred, zero_division=0),
+        "auroc": roc_auc_score(y_labeled, seed_y_proba),
+    }
 
     # Optional SHAP analysis
     if plot_shap and shap_output_dir:
@@ -155,7 +184,7 @@ def train_iterative_model(df, high_confident_df, low_confident_df, pos_thr=0.90,
         y_labeled = df_labeled["label"]
 
         if y_labeled.nunique() == 2:
-            model = XGBClassifier(eval_metric="logloss", random_state=42)
+            model = clone(model)
             model.fit(X_labeled, y_labeled)
 
         if len(new_pos) == 0 and len(new_neg) == 0:
@@ -165,17 +194,12 @@ def train_iterative_model(df, high_confident_df, low_confident_df, pos_thr=0.90,
     df["prob_pos"] = model.predict_proba(df[feature_cols])[:, 1]
     df["final_label"] = (df["prob_pos"] >= 0.5).astype(int)
 
-    # Print XGBoost evaluation metrics on labeled data
-    from sklearn.metrics import roc_auc_score, accuracy_score, precision_score, recall_score, f1_score
-    y_true = df_labeled["label"]
-    y_pred = model.predict(X_labeled)
-    y_proba = model.predict_proba(X_labeled)[:, 1]
-    print("\nXGBoost Evaluation Metrics (on labeled data):")
-    print(f"Accuracy: {accuracy_score(y_true, y_pred):.4f}")
-    print(f"Precision: {precision_score(y_true, y_pred):.4f}")
-    print(f"Recall: {recall_score(y_true, y_pred):.4f}")
-    print(f"F1-score: {f1_score(y_true, y_pred):.4f}")
-    print(f"AUROC: {roc_auc_score(y_true, y_proba):.4f}")
+    print("\nCross-validated diagnostics on initial seed labels:")
+    print(f"Accuracy: {seed_metrics['accuracy']:.4f}")
+    print(f"Precision: {seed_metrics['precision']:.4f}")
+    print(f"Recall: {seed_metrics['recall']:.4f}")
+    print(f"F1-score: {seed_metrics['f1']:.4f}")
+    print(f"AUROC: {seed_metrics['auroc']:.4f}")
     
     # Feature importance reporting using SHAP
     print("\nFeature importance (SHAP summary):")
@@ -295,8 +319,9 @@ def run_protein_classifier(
       1) default: use the pre-trained XGBoost model
       2) iterative: train from high/low confidence sets when `use_iterative_training=True`
 
-    If the pre-trained model is unavailable or fails, this automatically falls back to
-    the iterative training mode.
+    Iterative training is only used when explicitly requested. A missing or
+    incompatible pretrained model is reported instead of silently changing the
+    analysis method.
     """
     if use_iterative_training:
         print("Using iterative XGBoost training mode (-i/--iterative).")
@@ -312,20 +337,5 @@ def run_protein_classifier(
         )
         return labeled_df, "iterative"
 
-    try:
-        labeled_df = apply_pretrained_model(df=df, model_path=model_path)
-        return labeled_df, "pretrained"
-    except Exception as exc:
-        print(f"Pre-trained model could not be used: {exc}")
-        print("Falling back to iterative XGBoost training...")
-        labeled_df = train_iterative_model(
-            df=df,
-            high_confident_df=high_confident_df,
-            low_confident_df=low_confident_df,
-            pos_thr=pos_thr,
-            neg_thr=neg_thr,
-            n_iter=n_iter,
-            shap_output_dir=shap_output_dir,
-            plot_shap=plot_shap,
-        )
-        return labeled_df, "iterative-fallback"
+    labeled_df = apply_pretrained_model(df=df, model_path=model_path)
+    return labeled_df, "pretrained"

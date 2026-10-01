@@ -5,7 +5,7 @@ import textwrap
 import gapms.filter as filter_mod
 
 
-def test_filter_predictions_requires_gene_specific(tmp_path, monkeypatch):
+def test_filter_predictions_does_not_force_gene_specific_evidence(tmp_path, monkeypatch):
     outdir = tmp_path / "out"
     outdir.mkdir()
 
@@ -66,20 +66,23 @@ def test_filter_predictions_requires_gene_specific(tmp_path, monkeypatch):
 
     # Stub GTF functions used by filter_predictions
     monkeypatch.setattr(filter_mod, 'gtf_to_df_with_genes', lambda p: pd.DataFrame({'Protein': ['P1','P2','P3'], 'Gene': ['G1','G2','G3'], 'Type': ['CDS','CDS','CDS']}))
-    monkeypatch.setattr(filter_mod, 'save_gtf_subset', lambda df, proteins, outdir, name: None)
+    monkeypatch.setattr(filter_mod, 'save_gtf_subset_all_features', lambda path, proteins, outdir, name: None)
 
     # Run
     filter_mod.filter_predictions(gtf_file="dummy.gtf", protein_fasta=str(fasta), output_dir=outdir)
 
-    # Check supported_proteins.txt contains only P2 (P1 lacks gene-specific peptides)
+    # P1 is a high-confidence seed and remains supported even though it lacks a
+    # gene-specific peptide; P2 is supported by the classifier.
     supported = (outdir / "Txt" / "supported_proteins.txt").read_text().splitlines()
-    assert supported == ['P2']
+    assert supported == ['P1', 'P2']
 
-    # Check FASTA filtered contains only P2 header
+    # Check FASTA contains every supported protein.
     fasta_out = (outdir / "supported_proteins.fa").read_text()
-    assert ">P2" in fasta_out and ">P1" not in fasta_out
+    assert ">P1" in fasta_out and ">P2" in fasta_out and ">P3" not in fasta_out
 
-    # Check all_proteins_scores.tsv was updated with supported column marking only P2 as '+'
+    # The scores table retains gene_specific_peptides for optional downstream filtering.
     updated = pd.read_csv(scores_path, sep='\t')
     supported_marks = dict(zip(updated['Protein'], updated['supported']))
-    assert supported_marks['P2'] == '+' and supported_marks['P1'] == '-'
+    assert supported_marks['P1'] == '+' and supported_marks['P2'] == '+'
+    assert supported_marks['P3'] == '-'
+    assert dict(zip(updated['Protein'], updated['gene_specific_peptides']))['P1'] == 0

@@ -29,7 +29,50 @@ def _str_extract(series, pattern):
     return series.str.extract(pattern, expand=False)
 
 
-def gtf_to_df_with_genes(gtf_file):
+def _build_identifier_lookup(valid_ids):
+    """Build exact and unambiguous version-insensitive FASTA ID lookups."""
+    exact = {str(value) for value in valid_ids if value is not None}
+    aliases = {}
+    ambiguous = set()
+
+    for value in exact:
+        unversioned = re.sub(r'\.\d+$', '', value)
+        if unversioned in aliases and aliases[unversioned] != value:
+            ambiguous.add(unversioned)
+        else:
+            aliases[unversioned] = value
+
+    for value in ambiguous:
+        aliases.pop(value, None)
+    return exact, aliases
+
+
+def _resolve_identifier(value, exact_ids, aliases):
+    """Return the corresponding FASTA ID for an annotation identifier."""
+    if value is None or pd.isna(value):
+        return None
+    value = str(value)
+    if value in exact_ids:
+        return value
+    return aliases.get(re.sub(r'\.\d+$', '', value))
+
+
+def _select_matching_identifier(candidates, valid_ids, fallback):
+    """Select the first candidate present in the FASTA, else use fallback."""
+    if valid_ids is None:
+        return fallback
+
+    exact_ids, aliases = _build_identifier_lookup(valid_ids)
+    selected = pd.Series(index=fallback.index, dtype='object')
+    for candidate in candidates:
+        matched = candidate.map(
+            lambda value: _resolve_identifier(value, exact_ids, aliases)
+        )
+        selected = selected.combine_first(matched)
+    return selected.combine_first(fallback)
+
+
+def gtf_to_df_with_genes(gtf_file, valid_protein_ids=None):
     column_names = [
         'Seqid', 'Source', 'Type', 'Start', 'End',
         'Prediction_score', 'Strand', 'Frame', 'Suppl'
@@ -42,7 +85,10 @@ def gtf_to_df_with_genes(gtf_file):
         header=None,
         names=column_names,
         comment='#',
-        dtype={'Type': str, 'Suppl': str},
+        # Sequence identifiers are labels, even when every value in one input
+        # happens to be numeric. Keeping them as strings prevents mixed-type
+        # contig collections from failing during deterministic BED sorting.
+        dtype={'Seqid': str, 'Type': str, 'Suppl': str},
     )
 
     df['Type'] = df['Type'].str.lower()
@@ -74,26 +120,71 @@ def gtf_to_df_with_genes(gtf_file):
     gene = gene.fillna(s.where(meta_mask))
     df['Gene'] = gene
 
-    # Vectorized protein extraction:
-    # transcript/mRNA/gene rows: ID > transcript_id > raw attributes
-    prot_meta = (
-        _str_extract(s.where(meta_mask), r'ID=([^;,\s]+)')
-        .combine_first(_str_extract(s.where(meta_mask), r'transcript_id\s*[= ]?"?([^";,\s]+)"?'))
-        .fillna(s.where(meta_mask))
+    id_attr = _str_extract(s, r'ID=([^;,\s]+)')
+    transcript_attr = _str_extract(s, r'transcript_id\s*[= ]?"?([^";,\s]+)"?')
+    protein_attr = _str_extract(s, r'protein_id\s*[= ]?"?([^";,\s]+)"?')
+    parent_attr = _str_extract(s, r'Parent=([^;,\s]+)')
+
+    # CDS identifiers are chosen from the namespace actually present in the
+    # FASTA. This handles annotations that provide both protein_id and
+    # transcript_id while gffread names translated records by transcript_id.
+    cds_mask = t == 'cds'
+    cds_fallback = (
+        protein_attr.where(cds_mask)
+        .combine_first(transcript_attr.where(cds_mask))
+        .combine_first(parent_attr.where(cds_mask))
+    )
+    prot_cds = _select_matching_identifier(
+        [
+            protein_attr.where(cds_mask),
+            transcript_attr.where(cds_mask),
+            parent_attr.where(cds_mask),
+        ],
+        valid_protein_ids,
+        cds_fallback,
     )
 
-    # CDS rows: protein_id > transcript_id > Parent
-    cds_mask = t == 'cds'
-    prot_cds = (
-        _str_extract(s.where(cds_mask), r'protein_id\s*[= ]?"?([^";,\s]+)"?')
-        .combine_first(_str_extract(s.where(cds_mask), r'transcript_id\s*[= ]?"?([^";,\s]+)"?'))
-        .combine_first(_str_extract(s.where(cds_mask), r'Parent=([^;,\s]+)'))
+    # Link transcript rows to the identifier selected for their CDS children.
+    # This preserves transcript-level scores when the FASTA uses protein IDs.
+    transcript_to_protein = {}
+    if valid_protein_ids is not None:
+        links = pd.DataFrame({
+            'transcript': transcript_attr.where(cds_mask).combine_first(parent_attr.where(cds_mask)),
+            'protein': prot_cds,
+        }).dropna().drop_duplicates()
+        if not links.empty:
+            unique_links = links.groupby('transcript')['protein'].nunique()
+            unique_transcripts = unique_links[unique_links == 1].index
+            transcript_to_protein = (
+                links[links['transcript'].isin(unique_transcripts)]
+                .drop_duplicates('transcript')
+                .set_index('transcript')['protein']
+                .to_dict()
+            )
+
+    # Vectorized protein extraction for transcript/mRNA/gene rows.
+    meta_fallback = (
+        id_attr.where(meta_mask)
+        .combine_first(transcript_attr.where(meta_mask))
+        .combine_first(s.where(meta_mask))
+    )
+    linked_meta = transcript_attr.where(meta_mask).map(transcript_to_protein)
+    prot_meta = _select_matching_identifier(
+        [
+            linked_meta,
+            id_attr.where(meta_mask),
+            transcript_attr.where(meta_mask),
+            protein_attr.where(meta_mask),
+        ],
+        valid_protein_ids,
+        meta_fallback,
     )
     df['Protein'] = prot_meta.combine_first(prot_cds)
 
     # Normalize Type values to what downstream code expects
     type_map = {'gene': 'gene', 'mrna': 'mRNA', 'transcript': 'transcript', 'cds': 'CDS'}
-    df['Type'] = df['Type'].map(type_map).fillna(df['Type'])
+    mapped_type = df['Type'].map(type_map)
+    df['Type'] = mapped_type.where(mapped_type.notna(), df['Type'])
 
     # Convert prediction scores safely
     df['Prediction_score'] = pd.to_numeric(
@@ -157,6 +248,15 @@ def save_gtf_subset_all_features(gtf_file, subset, output_dir, output_file_name)
     """
     gtf_file = Path(gtf_file)
     output_dir = Path(output_dir)
+    subset = {str(protein_id) for protein_id in subset}
+    exact_ids, aliases = _build_identifier_lookup(subset)
+
+    def matching_id(*candidates):
+        for candidate in candidates:
+            resolved = _resolve_identifier(candidate, exact_ids, aliases)
+            if resolved is not None:
+                return resolved
+        return None
     
     # Parse GTF line by line to build ID mappings
     id_to_protein = {}  # Maps feature ID -> protein ID
@@ -191,13 +291,14 @@ def save_gtf_subset_all_features(gtf_file, subset, output_dir, output_file_name)
             
             # For mRNA/transcript rows: ID itself is the protein identifier
             if feature_type in ['mrna', 'transcript']:
-                id_to_protein[feature_id] = feature_id
+                id_to_protein[feature_id] = matching_id(feature_id) or feature_id
             
             # For CDS rows: check for explicit protein_id
             if feature_type == 'cds':
-                protein_id = (
-                    extract_attribute(attributes, 'protein_id')
-                    or extract_attribute(attributes, 'transcript_id')
+                protein_id = matching_id(
+                    extract_attribute(attributes, 'protein_id'),
+                    extract_attribute(attributes, 'transcript_id'),
+                    extract_attribute(attributes, 'Parent'),
                 )
                 parent_id = (
                     extract_attribute(attributes, 'Parent')
@@ -256,10 +357,13 @@ def save_gtf_subset_all_features(gtf_file, subset, output_dir, output_file_name)
             parent_id = None
             protein_id = None
             
-            # Try to get protein_id directly from attributes
-            protein_id = (
-                extract_attribute(attributes, 'protein_id')
-                or extract_attribute(attributes, 'transcript_id')
+            # Prefer whichever annotation identifier matches the selected
+            # FASTA namespace (protein_id, transcript_id, ID, or Parent).
+            protein_id = matching_id(
+                extract_attribute(attributes, 'protein_id'),
+                extract_attribute(attributes, 'transcript_id'),
+                extract_attribute(attributes, 'ID'),
+                extract_attribute(attributes, 'Parent'),
             )
             
             # Try ID attribute
