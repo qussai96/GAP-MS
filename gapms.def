@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: continuumio/miniconda3:23.3.1-0
+From: mambaorg/micromamba:1.5.8
 
 %files
     gapms /opt/gapms/gapms
@@ -12,12 +12,14 @@ From: continuumio/miniconda3:23.3.1-0
 %post
     set -e
 
-    # Configure Conda channels
-    conda config --add channels conda-forge
-    conda config --add channels bioconda
-
-    # Create the runtime environment
-    conda create -y -n gapms_env \
+    # Install runtime dependencies into the base environment. Micromamba is
+    # included in the base image, avoiding a separate bootstrap download.
+    micromamba install -y \
+        -n base \
+        -c conda-forge \
+        -c bioconda \
+        --override-channels \
+        --strict-channel-priority \
         python=3.10 \
         pip \
         perl \
@@ -29,26 +31,23 @@ From: continuumio/miniconda3:23.3.1-0
         stringtie \
         transdecoder=5.5.0
 
-    . /opt/conda/etc/profile.d/conda.sh
-    conda activate gapms_env
-
     # Install GAP-MS from the copied source tree
     cd /opt/gapms
-    pip install --no-cache-dir --upgrade pip setuptools wheel
-    pip install --no-cache-dir .
+    /opt/conda/bin/python -m pip install --no-cache-dir --upgrade pip setuptools wheel
+    /opt/conda/bin/python -m pip install --no-cache-dir .
 
     # Clean caches to reduce image size
-    conda clean --all -y
+    micromamba clean --all --yes
     rm -rf /root/.cache/pip
 
 %environment
-    export PATH=/opt/conda/envs/gapms_env/opt/transdecoder:/opt/conda/envs/gapms_env/bin:$PATH
-    export CONDA_DEFAULT_ENV=gapms_env
+    export PATH=/opt/conda/bin:$PATH
+    export CONDA_DEFAULT_ENV=base
     export LC_ALL=C.UTF-8
     export LANG=C.UTF-8
 
 %runscript
-    exec /opt/conda/envs/gapms_env/bin/gapms "$@"
+    exec /opt/conda/bin/gapms "$@"
 
 %labels
     Author Qussai Abbas
