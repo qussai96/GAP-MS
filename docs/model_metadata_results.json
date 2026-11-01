@@ -1,0 +1,34 @@
+{
+  "GCF_036512215.1_Solanum_lycopersicum": {
+    "elapsed_seconds": 42.121115086600184,
+    "metadata_records": 236531,
+    "sha256": "f81a90d934a13616f517ba514719bbbd6ef7977270959056cde73d48bb0dae72",
+    "old_metadata_path": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_036512215.1_Solanum_lycopersicum/outputs/gapms/updated_w_peplocus/prediction_search/protein_projection/peptides_mapped.bed",
+    "old_sha256": "f81a90d934a13616f517ba514719bbbd6ef7977270959056cde73d48bb0dae72",
+    "byte_identical": true
+  },
+  "GCF_020520425.1_Spinacia_oleracea": {
+    "elapsed_seconds": 35.46510038431734,
+    "metadata_records": 198171,
+    "sha256": "7a68148330a1efe8e436d37f1eb5bfc2f869253692cfd622da733c0038fb6a5d",
+    "old_metadata_path": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_020520425.1_Spinacia_oleracea/outputs/gapms/updated_w_peplocus/prediction_search/protein_projection/peptides_mapped.bed",
+    "old_sha256": "7a68148330a1efe8e436d37f1eb5bfc2f869253692cfd622da733c0038fb6a5d",
+    "byte_identical": true
+  },
+  "GCF_001625215.2_Daucus_carota": {
+    "elapsed_seconds": 50.856149077415466,
+    "metadata_records": 297855,
+    "sha256": "4e17a69c19f0ac40d17e9ecba11cdd182aafc2e836dcac10dd6735c166b5a11e",
+    "old_metadata_path": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_001625215.2_Daucus_carota/outputs/gapms/updated_w_peplocus/prediction_search/protein_projection/peptides_mapped.bed"
+  },
+  "reference_report_comparison": {
+    "annotation_comparison_report.tsv": true,
+    "annotation_comparison_summary.tsv": true,
+    "Different/peptide_support_different_splice.gtf": true,
+    "Different/peptide_support_different_splice.faa": true,
+    "Different/peptide_support_different_start.gtf": true,
+    "Different/peptide_support_different_start.faa": true,
+    "Different/peptide_support_different_stop.gtf": true,
+    "Different/peptide_support_different_stop.faa": true
+  }
+}

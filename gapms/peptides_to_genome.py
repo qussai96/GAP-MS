@@ -63,11 +63,11 @@ def map_peptides_to_genome(gtf_file, protein_fasta, mapping_file, output_dir,
     bed = map_assembly(assembly, peptides, output_dir, gtf=gtf_file, bam=bam,
                        threads=threads, peptide_column=peptide_column)
     if model_evidence:
-        from .protein_projection import map_peptides_to_genome as project_proteins
+        from .model_metadata import attach_model_metadata
         # Reports need protein assignment/terminal metadata, not inferred labels
         # from a genome-only match. Keep that evidence separate from genomic BED.
         compatibility = output_dir / 'protein_projection'
-        project_proteins(gtf_file, protein_fasta, mapping_file, compatibility)
+        attach_model_metadata(gtf_file, protein_fasta, mapping_file, compatibility)
     return bed
 
 

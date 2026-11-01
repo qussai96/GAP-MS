@@ -34,7 +34,7 @@ def main():
         gapms_version = pkg_version("gapms")
     except PackageNotFoundError:
         # Fallback when running from source without an installed package.
-        gapms_version = "0.2.1"
+        gapms_version = "0.2.2"
 
     parser = argparse.ArgumentParser(
         description="Filter GTF predictions using mass-spec data and mapping information.",

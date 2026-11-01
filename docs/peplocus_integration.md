@@ -56,7 +56,8 @@ Protein projections unsupported by the genomic mapping are excluded; additional
 PepLocus placements remain in global ambiguity checks. Thus protein-specific
 terminal claims cannot be inferred merely from a genome-only match, and a newly
 found alternate locus can disqualify an otherwise unique event-support peptide.
-This compatibility projection adds runtime only to reference-report runs.
+As of GAPMS 0.2.2, cached CDS interval indexes generate these metadata with the
+same records and ordering; see [metadata validation](model_metadata.md).
 
 A historical workflow supplied only with protein FASTA and annotation, without
 assembly, retains its previous export with a warning. Such a run cannot perform

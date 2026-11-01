@@ -6,7 +6,7 @@ GAP-MS evaluates predicted gene models by integrating peptide evidence from mass
 
 ## Direct peptide-to-assembly mapping (PepLocus)
 
-GAPMS 0.2.1 bundles the PepLocus 0.3.1 engine. Map observed peptides directly to a
+GAPMS 0.2.2 bundles the PepLocus 0.3.1 engine. Map observed peptides directly to a
 six-frame assembly translation and optional splice-junction evidence:
 
 ```bash
@@ -80,17 +80,19 @@ The prediction and BAM branches each write both BED versions when assembly is
 supplied.
 
 Reference-comparison reports also need protein/terminal metadata. These are
-preserved separately in `protein_projection/peptides_mapped.bed` when reference
+attached using cached CDS interval indexes and saved separately in
+`protein_projection/peptides_mapped.bed` when reference
 comparison is requested. Metadata is attached only where the protein projection
 matches a PepLocus locus under I/L equivalence. All additional genomic placements
 remain in the report's ambiguity checks; inconsistent protein projections cannot
-become genomic event evidence. This compatibility projection can add runtime to
-reference-report runs, independently of the fast assembly mapper.
+become genomic event evidence. The attachment preserves the previous metadata BED exactly, while avoiding
+repeated full-protein nucleotide projection. See
+[metadata validation](docs/model_metadata.md).
 
 Historical protein-only workflows with `-f` but no assembly retain the previous
 protein-coordinate exporter, with a warning. Supply `-a` to obtain the new genomic
 search and both BED versions. Existing containers are unchanged; rebuild them to
-include GAPMS 0.2.1 and the new mapping dependencies.
+include GAPMS 0.2.2 and the new mapping dependencies.
 
 See [integration and validation details](docs/peplocus_integration.md). The bundled
 engine's [MIT license](gapms/_peplocus/LICENSE) is included in built distributions.

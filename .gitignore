@@ -47,3 +47,5 @@ evaluation/peplocus_integration/
 .pytest_cache/
 
 evaluation/feature_speed/
+
+evaluation/model_metadata/
