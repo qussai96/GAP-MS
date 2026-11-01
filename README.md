@@ -91,8 +91,9 @@ repeated full-protein nucleotide projection. See
 
 Historical protein-only workflows with `-f` but no assembly retain the previous
 protein-coordinate exporter, with a warning. Supply `-a` to obtain the new genomic
-search and both BED versions. Existing containers are unchanged; rebuild them to
-include GAPMS 0.2.2 and the new mapping dependencies.
+search and both BED versions. Container images must include GAPMS 0.2.2 and the new mapping dependencies.
+See [container build validation](docs/container_validation.md) for the tested
+SIF/sandbox build procedure and checks.
 
 See [integration and validation details](docs/peplocus_integration.md). The bundled
 engine's [MIT license](gapms/_peplocus/LICENSE) is included in built distributions.
