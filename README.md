@@ -290,42 +290,11 @@ gapms map -a genome.fna -p peptides.tsv -g predictions.gtf \
 
 Exact matching runs first. Rescue only searches peptides with no exact placement,
 and saves its results separately under `peplocus/rescue_*`. I/L differences do not
-consume an edit. The default minimum of 12 amino acids comes from the carrot
-controls; it is a starting point, not an FDR threshold. Shorter rescue queries can
-produce many incidental matches.
-
-Mapping coordinates and translations are verified by default. To check an existing
-mapping table again:
-
-```bash
-python -m gapms._peplocus verify --genome genome.fna \
-  --mappings mapped/peplocus/mappings.tsv
-```
-
-Run `gapms map --help` for length filters, reusable junction input, search bounds
-and the other mapping options.
-
-## Tests and validation
-
-To run the source tests:
-
-```bash
-python -m pip install pytest
-python -m pytest -q
-```
-
-The current suite has 92 passing tests. Real-data checks and implementation details
-are documented separately:
-
-- [PepLocus integration and carrot comparison](docs/peplocus_integration.md)
-- [Feature-extraction speedups with unchanged outputs](docs/feature_optimization.md)
-- [Fast metadata attachment and reference-report equivalence](docs/model_metadata.md)
-- [SIF and sandbox validation](docs/container_validation.md)
+consume an edit. The default minimum of 12 amino acids can be edited.
 
 ## Questions and bug reports
 
-Please [open an issue](https://github.com/qussai96/GAP-MS/issues) with the GAP-MS
-version, command, relevant log section and a small example if possible.
+Please [open an issue](https://github.com/qussai96/GAP-MS/issues) 
 
 ## Citation
 
