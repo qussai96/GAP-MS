@@ -326,3 +326,7 @@ are documented separately:
 
 Please [open an issue](https://github.com/qussai96/GAP-MS/issues) with the GAP-MS
 version, command, relevant log section and a small example if possible.
+
+## Citation
+
+If you use GAP-MS in your work, please cite the [GAP-MS preprint on bioRxiv](https://www.biorxiv.org/content/10.64898/2026.03.17.712294v3).
