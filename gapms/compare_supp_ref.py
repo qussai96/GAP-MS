@@ -529,6 +529,35 @@ def load_peptides_bed(bed_file):
     return peptide_locations
 
 
+def load_genomic_model_evidence(genomic_bed, projection_bed):
+    """Attach model metadata only to matching genomic placements.
+
+    Retain every additional genomic placement when testing global ambiguity.
+    Historical protein normalization uses I->L, so join on that equivalence class.
+    Unsupported protein projections must not become genomic event evidence.
+    """
+    genomic = load_peptides_bed(genomic_bed)
+    projected = load_peptides_bed(projection_bed)
+    metadata = defaultdict(list)
+    def key(name, location):
+        return (name.replace('I', 'L'), location['seqid'], location['strand'],
+                tuple(map(tuple, location['blocks'])))
+    for name, locations in projected.items():
+        for location in locations:
+            metadata[key(name, location)].append(location)
+    merged = defaultdict(list)
+    seen = set()
+    for name, locations in genomic.items():
+        for location in locations:
+            token = key(name, location)
+            if token in seen:
+                continue
+            seen.add(token)
+            matches = metadata.get(token)
+            merged[token[0]].extend(matches if matches else [location])
+    return merged
+
+
 def peptide_spans_junction(peptide_loc, junction):
     """
     Check if a peptide spans a specific splice junction.
@@ -720,7 +749,11 @@ def generate_annotation_report(output_dir, supported_gtf, reference_gtf,
     reference_event_index = build_reference_event_index(reference_cds)
     
     print(f"Loading peptides BED file: {peptides_bed}")
-    peptide_bed_dict = load_peptides_bed(peptides_bed)
+    projection_bed = output_dir / "protein_projection" / "peptides_mapped.bed"
+    if projection_bed.exists() and peptides_bed == output_dir / "peptides_mapped.bed":
+        peptide_bed_dict = load_genomic_model_evidence(peptides_bed, projection_bed)
+    else:
+        peptide_bed_dict = load_peptides_bed(peptides_bed)
     protein_peptide_index = build_protein_peptide_index(peptide_bed_dict)
     print(f"Loaded {len(peptide_bed_dict)} unique peptides from BED file")
     

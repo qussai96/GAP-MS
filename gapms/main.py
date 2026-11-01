@@ -26,15 +26,19 @@ from gapms.bam_search import (
 from gapms.plotting import plot_parent_run_summary
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "map":
+        from .map_cli import main as map_main
+        return map_main(sys.argv[2:])
     start_time = time.time()
     try:
         gapms_version = pkg_version("gapms")
     except PackageNotFoundError:
         # Fallback when running from source without an installed package.
-        gapms_version = "0.1.3"
+        gapms_version = "0.2.0"
 
     parser = argparse.ArgumentParser(
-        description="Filter GTF predictions using mass-spec data and mapping information."
+        description="Filter GTF predictions using mass-spec data and mapping information.",
+        epilog="For direct peptide-to-assembly mapping: gapms map -a assembly.fa -p peptides.txt [-g models.gtf | -b reads.bam]."
     )
     parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {gapms_version}")
     parser.add_argument("-f", "--proteins", type=Path, help="Path to the protein FASTA file (optional if --gtf and --assembly are provided)")
@@ -49,7 +53,10 @@ def main():
     parser.add_argument("-o", "--output", type=Path, help="Optional output directory")
     parser.add_argument("-i", "--iterative", action="store_true", help="Train an iterative XGBoost model from the high/low-confidence sets instead of using the pre-trained classifier")
 
+    parser.add_argument("-t", "--threads", type=int, default=1, help="PepLocus mapping workers (default: 1)")
     args = parser.parse_args()
+    if args.threads < 1:
+        parser.error("--threads must be positive")
     
 
     # Validate required arguments
@@ -275,7 +282,11 @@ def main():
             )
 
             print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Mapping peptides to genome coordinates for {branch_name}....")
-            map_peptides_to_genome(branch_gtf, branch_protein_fasta, mapping, branch_output_dir)
+            map_peptides_to_genome(
+                branch_gtf, branch_protein_fasta, mapping, branch_output_dir,
+                assembly=args.assembly, peptides=args.peptides, bam=args.bam,
+                threads=args.threads, model_evidence=bool(args.reference_gtf),
+            )
 
             _run_reference_comparison(branch_name, branch_gtf, branch_protein_fasta, branch_output_dir)
             return {

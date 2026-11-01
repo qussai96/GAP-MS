@@ -23,10 +23,11 @@ with open("README.md", "r") as f:
     description=f.read()
 setup(
     name='gapms',
-    version='0.1.3',
+    version='0.2.0',
     packages=find_packages(),
     package_data={
-        'gapms': ['*.pl'],  # Include all Perl scripts in the gapms package
+        'gapms': ['*.pl'],
+        'gapms._peplocus': ['LICENSE'],  # Include all Perl scripts in the gapms package
     },
     include_package_data=True,
     cmdclass={'build_py': BuildPyWithModel},
@@ -40,10 +41,12 @@ setup(
         'scikit-learn',
         'xgboost',
         'shap',
+        'pyahocorasick>=2.0',
+        'pysam>=0.22',
     ],
     entry_points={
         'console_scripts': [
-            'gapms=gapms.main:main',
+            'gapms=gapms.cli:main',
         ],
     },
     long_description=description,

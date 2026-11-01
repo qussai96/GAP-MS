@@ -174,7 +174,11 @@ class TestMainCli(unittest.TestCase):
             mock_prepare_bam_search_inputs.assert_called_once_with(bam_path, assembly_path, output_dir)
             mock_extract_features.assert_called_once_with(generated_gtf, generated_fasta, mock_run_proteomapper.return_value, output_dir, None)
             mock_filter_predictions.assert_called_once()
-            mock_map_peptides_to_genome.assert_called_once_with(generated_gtf, generated_fasta, mock_run_proteomapper.return_value, output_dir)
+            mock_map_peptides_to_genome.assert_called_once_with(
+                generated_gtf, generated_fasta, mock_run_proteomapper.return_value, output_dir,
+                assembly=assembly_path, peptides=peptides_path, bam=bam_path,
+                threads=1, model_evidence=False,
+            )
 
     @patch("gapms.main.compare_bam_support_to_input_gtf")
     @patch("gapms.main.write_merged_supported_models")

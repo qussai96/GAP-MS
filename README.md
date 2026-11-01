@@ -4,6 +4,97 @@ GAP-MS evaluates predicted gene models by integrating peptide evidence from mass
 
 ---
 
+## Direct peptide-to-assembly mapping (PepLocus)
+
+GAPMS 0.2.0 bundles the PepLocus 0.3.1 engine. Map observed peptides directly to a
+six-frame assembly translation and optional splice-junction evidence:
+
+```bash
+# Annotation-supported mapping; GTF/GFF2/GFF3 syntax is detected from attributes.
+gapms map -a assembly.fa -p peptides.txt -g predictions.gtf -t 8 -o mapped_gtf
+
+# RNA-seq-supported mapping; no StringTie or TransDecoder step is needed here.
+gapms map -a assembly.fa -p peptides.txt -b rnaseq.bam -t 8 -o mapped_bam
+
+# Both sources can be combined; FragPipe's "Peptide Sequence" column is recognized.
+gapms map -a assembly.fa -p combined_peptide.peptides.tsv \
+  -g predictions.gff3 -b rnaseq.bam -t 8 -o mapped_both
+
+# Optional exactly-one-amino-acid-edit rescue of still-unmapped queries >=12 aa.
+gapms map -a assembly.fa -p peptides.txt -g predictions.gtf \
+  --rescue-one-edit --rescue-min-length 12 -t 8 -o mapped_rescue
+```
+
+Only assembly and peptides are required for `gapms map`. The default output is
+`GAPMS_Map`; use a fresh output directory for each run. `--assembly`/`--genome`,
+`--peptides`, `--gtf`/`--gff`, `--bam`, `--threads`, and `--output`/`--out` are accepted
+long options. `gapms map --help` lists the complete PepLocus search options,
+including reusable junction TSV input and optional bounded novel-junction search.
+Mapping requires the installed NumPy, Biopython, pyahocorasick, and pysam libraries;
+it does not call a protein mapper or external alignment executable.
+
+Every assembly mapping produces:
+
+```text
+mapped_gtf/
+├── peptides_mapped.bed           # Standard BED12 for downstream analysis
+├── peptides_mapped.igv.bed       # Display BED for IGV
+└── peplocus/
+    ├── mappings.bed             # Same records as the standard BED above
+    ├── mappings.igv_display.bed  # Same records as the IGV BED above
+    ├── mappings.tsv             # Translations, evidence, multiplicity, coordinates
+    ├── peptides.tsv
+    ├── unmapped.tsv
+    ├── junctions.tsv            # When splice evidence is supplied
+    └── summary.json             # Engine version, inputs, settings, timing, limits
+```
+
+The standard BED uses biological N-to-C peptide names on both strands and exactly
+12 columns. The IGV BED reverses negative-strand names for historical GAPMS display
+compatibility and uses gray/red for contiguous/spliced mappings. Coordinates and
+loci are identical; use the standard file for sequence comparisons. Both use
+zero-based, half-open coordinates and ascending genomic blocks. A BED score of
+1,000 means one compatible placement, 0 means multiple; it is not a confidence
+probability. All placements are retained. I/L equivalence is always enabled.
+
+Rescue outputs remain separate under `peplocus/rescue_*`; they never add approximate
+alternatives for an exact-mapped query. Twelve amino acids is the empirical rescue
+starting point from the carrot controls, not an FDR threshold. Genome-only matching
+is exhaustive for contiguous exact matches; splice-path and novel-discovery searches
+have documented bounds. Translation verification is enabled by default. Recheck:
+
+```bash
+python -m gapms._peplocus verify --genome assembly.fa \
+  --mappings mapped_gtf/peplocus/mappings.tsv
+```
+
+### Integration with the annotation-assessment workflow
+
+Existing `gapms -g ... -a ... -p ...` workflows now use PepLocus for the genomic
+BED step, searching the full observed peptide list rather than only peptides that
+mapped to predicted proteins. `-t`/`--threads` selects mapping workers. Protein
+mapping and classifier features remain protein-based; extra genomic placements
+are not automatically assigned to a protein or included as classifier features.
+The prediction and BAM branches each write both BED versions when assembly is
+supplied.
+
+Reference-comparison reports also need protein/terminal metadata. These are
+preserved separately in `protein_projection/peptides_mapped.bed` when reference
+comparison is requested. Metadata is attached only where the protein projection
+matches a PepLocus locus under I/L equivalence. All additional genomic placements
+remain in the report's ambiguity checks; inconsistent protein projections cannot
+become genomic event evidence. This compatibility projection can add runtime to
+reference-report runs, independently of the fast assembly mapper.
+
+Historical protein-only workflows with `-f` but no assembly retain the previous
+protein-coordinate exporter, with a warning. Supply `-a` to obtain the new genomic
+search and both BED versions. Existing containers are unchanged; rebuild them to
+include GAPMS 0.2.0 and the new mapping dependencies.
+
+See [integration and validation details](docs/peplocus_integration.md). The bundled
+engine's [MIT license](gapms/_peplocus/LICENSE) is included in built distributions.
+
+
 ## Installation
 
 ### Option 1: Conda Installation
@@ -19,7 +110,7 @@ cd GAP-MS
 pip install .
 ```
 
-For BAM-enabled runs (`-b`), GAP-MS now expects these external tools to be available:
+For full annotation-assessment BAM runs (`gapms -b`, rather than `gapms map -b`), GAP-MS now expects these external tools to be available:
 - `samtools`
 - `StringTie`
 - `gffread`

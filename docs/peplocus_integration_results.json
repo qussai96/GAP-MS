@@ -1,0 +1,95 @@
+{
+  "reference": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_001625215.2_Daucus_carota/outputs/gapms/latest_w_bam/helixer/prediction_search/peptides_mapped.bed",
+  "reference_sha256": "f7e7496a8862e311c14965b1fa84c09fcf760fff331869ef5a8fa3edfc7a1bc8",
+  "reference_label_convention": "negative-strand names reversed back to N-to-C",
+  "reference_audit": {
+    "il_equivalent": 57808,
+    "sequence_mismatch": 178907,
+    "exact": 52203,
+    "invalid_blocks": 222
+  },
+  "reference_evaluable_loci": 110011,
+  "reference_evaluable_classes": 89891,
+  "input_classes": 234952,
+  "gapms_version": "0.2.0",
+  "peplocus_version": "0.3.1",
+  "snapshot_commit": "40d1f9a392e073e909be0cd3e93d5d0c7dd1682e",
+  "validation_jobs": [
+    188267,
+    188268
+  ],
+  "gapms_tests": 70,
+  "peplocus_tests": 153,
+  "full_workflow_minutes": 11.8,
+  "gtf_missed_locus_diagnosis": {
+    "reference_edge_absent_from_annotation": 57
+  },
+  "modes": {
+    "gtf": {
+      "reported_loci": 416611,
+      "mapped_classes": 234952,
+      "unmapped_classes": 0,
+      "unique_classes": 187139,
+      "multiple_classes": 47813,
+      "correct_reference_loci": 109954,
+      "missed_reference_loci": 57,
+      "reference_locus_recall": 0.9994818699948187,
+      "reference_peptides_recovered": 89840,
+      "additional_loci": 306657,
+      "raw_reference_coordinate_overlap": 109954,
+      "igv_round_trip_equal": true,
+      "previous_standalone_peplocus_loci": 416611,
+      "identical_to_previous_standalone_peplocus": true,
+      "elapsed_seconds": 133.477,
+      "timings": {
+        "contiguous_seconds": 42.898,
+        "annotation_extraction_seconds": 7.686,
+        "supported_splice_seconds": 52.205,
+        "output_and_verification_seconds": 24.918
+      }
+    },
+    "bam": {
+      "reported_loci": 415977,
+      "mapped_classes": 233591,
+      "unmapped_classes": 1361,
+      "unique_classes": 185647,
+      "multiple_classes": 47944,
+      "correct_reference_loci": 109532,
+      "missed_reference_loci": 479,
+      "reference_locus_recall": 0.9956458899564589,
+      "reference_peptides_recovered": 89554,
+      "additional_loci": 306445,
+      "raw_reference_coordinate_overlap": 109532,
+      "igv_round_trip_equal": true,
+      "elapsed_seconds": 305.286,
+      "timings": {
+        "contiguous_seconds": 43.228,
+        "bam_extraction_seconds": 186.522,
+        "supported_splice_seconds": 45.583,
+        "output_and_verification_seconds": 24.354
+      }
+    },
+    "workflow": {
+      "reported_loci": 416611,
+      "mapped_classes": 234952,
+      "unmapped_classes": 0,
+      "unique_classes": 187139,
+      "multiple_classes": 47813,
+      "correct_reference_loci": 109954,
+      "missed_reference_loci": 57,
+      "reference_locus_recall": 0.9994818699948187,
+      "reference_peptides_recovered": 89840,
+      "additional_loci": 306657,
+      "raw_reference_coordinate_overlap": 109954,
+      "igv_round_trip_equal": true,
+      "identical_to_standalone_gapms_map": true,
+      "elapsed_seconds": 133.941,
+      "timings": {
+        "contiguous_seconds": 41.998,
+        "annotation_extraction_seconds": 7.359,
+        "supported_splice_seconds": 53.605,
+        "output_and_verification_seconds": 24.887
+      }
+    }
+  }
+}
