@@ -7,6 +7,10 @@ From: mambaorg/micromamba:1.5.8
     pyproject.toml /opt/gapms/pyproject.toml
     README.md /opt/gapms/README.md
     requirements.txt /opt/gapms/requirements.txt
+    MANIFEST.in /opt/gapms/MANIFEST.in
+    LICENSE /opt/gapms/LICENSE
+    THIRD_PARTY.md /opt/gapms/THIRD_PARTY.md
+    docs /opt/gapms/docs
     xgb_protein_classifier.pkl /opt/gapms/xgb_protein_classifier.pkl
 
 %post
@@ -40,6 +44,14 @@ From: mambaorg/micromamba:1.5.8
     micromamba clean --all --yes
     rm -rf /root/.cache/pip
 
+%test
+    set -e
+    /opt/conda/bin/python -c 'from importlib.metadata import version; import ahocorasick, pysam; from gapms.model_metadata import CodingRuns; assert version("gapms") == "0.2.2"'
+    /opt/conda/bin/gapms map --help >/dev/null
+    for executable in gffread gffcompare samtools stringtie TransDecoder.LongOrfs TransDecoder.Predict; do
+        test -x "/opt/conda/bin/$executable"
+    done
+
 %environment
     export PATH=/opt/conda/bin:$PATH
     export CONDA_DEFAULT_ENV=base
@@ -51,7 +63,7 @@ From: mambaorg/micromamba:1.5.8
 
 %labels
     Author Qussai Abbas
-    Version 0.1.3
+    Version 0.2.2
     Description GAP-MS: Gene Model Assessment using Peptides from Mass Spectrometry
 
 %help
@@ -63,6 +75,9 @@ From: mambaorg/micromamba:1.5.8
 
     Example usage:
         apptainer run gapms.sif -g annotations.gtf -f proteins.fasta -p peptides.txt
+
+    Direct assembly mapping (standard and IGV BED):
+        apptainer run gapms.sif map -a assembly.fasta -p peptides.txt -g annotations.gtf -o mapped
 
     With BAM input:
         apptainer exec gapms.sif gapms -b rnaseq.bam -a assembly.fasta -p peptides.txt

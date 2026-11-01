@@ -1,15 +1,2 @@
-pandas
-numpy
-biopython
-matplotlib
-seaborn
-scipy
-scikit-learn
-shap==0.46.0
-xgboost==2.0.3
-gffread
-
-# Optional dependencies for embeddings (-cm flag)
-# Install with: pip install torch fair-esm
-# torch
-# fair-esm
+# Install the local package using the dependency versions in pyproject.toml.
+.
