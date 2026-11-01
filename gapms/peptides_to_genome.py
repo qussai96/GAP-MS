@@ -15,7 +15,7 @@ def __getattr__(name):
 
 
 def map_assembly(assembly, peptides, output_dir, *, gtf=None, bam=None,
-                 peptide_column=None, threads=1, extra_args=()):
+                 peptide_column=None, threads=8, extra_args=()):
     """Run bundled PepLocus, always producing analysis and IGV BED files."""
     from ._peplocus.cli import main
     output_dir = Path(output_dir)
@@ -44,7 +44,7 @@ def map_assembly(assembly, peptides, output_dir, *, gtf=None, bam=None,
 
 
 def map_peptides_to_genome(gtf_file, protein_fasta, mapping_file, output_dir,
-                           *, assembly=None, peptides=None, bam=None, threads=1,
+                           *, assembly=None, peptides=None, bam=None, threads=8,
                            peptide_column=None, model_evidence=False):
     """Workflow adapter; assembly runs use the full observed peptide input.
 

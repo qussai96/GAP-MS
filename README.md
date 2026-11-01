@@ -6,7 +6,7 @@ GAP-MS evaluates predicted gene models by integrating peptide evidence from mass
 
 ## Direct peptide-to-assembly mapping (PepLocus)
 
-GAPMS 0.2.0 bundles the PepLocus 0.3.1 engine. Map observed peptides directly to a
+GAPMS 0.2.1 bundles the PepLocus 0.3.1 engine. Map observed peptides directly to a
 six-frame assembly translation and optional splice-junction evidence:
 
 ```bash
@@ -25,7 +25,7 @@ gapms map -a assembly.fa -p peptides.txt -g predictions.gtf \
   --rescue-one-edit --rescue-min-length 12 -t 8 -o mapped_rescue
 ```
 
-Only assembly and peptides are required for `gapms map`. The default output is
+Only assembly and peptides are required for `gapms map`. The default worker count is **8**, overridable with `-t`/`--threads`. The default output is
 `GAPMS_Map`; use a fresh output directory for each run. `--assembly`/`--genome`,
 `--peptides`, `--gtf`/`--gff`, `--bam`, `--threads`, and `--output`/`--out` are accepted
 long options. `gapms map --help` lists the complete PepLocus search options,
@@ -70,7 +70,8 @@ python -m gapms._peplocus verify --genome assembly.fa \
 
 ### Integration with the annotation-assessment workflow
 
-Existing `gapms -g ... -a ... -p ...` workflows now use PepLocus for the genomic
+Existing `gapms -g ... -a ... -p ...` workflows default to eight mapping workers
+and use PepLocus for the genomic
 BED step, searching the full observed peptide list rather than only peptides that
 mapped to predicted proteins. `-t`/`--threads` selects mapping workers. Protein
 mapping and classifier features remain protein-based; extra genomic placements
@@ -89,11 +90,14 @@ reference-report runs, independently of the fast assembly mapper.
 Historical protein-only workflows with `-f` but no assembly retain the previous
 protein-coordinate exporter, with a warning. Supply `-a` to obtain the new genomic
 search and both BED versions. Existing containers are unchanged; rebuild them to
-include GAPMS 0.2.0 and the new mapping dependencies.
+include GAPMS 0.2.1 and the new mapping dependencies.
 
 See [integration and validation details](docs/peplocus_integration.md). The bundled
 engine's [MIT license](gapms/_peplocus/LICENSE) is included in built distributions.
 
+
+For output-preserving feature-extraction speedups and the carrot benchmark, see
+[feature optimization](docs/feature_optimization.md).
 
 ## Installation
 

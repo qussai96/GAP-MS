@@ -23,6 +23,29 @@ def _ts():
     return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 
+def build_splice_junctions(cds):
+    """Find adjacent CDS introns without constructing thousands of DataFrames."""
+    cds = cds.loc[cds['Protein'].notna()]
+    if cds.empty:
+        return pd.DataFrame(columns=['Protein', 'junction_nt']), {}
+    if cds.duplicated(['Protein', 'cds_nt_start']).any():
+        # Preserve the original per-group pandas tie order for zero-length CDSs.
+        ordered = pd.concat([g.sort_values('cds_nt_start')
+                             for _, g in cds.groupby('Protein', sort=False)])
+    else:
+        codes, _ = pd.factorize(cds['Protein'], sort=False)
+        ordered = cds.assign(_junction_group=codes).sort_values(
+            ['_junction_group', 'cds_nt_start']).drop(columns='_junction_group')
+    following = ordered.groupby('Protein', sort=False)[['Seqid', 'Start', 'End']].shift(-1)
+    intron = ordered['Seqid'].eq(following['Seqid']) & (
+        (ordered['Strand'].eq('+') & following['Start'].gt(ordered['End'] + 1)) |
+        (ordered['Strand'].eq('-') & ordered['Start'].gt(following['End'] + 1)))
+    records = ordered.loc[intron, ['Protein', 'cds_nt_end']].rename(
+        columns={'cds_nt_end': 'junction_nt'}).reset_index(drop=True)
+    counts = records.groupby('Protein', sort=False).size().to_dict()
+    return records, counts
+
+
 def extract_features(gtf_file, prediction_fasta, mapping_file, output_dir, external_scores_csv=None):
     gtf_file = Path(gtf_file)
     protein_fasta = Path(prediction_fasta)
@@ -77,33 +100,7 @@ def extract_features(gtf_file, prediction_fasta, mapping_file, output_dir, exter
 
     # Record true introns in translation coordinates. Adjacent CDS records are
     # not splice junctions and must not inflate the junction count.
-    splice_junction_records = []
-    splice_site_counts = {}
-    for protein, group in df_CDSs.groupby('Protein', sort=False):
-        ordered = group.sort_values('cds_nt_start')
-        junction_count = 0
-        rows = list(ordered.itertuples())
-        for current_cds, next_cds in zip(rows, rows[1:]):
-            if current_cds.Seqid != next_cds.Seqid:
-                continue
-            if current_cds.Strand == '+':
-                has_intron = int(next_cds.Start) > int(current_cds.End) + 1
-            elif current_cds.Strand == '-':
-                has_intron = int(current_cds.Start) > int(next_cds.End) + 1
-            else:
-                has_intron = False
-            if has_intron:
-                junction_count += 1
-                splice_junction_records.append({
-                    'Protein': protein,
-                    'junction_nt': int(current_cds.cds_nt_end),
-                })
-        splice_site_counts[protein] = junction_count
-
-    splice_junctions_df = pd.DataFrame(
-        splice_junction_records,
-        columns=['Protein', 'junction_nt'],
-    )
+    splice_junctions_df, splice_site_counts = build_splice_junctions(df_CDSs)
     df_CDSs['splice_sites'] = (
         df_CDSs['Protein'].map(splice_site_counts).fillna(0).astype(int)
     )
@@ -239,25 +236,20 @@ def extract_features(gtf_file, prediction_fasta, mapping_file, output_dir, exter
     # Credit a junction only when the peptide supports that same junction at
     # every occurrence within the protein. This prevents several peptides at
     # one junction from masquerading as support for every junction.
-    occurrence_junctions = {}
-    for key, group in junction_check[junction_check['spans_junction']].groupby(
-        ['Protein', 'Peptide', 'pep_start', 'pep_end'], sort=False
-    ):
-        occurrence_junctions[key] = set(group['junction_nt'].dropna().astype(int))
-
-    supported_junctions_by_protein = {}
-    for (protein, peptide), occurrences in pep_unique.groupby(
-        ['Protein', 'Peptide'], sort=False
-    ):
-        junction_sets = [
-            occurrence_junctions.get(
-                (protein, peptide, row.pep_start, row.pep_end),
-                set(),
-            )
-            for row in occurrences.itertuples()
-        ]
-        common_junctions = set.intersection(*junction_sets) if junction_sets else set()
-        supported_junctions_by_protein.setdefault(protein, set()).update(common_junctions)
+    # A junction is shared by all occurrences iff its distinct-occurrence count
+    # equals the total occurrence count for that protein/peptide pair.
+    occurrence_keys = ['Protein', 'Peptide', 'pep_start', 'pep_end']
+    spanning = junction_check.loc[junction_check['spans_junction'],
+                                  occurrence_keys + ['junction_nt']].copy()
+    spanning['junction_nt'] = spanning['junction_nt'].astype(int)
+    spanning = spanning.drop_duplicates()
+    occurrence_counts = pep_unique.groupby(['Protein', 'Peptide'], sort=False).size()
+    junction_counts = spanning.groupby(['Protein', 'Peptide', 'junction_nt'], sort=False).size()
+    totals = occurrence_counts.reindex(junction_counts.index.droplevel('junction_nt')).to_numpy()
+    shared = junction_counts.loc[junction_counts.to_numpy() == totals].reset_index()
+    supported_junctions_by_protein = (
+        shared.groupby('Protein', sort=False)['junction_nt'].agg(set).to_dict()
+    )
 
     peptide_features_df['C_terminal_peptide'] = np.where(peptide_features_df['pep_end'] == peptide_features_df['prot_len'], '+', '-')
     peptide_features_df = peptide_features_df.drop(columns=['cds_start', 'cds_end']).drop_duplicates()
@@ -268,8 +260,9 @@ def extract_features(gtf_file, prediction_fasta, mapping_file, output_dir, exter
     # repeated locations and CDS rows before summing the evidence features.
     # Terminal/junction support is only retained when every occurrence of that
     # peptide in the protein supports the same interpretation.
-    def _unambiguous_support(values):
-        return '+' if values.eq('+').all() else '-'
+    support_columns = ['N_terminal_peptide', 'C_terminal_peptide', 'Splice_peptide']
+    for column in support_columns:
+        peptide_features_df[column] = peptide_features_df[column].eq('+')
 
     peptide_features_df = (
         peptide_features_df
@@ -280,14 +273,17 @@ def extract_features(gtf_file, prediction_fasta, mapping_file, output_dir, exter
             splice_sites=('splice_sites', 'mean'),
             Protein_specific=('Protein_specific', 'first'),
             Gene_specific=('Gene_specific', 'first'),
-            N_terminal_peptide=('N_terminal_peptide', _unambiguous_support),
-            C_terminal_peptide=('C_terminal_peptide', _unambiguous_support),
-            Splice_peptide=('Splice_peptide', _unambiguous_support),
+            N_terminal_peptide=('N_terminal_peptide', 'all'),
+            C_terminal_peptide=('C_terminal_peptide', 'all'),
+            Splice_peptide=('Splice_peptide', 'all'),
             transcript_score=('transcript_score', 'mean'),
             prot_len=('prot_len', 'mean'),
             sequence_coverage=('sequence_coverage', 'mean'),
         )
     )
+
+    for column in support_columns:
+        peptide_features_df[column] = np.where(peptide_features_df[column], '+', '-')
 
 
     print(f"{_ts()} [extract] Aggregating protein-level scores...")

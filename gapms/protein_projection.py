@@ -52,7 +52,7 @@ def _coding_nt_positions(cds_features: pd.DataFrame) -> List[int]:
     return positions
 
 
-def annotate_cds_coordinates(cds_df: pd.DataFrame) -> pd.DataFrame:
+def _annotate_cds_coordinates_reference(cds_df: pd.DataFrame) -> pd.DataFrame:
     """Add translation-space nucleotide/amino-acid bounds to CDS rows."""
     annotated_groups = []
     for _, group in cds_df.groupby('Protein', sort=False, dropna=False):
@@ -88,6 +88,34 @@ def annotate_cds_coordinates(cds_df: pd.DataFrame) -> pd.DataFrame:
             cds_len=pd.Series(dtype='Int64'),
         )
     return pd.concat(annotated_groups).sort_index()
+
+
+def annotate_cds_coordinates(cds_df: pd.DataFrame) -> pd.DataFrame:
+    """Vectorized CDS offsets, preserving the original grouping/sort semantics."""
+    import numpy as np
+    if (cds_df.empty or not cds_df.index.is_unique
+            or not pd.api.types.is_numeric_dtype(cds_df['Start'])
+            or cds_df.duplicated(['Protein', 'Start']).any()):
+        # Retain pandas' original per-group tie ordering for unusual inputs.
+        return _annotate_cds_coordinates_reference(cds_df)
+    codes, _ = pd.factorize(cds_df['Protein'], sort=False, use_na_sentinel=False)
+    work = cds_df.copy()
+    work['_cds_group'] = codes
+    first_strands = work.drop_duplicates('_cds_group').set_index('_cds_group')['Strand']
+    work['_cds_order'] = np.where(work['_cds_group'].map(first_strands).eq('-'),
+                                  -work['Start'], work['Start'])
+    work = work.sort_values(['_cds_group', '_cds_order'])
+    lengths = work['End'].astype('int64') - work['Start'].astype('int64') + 1
+    first = ~work['_cds_group'].duplicated()
+    lengths.loc[first] -= work.loc[first, 'Frame'].map(_frame_value) if 'Frame' in work else 0
+    lengths = lengths.clip(lower=0)
+    ends = lengths.groupby(work['_cds_group'], sort=False).cumsum()
+    work['cds_nt_start'] = ends - lengths + 1
+    work['cds_nt_end'] = ends
+    work['cds_start'] = (work['cds_nt_start'] - 1) // 3 + 1
+    work['cds_end'] = (ends + 2) // 3
+    work['cds_len'] = lengths
+    return work.drop(columns=['_cds_group', '_cds_order']).sort_index()
 
 
 def get_protein_to_cds_mapping(

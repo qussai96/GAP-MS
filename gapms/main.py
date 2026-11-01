@@ -34,7 +34,7 @@ def main():
         gapms_version = pkg_version("gapms")
     except PackageNotFoundError:
         # Fallback when running from source without an installed package.
-        gapms_version = "0.2.0"
+        gapms_version = "0.2.1"
 
     parser = argparse.ArgumentParser(
         description="Filter GTF predictions using mass-spec data and mapping information.",
@@ -53,7 +53,7 @@ def main():
     parser.add_argument("-o", "--output", type=Path, help="Optional output directory")
     parser.add_argument("-i", "--iterative", action="store_true", help="Train an iterative XGBoost model from the high/low-confidence sets instead of using the pre-trained classifier")
 
-    parser.add_argument("-t", "--threads", type=int, default=1, help="PepLocus mapping workers (default: 1)")
+    parser.add_argument("-t", "--threads", type=int, default=8, help="PepLocus mapping workers (default: 8)")
     args = parser.parse_args()
     if args.threads < 1:
         parser.error("--threads must be positive")

@@ -23,7 +23,7 @@ with open("README.md", "r") as f:
     description=f.read()
 setup(
     name='gapms',
-    version='0.2.0',
+    version='0.2.1',
     packages=find_packages(),
     package_data={
         'gapms': ['*.pl'],

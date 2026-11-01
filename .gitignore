@@ -45,3 +45,5 @@ tests/gapms_full_*.err
 /home/students/q.abbas/Git/GAP-MS/tests/test_braker_carrot
 evaluation/peplocus_integration/
 .pytest_cache/
+
+evaluation/feature_speed/

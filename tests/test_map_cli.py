@@ -39,6 +39,7 @@ def test_map_cli_all_evidence_and_beds(tmp_path,evidence):
     output=tmp_path/'out'
     command=[sys.executable,'-m','gapms.cli','map','-a',str(genome),'-p',str(peptides),
              '-o',str(output),'--rescue-one-edit','--rescue-min-length','9']
+    if evidence == 'gtf':command += ['-t','1']
     if evidence in {'gtf','both'}:command+=['-g',str(gtf)]
     if evidence in {'bam','both'}:command+=['-b',str(bam)]
     env=dict(os.environ,OPENBLAS_NUM_THREADS='1',OMP_NUM_THREADS='1')
@@ -46,6 +47,8 @@ def test_map_cli_all_evidence_and_beds(tmp_path,evidence):
     assert result.returncode==0,result.stdout+result.stderr
     assert (output/'peptides_mapped.bed').read_bytes()==(output/'peplocus/mappings.bed').read_bytes()
     assert (output/'peptides_mapped.igv.bed').read_bytes()==(output/'peplocus/mappings.igv_display.bed').read_bytes()
+    summary=json.loads((output/'peplocus/summary.json').read_text())
+    assert summary['parameters']['threads'] == (1 if evidence == 'gtf' else 8)
     rows=list(csv.DictReader((output/'peplocus/mappings.tsv').open(),delimiter='\t'))
     assert any(r['peptide']=='MPEPTIDEK' and r['strand']=='+' and len(json.loads(r['blocks']))==2 for r in rows)
     rescue=list(csv.DictReader((output/'peplocus/rescue_mappings.tsv').open(),delimiter='\t'))

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gapms"
-version = "0.2.0"
+version = "0.2.1"
 description = "GAP-MS is a pipeline designed to evaluate and refine predicted gene models by integrating proteogenomic evidence from mass spectrometry with in-silico gene predictions."
 authors = [{ name = "Qussai Abbas", email = "qussai.abbas@tum.de" }]
 readme = "README.md"

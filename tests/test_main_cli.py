@@ -177,7 +177,7 @@ class TestMainCli(unittest.TestCase):
             mock_map_peptides_to_genome.assert_called_once_with(
                 generated_gtf, generated_fasta, mock_run_proteomapper.return_value, output_dir,
                 assembly=assembly_path, peptides=peptides_path, bam=bam_path,
-                threads=1, model_evidence=False,
+                threads=8, model_evidence=False,
             )
 
     @patch("gapms.main.compare_bam_support_to_input_gtf")

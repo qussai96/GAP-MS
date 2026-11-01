@@ -16,6 +16,8 @@ def main(argv=None):
         for alias in names:
             action.option_strings.append(alias)
             map_parser._option_string_actions[alias] = action
+    map_parser._option_string_actions['--threads'].default = 8
+    map_parser._option_string_actions['--threads'].help = 'worker processes for contiguous search (default: 8)'
     map_parser._option_string_actions['--out'].required = False
     map_parser._option_string_actions['--out'].default = 'GAPMS_Map'
     args = parser.parse_args(['map'] + (list(argv) if argv is not None else __import__('sys').argv[1:]))
