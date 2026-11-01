@@ -9,7 +9,7 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 
-IMAGE_URI="${IMAGE_URI:-docker://qussaiab96/gapms:latest}"
+IMAGE_URI="${IMAGE_URI:-oras://docker.io/qussaiab96/gapms:latest}"
 IMAGE_PATH="${IMAGE_PATH:-$SCRIPT_DIR/gapms_dockerhub_latest.sif}"
 TUTORIAL_DIR="${TUTORIAL_DIR:-$REPO_DIR/tutorials}"
 OUTPUT_DIR="${OUTPUT_DIR:-$SCRIPT_DIR/tutorial_image_output_$(date +%Y%m%d_%H%M%S)}"
@@ -50,19 +50,37 @@ else
     echo "Set REFRESH_IMAGE=1 to pull the latest image again."
 fi
 
-mkdir -p "$OUTPUT_DIR"
+WORK_INPUT_DIR="$OUTPUT_DIR/input"
+RESULTS_DIR="$OUTPUT_DIR/results"
+mkdir -p "$WORK_INPUT_DIR" "$RESULTS_DIR"
+
+# ProteoMapper creates index files beside its input FASTA. Stage the tutorial
+# files so the container can write those sidecars without modifying tutorials/.
+echo "[$(date '+%F %T')] Staging tutorial inputs"
+for filename in "${required_files[@]}"; do
+    cp --reflink=auto "$TUTORIAL_DIR/$filename" "$WORK_INPUT_DIR/$filename"
+done
+if [[ -f "$TUTORIAL_DIR/NC_023759.2_genome_Sequence.fna.fai" ]]; then
+    cp --reflink=auto \
+        "$TUTORIAL_DIR/NC_023759.2_genome_Sequence.fna.fai" \
+        "$WORK_INPUT_DIR/NC_023759.2_genome_Sequence.fna.fai"
+fi
+
 TUTORIAL_DIR="$(cd -- "$TUTORIAL_DIR" && pwd)"
 OUTPUT_DIR="$(cd -- "$OUTPUT_DIR" && pwd)"
+WORK_INPUT_DIR="$(cd -- "$WORK_INPUT_DIR" && pwd)"
+RESULTS_DIR="$(cd -- "$RESULTS_DIR" && pwd)"
 IMAGE_PATH="$(cd -- "$(dirname -- "$IMAGE_PATH")" && pwd)/$(basename -- "$IMAGE_PATH")"
 
 echo "[$(date '+%F %T')] Starting GAP-MS tutorial run"
 echo "Image:  $IMAGE_PATH"
-echo "Inputs: $TUTORIAL_DIR"
-echo "Output: $OUTPUT_DIR"
+echo "Source inputs: $TUTORIAL_DIR"
+echo "Staged inputs: $WORK_INPUT_DIR"
+echo "Results:       $RESULTS_DIR"
 
 apptainer run --cleanenv \
-    --bind "$TUTORIAL_DIR:/input:ro" \
-    --bind "$OUTPUT_DIR:/output" \
+    --bind "$WORK_INPUT_DIR:/input" \
+    --bind "$RESULTS_DIR:/output" \
     "$IMAGE_PATH" \
     -g /input/Helixer_prediction.gtf \
     -f /input/Helixer_prediction.faa \
@@ -74,4 +92,4 @@ apptainer run --cleanenv \
     -o /output
 
 echo "[$(date '+%F %T')] GAP-MS tutorial run completed"
-echo "Results: $OUTPUT_DIR"
+echo "Results: $RESULTS_DIR"
