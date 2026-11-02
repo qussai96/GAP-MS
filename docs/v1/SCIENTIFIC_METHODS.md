@@ -107,7 +107,7 @@ compatible peptide placements. Single-peptide ORFs are retained with lower
 confidence. Nested peptide sequences are not counted as two independent
 non-nested sequences. `high_confidence_candidate` requires at least two
 non-nested, locus-discriminating diagnostic sequences, coherent complete ATG-to-
-stop translation, passing recognized peptide q-value evidence and, for spliced
+stop translation with a fully resolved standard-amino-acid sequence, passing recognized peptide q-value evidence and, for spliced
 candidates, sufficient support for every coding junction. A structurally different coding model compatible with all diagnostic sequences
 forces an ambiguous assignment, even when the locus is unique. Identical coding
 paths are treated as the same hypothesis. It is still a candidate, not an
@@ -144,10 +144,32 @@ connectivity is a reconstruction hypothesis; the uncertainty is explicit.
 
 ## Optional one-edit rescue
 
-Exact mapping runs first. Optional one-edit rescue searches only exact-unmapped
+Exact engine mapping runs first. Optional one-edit rescue searches only engine-stage exact-unmapped
 peptides of at least 12 aa by default, allowing one amino-acid substitution,
 insertion or deletion. I/L equivalence does not consume the edit. Rescue
 alignments, limits and ambiguity are reported separately in `mapping/rescue/`.
 They never count as exact model support or diagnostic annotation evidence.
 The nine-crop default evaluation uses exact matching; rescue must be requested
 explicitly to avoid silently increasing ambiguity and runtime.
+
+## Further scope limits
+
+Assemblies are treated as linear contigs. Circular-origin coding paths are not
+automatically wrapped. A single genetic code applies to every contig in a run;
+mixed nuclear/organelle translation tables need separate configured runs. The
+reference assembly is the searched sequence: optional one-edit placements do
+not validate a variant allele. External reconstruction needs sufficient RNA
+coverage and ORFs for the assembler/predictor; tool failures are reported with
+logs rather than silently inventing candidate models.
+
+Deterministic IUPAC codons are resolved when every possible concrete codon
+encodes the same residue. This can differ from TransDecoder's conservative X
+masking. Unresolved amino acids elsewhere in an ORF remain a separate uncertainty;
+they preclude high-confidence candidate status even when mapped peptides avoid
+that region. The whole-ORF projection audit checks nucleotide identity and all
+possible codon expansions before accepting an IUPAC representation difference.
+
+One-edit rescue is scoped to the bundled engine's exact-unmapped set. Full-CDS
+exact projections are integrated afterward and can add exact paths beyond local
+splice caps. Interpret exploratory rescue against the final exact mapping
+table; it never contributes to model assessment or annotation proposals.

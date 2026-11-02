@@ -146,3 +146,14 @@ def test_unstranded_rna_transcripts_are_extracted_plus_without_inventing_strand(
             load_models(annotation,'annotation',reference,lengths)
         models=load_models(annotation,'RNA_transcripts',reference,lengths,allow_unstranded=True)
         assert models[0].strand=='.' and models[0].protein==''
+
+
+def test_single_column_casanovo_retains_duplicate_identifications_and_modifications(tmp_path):
+    assembly=tmp_path/'g.fa';assembly.write_text('>chr1\n'+dna('MPEPTIDEK*')+'\n')
+    peptides=tmp_path/'p.tsv';peptides.write_text('sequence\nPEPTIDE\nPEPTI[modification]DE\nPEPTIDE\n')
+    output=tmp_path/'out'
+    assert main(['-a',str(assembly),'-p',str(peptides),'-o',str(output),'-t','1'])==0
+    identifications=table(output/'mapping/peptide_identifications.tsv')
+    assert len(identifications)==3 and len({r['identification_id'] for r in identifications})==3
+    assert json.loads(identifications[1]['original_record'])['sequence']=='PEPTI[modification]DE'
+    assert len(table(output/'mapping/mapped_peptides.tsv'))==1

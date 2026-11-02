@@ -142,6 +142,7 @@ def assess(args,models,store,metadata,rna_junctions):
             compatible=set.intersection(*(sequence_models[p] for p in sequences)) - {candidate.id}
             competitors=sorted(mid for mid in compatible if by_id[mid].signature()!=candidate.signature())
             high=(len(non_nested(unique))>=2 and coherent and candidate.complete_start and candidate.complete_stop and quality(unique)=='qvalue_pass'
+                  and set(candidate.protein)<=set('ACDEFGHIKLMNPQRSTVWY')
                   and (not rna_keys or minimum>=args.min_junction_support))
             if rna_required and minimum<args.min_junction_support:high=False
             if getattr(args,'splice_search_capped',False) or competitors:high=False
@@ -151,6 +152,7 @@ def assess(args,models,store,metadata,rna_junctions):
             if any(counts[p]>1 for p in sequences):limitations.append('non_discriminating_peptides_present')
             if len(non_nested(unique))<2:limitations.append('fewer_than_two_non_nested_locus_discriminating_peptides')
             if competitors:limitations.append('equally_compatible_coding_models:'+','.join(competitors))
+            if set(candidate.protein)-set('ACDEFGHIKLMNPQRSTVWY*'):limitations.append('unresolved_amino_acids_in_candidate_ORF')
             if candidate.issues:limitations.extend(candidate.issues)
             if getattr(args,'splice_search_capped',False):limitations.append('splice_path_search_capped_uniqueness_incomplete')
             if kind=='alternative_start':limitations.extend(['proteolytic_processing_not_excluded','initiation_site_not_experimentally_confirmed'])

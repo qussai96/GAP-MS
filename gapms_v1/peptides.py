@@ -17,12 +17,15 @@ def load_peptides(args):
     with opener(args.peptides, 'rt', encoding='utf-8-sig') as stream:
         first = next((line for line in stream if line.strip() and not line.startswith('#')), '')
     delimiter = '\t' if '\t' in first else ',' if ',' in first else None
-    header = [part.strip().lower() for part in first.strip().split(delimiter)] if delimiter else []
-    is_table = any(name in HEADERS for name in header)
+    header = [part.strip().lower() for part in first.strip().split(delimiter)] if delimiter else [first.strip().lower()]
+    # A one-column TSV remains a table: retain duplicate identifications and
+    # modification labels. An uppercase plain-list PEPTIDE is a real sequence.
+    plain_sequence = not delimiter and first.strip().isupper() and set(first.strip()) <= set('ACDEFGHIKLMNPQRSTVWY')
+    is_table = any(name in HEADERS for name in header) and not plain_sequence
     rows = []
     if is_table:
         with opener(args.peptides, 'rt', encoding='utf-8-sig') as stream:
-            reader = csv.DictReader((line for line in stream if line.strip() and not line.startswith('#')), delimiter=delimiter)
+            reader = csv.DictReader((line for line in stream if line.strip() and not line.startswith('#')), delimiter=delimiter or '\t')
             peptide_key = next((key for key in reader.fieldnames if key.strip().lower() == (args.peptide_column or '').lower()), None)
             peptide_key = peptide_key or next(key for key in reader.fieldnames if key.strip().lower() in HEADERS)
             for index, record in enumerate(reader, 1):

@@ -61,7 +61,7 @@ reported in `mapping/excluded_peptides.tsv`. This threshold limits ambiguity,
 not peptide identification error. Use a lower threshold explicitly for small
 peptide research. No uniqueness claim can cover unsearched splice structures.
 
-Optional `--rescue-one-edit` searches exact-unmapped peptides of at least 12 aa
+Optional `--rescue-one-edit` searches engine-stage exact-unmapped peptides of at least 12 aa
 by default. Rescue outputs are separate and do not contribute to exact model
 support or annotation proposals. All exact placements are retained.
 
@@ -86,6 +86,9 @@ Candidates need direct diagnostic evidence. Missing downstream peptides never
 justify a shorter coding sequence. A peptide elsewhere in a protein never
 supports its changed splice junction. Non-tryptic termini alone do not establish
 translation initiation. Unknown identification quality remains unknown.
+
+The nine-crop Casanovo evaluation completed successfully; see the
+[results, reference audit and figures](evaluation/EVALUATION.md).
 
 See [methods](SCIENTIFIC_METHODS.md), [output schemas](OUTPUT_FORMATS.md),
 [architecture](ARCHITECTURE.md), and [validation](VALIDATION.md).

@@ -7,6 +7,11 @@ one-based inclusive coordinates and preserves CDS phase. Ordering is determinist
 for a given input order, source list and configuration. Runtime, host and command
 metadata naturally differ between executions.
 
+IDs are deterministic in their reference/source context. Peptide IDs identify
+normalized sequences; locus IDs include the I/L-equivalent sequence and genomic
+path and are scoped to the run's assembly. Preserve assembly and run identities
+when joining outputs from different references. Model IDs retain source identity.
+
 ## Run record
 
 `run_manifest.json` records version, workflow mode, run key, parameter values,

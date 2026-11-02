@@ -23,6 +23,8 @@ def validate(record):
  assert manifest['status']=='completed',manifest.get('error',manifest['status'])
  summary=json.loads((out/'reports/summary.json').read_text())
  statistics=summary['mapping'];assert statistics['mapped_peptides']+statistics['unmapped_peptides']==statistics['peptides']
+ identification_rows=sum(1 for _ in rows(out/'mapping/peptide_identifications.tsv'))
+ assert identification_rows==summary['input']['input_records'], 'original identification records were dropped'
  assert statistics['unique_peptides']+statistics['multiple_peptides']==statistics['mapped_peptides']
  rng=random.Random(42);sample=[];count=0;bed_count=0;spliced=0;lengths=Counter()
  for count,row in enumerate(rows(out/'mapping/mapped_peptides.tsv'),1):
@@ -84,6 +86,8 @@ def validate(record):
   events[row['event_type']]+=1;confidence[row['confidence']]+=1
   sequences=json.loads(row['peptides']);assert sequences
   model=row['candidate_model_id']
+  if set(proteins[model])-set('ACDEFGHIKLMNPQRSTVWY*'):
+   assert 'unresolved_amino_acids_in_candidate_ORF' in json.loads(row['limitations'])
   for sequence in sequences:
    found=connection.execute('SELECT blocks,aa_start FROM associations WHERE model=? AND canonical=?',(model,sequence)).fetchall();assert found
    if row['event_type']=='alternative_start':assert any(start in [0,1] for encoded,start in found)

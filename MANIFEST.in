@@ -1,3 +1,9 @@
 include LICENSE
-recursive-include docs/v1 *.md
+include THIRD_PARTY.md
+include xgb_protein_classifier.pkl
+recursive-include docs/v1 *.md *.json *.tsv *.png *.pdf *.py
 recursive-include tests/v1 *.py
+recursive-include scripts *.py
+recursive-include packaging/legacy *.py *.toml *.in
+recursive-include gapms *.py
+include gapms/_peplocus/LICENSE

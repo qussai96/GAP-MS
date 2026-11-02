@@ -1,0 +1,74 @@
+[
+  {
+    "crop": "GCF_001625215.2_Daucus_carota",
+    "status": "validated",
+    "orfs": 48468,
+    "literal_protein_matches": 48468,
+    "proven_iupac_masking_cases": 0,
+    "unexplained_disagreements": 0
+  },
+  {
+    "crop": "GCF_020520425.1_Spinacia_oleracea",
+    "status": "validated",
+    "orfs": 43801,
+    "literal_protein_matches": 43801,
+    "proven_iupac_masking_cases": 0,
+    "unexplained_disagreements": 0
+  },
+  {
+    "crop": "GCF_022201045.2_Citrus_sinensis",
+    "status": "validated",
+    "orfs": 43099,
+    "literal_protein_matches": 43099,
+    "proven_iupac_masking_cases": 0,
+    "unexplained_disagreements": 0
+  },
+  {
+    "crop": "GCF_025177605.1_Cucumis_melo",
+    "status": "validated",
+    "orfs": 49963,
+    "literal_protein_matches": 49963,
+    "proven_iupac_masking_cases": 0,
+    "unexplained_disagreements": 0
+  },
+  {
+    "crop": "GCF_036512215.1_Solanum_lycopersicum",
+    "status": "validated",
+    "orfs": 45090,
+    "literal_protein_matches": 45089,
+    "proven_iupac_masking_cases": 1,
+    "unexplained_disagreements": 0
+  },
+  {
+    "crop": "GCF_042453785.1_Malus_domestica",
+    "status": "validated",
+    "orfs": 62907,
+    "literal_protein_matches": 62906,
+    "proven_iupac_masking_cases": 1,
+    "unexplained_disagreements": 0
+  },
+  {
+    "crop": "GCF_902167145.1_Zea_mays",
+    "status": "validated",
+    "orfs": 58282,
+    "literal_protein_matches": 58282,
+    "proven_iupac_masking_cases": 0,
+    "unexplained_disagreements": 0
+  },
+  {
+    "crop": "GCF_904849725.1_Hordeum_vulgare",
+    "status": "validated",
+    "orfs": 50906,
+    "literal_protein_matches": 50906,
+    "proven_iupac_masking_cases": 0,
+    "unexplained_disagreements": 0
+  },
+  {
+    "crop": "GCF_963169125.1_Humulus_lupulus",
+    "status": "validated",
+    "orfs": 35497,
+    "literal_protein_matches": 35497,
+    "proven_iupac_masking_cases": 0,
+    "unexplained_disagreements": 0
+  }
+]

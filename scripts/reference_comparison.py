@@ -1,5 +1,7 @@
 """Concordance with historical protein-inferred Casanovo BED, not truth precision."""
 import csv,json
+from Bio.Seq import Seq
+import pysam
 from pathlib import Path
 
 
@@ -36,8 +38,27 @@ def compare(record):
    key=(row['peptide'].replace('I','L'),row['chrom'],row['strand'],tuple(tuple(b) for b in json.loads(row['blocks'])))
    if key in selected:found.add(key)
  missing=selected-found
- result=dict(available=True,reference=str(reference),reference_distinct_loci=len(all_reference),eligible_reference_loci=len(selected),
+ valid=set();inconsistent=set();inconsistent_examples=[]
+ index=next((out/'work/reference').glob('*.fai'))
+ with pysam.FastaFile(record['assembly'],filepath_index=str(index)) as genome:
+  for key in sorted(selected,key=lambda item:(item[1],item[3][0][0],item[2])):
+   peptide,chrom,strand,segments=key
+   nt=''.join(genome.fetch(chrom,a,b) for a,b in segments)
+   if strand=='-':nt=str(Seq(nt).reverse_complement())
+   observed=str(Seq(nt).translate()).replace('I','L') if len(nt)==3*len(peptide) else ''
+   (valid if observed==peptide else inconsistent).add(key)
+   if observed!=peptide and len(inconsistent_examples)<5:inconsistent_examples.append(dict(peptide=peptide,observed_translation=observed,chrom=chrom,strand=strand,blocks=segments))
+ verified_shared=valid & found
+ with (out/'work/search_junctions.tsv').open() as stream:
+  available_junctions={(r['chrom'],int(r['start']),int(r['end']),r['strand']) for r in csv.DictReader(stream,delimiter='\t')}
+ missed_valid=valid-found
+ contiguous_missed=sum(len(k[3])==1 for k in missed_valid)
+ missing_junction=sum(any((chrom,a[1],b[0],strand) not in available_junctions for a,b in zip(segments,segments[1:])) for peptide,chrom,strand,segments in missed_valid)
+ result=dict(sequence_verified_missed_contiguous=contiguous_missed,sequence_verified_missed_with_unavailable_junction=missing_junction,reference_sequence_inconsistent_examples=inconsistent_examples,reference_sequence_reproducing_loci=len(valid),reference_sequence_inconsistent_loci=len(inconsistent),
+             sequence_verified_shared_loci=len(verified_shared),sequence_verified_missed_loci=len(valid-found),
+             sequence_verified_reference_coverage_percent=round(100*len(verified_shared)/len(valid),4) if valid else None,
+             sequence_verified_missing_examples=sorted(valid-found)[:10],available=True,reference=str(reference),reference_distinct_loci=len(all_reference),eligible_reference_loci=len(selected),
              shared_loci=len(found),missed_reference_loci=len(missing),eligible_reference_coverage_percent=round(100*len(found)/len(selected),4) if selected else None,
              excluded_below_length_rows=excluded,reference_rows_not_queried=not_queried,missing_examples=sorted(missing)[:10],
-             interpretation='Coverage/concordance with historical protein-inferred coordinates, not a truth-set precision estimate. Negative-strand display labels restored; I/L and adjacent blocks normalized.')
+             interpretation='Coverage/concordance with historical protein-inferred coordinates, not a truth-set precision estimate. Reference sequence compatibility is independently checked against the assembly. Negative-strand display labels restored; I/L and adjacent blocks normalized.')
  return result

@@ -1,0 +1,26 @@
+[
+  {
+    "length": "7-8",
+    "mapped": 325005,
+    "multiple": 194244,
+    "multiple_percent": 59.766
+  },
+  {
+    "length": "9-11",
+    "mapped": 381804,
+    "multiple": 98468,
+    "multiple_percent": 25.79
+  },
+  {
+    "length": "12-14",
+    "mapped": 277210,
+    "multiple": 57756,
+    "multiple_percent": 20.835
+  },
+  {
+    "length": "15+",
+    "mapped": 332133,
+    "multiple": 55080,
+    "multiple_percent": 16.584
+  }
+]

@@ -139,3 +139,13 @@ def test_adjacent_blocks_are_one_genomic_placement(tmp_path):
         assert store.counts()=={'PEPTIDE':1}
         assert store.db.execute('SELECT blocks FROM hits').fetchone()[0]=='[[0,21]]'
     finally:store.db.close()
+
+
+def test_unresolved_orf_residues_preclude_high_confidence(tmp_path):
+    args=config(tmp_path)
+    candidate=Model('c','RNA_ORF','c','g','chr1','+',cds=[(0,90)],coding=[(0,90)],protein='MPEPTIDEKACDEFGHKX',complete_start=True,complete_stop=True)
+    placements=[hit('PEPTIDE',[(3,24)],1),hit('ACDEFGH',[(27,48)],9)]
+    assess(args,[candidate],MockEvidence({'c':placements},{'PEPTIDE':1,'ACDEFGH':1}),{p:dict(quality='qvalue_pass') for p in ['PEPTIDE','ACDEFGH']},{})
+    row=table(tmp_path/'orfs/novel_orf_candidates.tsv')[0]
+    assert row['confidence']!='high_confidence_candidate'
+    assert 'unresolved_amino_acids_in_candidate_ORF' in row['limitations']
