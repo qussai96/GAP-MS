@@ -8,6 +8,12 @@ assembly. The original classifier, mapping namespace and model file are unchange
 
 ## Synthetic tests
 
+The final local suite passes **127 tests**: 105 unchanged legacy regressions and
+22 v1 tests. The installed v1 wheel contains only `gapms_v1`, not a second copy
+of the legacy `gapms` namespace. The local dependency-wheel builder was also
+exercised; its wheel includes the pretrained model and excludes the removed
+ProteoMapper scripts.
+
 The v1 suite exercises genome-only, annotation, RNA and integrated workflows.
 Synthetic RNA workflow tests replace external transcript reconstruction with
 known coding models; BAM parsing, junction extraction, genome mapping, CDS
@@ -24,7 +30,8 @@ intergenic candidates, shared single-peptide ambiguity, nested evidence,
 overlapping alternative frames, N-terminal specificity, coding extensions and
 direct splice-junction evidence. Missing C-terminal peptides never create a
 shortening event. Original q-values, PEP fields and spectral metadata remain
-available for inspection.
+available for inspection. Additional fixtures check that adjacent blocks form
+one locus and that equally compatible ORF structures remain ambiguous.
 
 ## Nine-crop Casanovo evaluation
 

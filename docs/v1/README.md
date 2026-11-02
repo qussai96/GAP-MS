@@ -14,11 +14,16 @@ workflow remains available as `gapms`, including its original classifier.
 Python 3.10 is required. From the separate development checkout:
 
 ```bash
-# Install the separately built legacy dependency if it is not already installed.
-python -m pip install /path/to/gapms-0.3.0-py3-none-any.whl
-python -m pip install .
+# Build the pinned dependency from the preserved legacy source in this branch.
+python -m pip install setuptools wheel
+python scripts/build_legacy_wheel.py --out dist
+python -m pip install dist/gapms-0.3.0-py3-none-any.whl .
 gapms-v1 --version
 ```
+
+The dependency wheel can also be reused from an existing GAPMS 0.3.0 release.
+The build helper copies only source and model files to a temporary directory;
+it does not alter or replace the legacy command.
 
 BAM reconstruction additionally needs StringTie and TransDecoder on PATH:
 

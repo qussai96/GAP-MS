@@ -13,7 +13,13 @@ from .models import write_proteins
 
 
 def locus_key(chrom, strand, blocks):
-    return (chrom, strand, json.dumps(sorted([list(v) for v in blocks]), separators=(',',':')))
+    merged = []
+    for left, right in sorted(blocks):
+        if merged and left == merged[-1][1]:
+            merged[-1][1] = right
+        else:
+            merged.append([left, right])
+    return (chrom, strand, json.dumps(merged, separators=(',',':')))
 
 
 class EvidenceStore:

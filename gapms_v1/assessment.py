@@ -116,6 +116,10 @@ def assess(args,models,store,metadata,rna_junctions):
         write_table(directory/'orf_peptide_evidence.tsv',MODEL_FIELDS,(r for r in records if r['source']=='RNA_ORF'))
         write_proteins(candidates,directory/'candidate_orfs.faa')
         write_table(directory/'partial_or_ambiguous_orfs.tsv',MODEL_FIELDS,(r for r in records if r['source']=='RNA_ORF' and (not r['complete_start'] or not r['complete_stop'] or r['category']=='ambiguous')))
+    # Locus specificity alone does not distinguish alternative coding structures.
+    sequence_models=defaultdict(set)
+    for model in models:
+        for hit in hits[model.id]:sequence_models[hit['canonical']].add(model.id)
     reference_index=ModelIndex(annotation)
     reference_loci=defaultdict(set)
     for m in annotation:
@@ -135,14 +139,18 @@ def assess(args,models,store,metadata,rna_junctions):
             sequences={h['canonical'] for h in placements}
             unique={p for p in sequences if counts[p]==1}
             coherent=not candidate.issues and bool(candidate.protein)
+            compatible=set.intersection(*(sequence_models[p] for p in sequences)) - {candidate.id}
+            competitors=sorted(mid for mid in compatible if by_id[mid].signature()!=candidate.signature())
             high=(len(non_nested(unique))>=2 and coherent and candidate.complete_start and candidate.complete_stop and quality(unique)=='qvalue_pass'
                   and (not rna_keys or minimum>=args.min_junction_support))
             if rna_required and minimum<args.min_junction_support:high=False
-            if getattr(args,'splice_search_capped',False):high=False
+            if getattr(args,'splice_search_capped',False) or competitors:high=False
             confidence='high_confidence_candidate' if high else ('rna_peptide_supported' if minimum>=args.min_junction_support and unique and coherent else 'peptide_supported' if unique and coherent else 'ambiguous')
+            if competitors:confidence='ambiguous'
             limitations=['candidate_annotation_change_requires_review','peptide_identification_quality_'+quality(sequences),'RNA_junctions_do_not_prove_full_length_connectivity']
             if any(counts[p]>1 for p in sequences):limitations.append('non_discriminating_peptides_present')
             if len(non_nested(unique))<2:limitations.append('fewer_than_two_non_nested_locus_discriminating_peptides')
+            if competitors:limitations.append('equally_compatible_coding_models:'+','.join(competitors))
             if candidate.issues:limitations.extend(candidate.issues)
             if getattr(args,'splice_search_capped',False):limitations.append('splice_path_search_capped_uniqueness_incomplete')
             if kind=='alternative_start':limitations.extend(['proteolytic_processing_not_excluded','initiation_site_not_experimentally_confirmed'])

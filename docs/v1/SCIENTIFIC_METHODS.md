@@ -44,7 +44,10 @@ unambiguous peptide-supported status or high-confidence candidate status.
 
 RNA mode uses coordinate-sorted BAM, StringTie transcript reconstruction,
 Python extraction of spliced transcript DNA, and TransDecoder LongOrfs/Predict.
-The minimum ORF length is 100 aa by default and can be lowered. ORF coordinates
+Unstranded StringTie transcripts retain their `.` orientation in a transcript
+orientation table and are extracted in genomic-plus direction; TransDecoder
+then determines the ORF direction. The minimum ORF length is 100 aa by default
+and can be lowered. ORF coordinates
 are projected back with the existing tested GAPMS adapter, then independently
 translated against the assembly for the model search. Complete and partial
 candidates remain distinguishable; partial ORFs are retained rather than being
@@ -55,7 +58,9 @@ non-AUG initiation sites. ORFs absent from TransDecoder's search space, includin
 shorter ORFs below its configured minimum, are not discovered by this release.
 
 The new evidence SQLite database contains the union of genomic and verified CDS
-placements. Identical placements are reconciled across sources and models.
+placements. Identical placements are reconciled across sources and models. Adjacent blocks
+are merged before locus counting, so a segmentation boundary without an intron
+does not create artificial ambiguity.
 A locus is an exact contig, strand and ordered genomic block path; repeated
 positions in one gene can therefore make a peptide non-unique. Protein searches
 build one automaton over the union of source-aware models. Every projected hit
@@ -103,8 +108,10 @@ confidence. Nested peptide sequences are not counted as two independent
 non-nested sequences. `high_confidence_candidate` requires at least two
 non-nested, locus-discriminating diagnostic sequences, coherent complete ATG-to-
 stop translation, passing recognized peptide q-value evidence and, for spliced
-candidates, sufficient support for every coding junction. It is still a
-candidate, not an automatically validated annotation. Unknown quality, partial
+candidates, sufficient support for every coding junction. A structurally different coding model compatible with all diagnostic sequences
+forces an ambiguous assignment, even when the locus is unique. Identical coding
+paths are treated as the same hypothesis. It is still a candidate, not an
+automatically validated annotation. Unknown quality, partial
 coding paths and shared-only evidence preclude that category. Other categories
 are `rna_peptide_supported`, `peptide_supported` or `ambiguous`; confidence is
 rule-based, not a calibrated probability.

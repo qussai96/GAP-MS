@@ -117,3 +117,25 @@ def test_single_peptide_and_multimapping_never_high_confidence(tmp_path):
     row=table(tmp_path/'orfs/novel_orf_candidates.tsv')[0]
     assert row['confidence']=='ambiguous'
     assert 'non_discriminating' in row['limitations']
+
+
+def test_competing_orf_structures_prevent_high_confidence(tmp_path):
+    args=config(tmp_path)
+    candidate=Model('c','RNA_ORF','c','g','chr1','+',cds=[(0,90)],coding=[(0,90)],protein='M'+'Q'*29,complete_start=True,complete_stop=True)
+    other=Model('other','RNA_ORF','o','g','chr1','+',cds=[(0,60),(90,120)],coding=[(0,60),(90,120)],protein='M'+'Q'*29,complete_start=True,complete_stop=True)
+    placements=[hit('PEPTIDE',[(0,21)]),hit('ACDEFGH',[(30,51)],10)]
+    evidence=MockEvidence({'c':placements,'other':placements},{'PEPTIDE':1,'ACDEFGH':1})
+    assess(args,[candidate,other],evidence,{p:dict(quality='qvalue_pass') for p in ['PEPTIDE','ACDEFGH']},{})
+    rows=table(tmp_path/'orfs/novel_orf_candidates.tsv')
+    assert rows and all(r['confidence']=='ambiguous' for r in rows)
+    assert all('equally_compatible_coding_models' in r['limitations'] for r in rows)
+
+
+def test_adjacent_blocks_are_one_genomic_placement(tmp_path):
+    store=EvidenceStore(tmp_path/'evidence.sqlite')
+    try:
+        store.add('PEPTIDE','chr1','+',[(0,9),(9,21)],'PEPTIDE','annotation')
+        store.add('PEPTIDE','chr1','+',[(0,21)],'PEPTIDE','contiguous')
+        assert store.counts()=={'PEPTIDE':1}
+        assert store.db.execute('SELECT blocks FROM hits').fetchone()[0]=='[[0,21]]'
+    finally:store.db.close()
