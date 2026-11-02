@@ -1,5 +1,4 @@
 include xgb_protein_classifier.pkl
-recursive-include gapms *.pl
 
 include gapms/_peplocus/LICENSE
 include THIRD_PARTY.md

@@ -12,7 +12,8 @@ import pandas as pd
 
 from gapms.extract import extract_features
 from gapms.filter import filter_predictions
-from gapms.tools import run_proteomapper, run_gffread, run_gffcompare
+from gapms.tools import run_gffread, run_gffcompare
+from gapms.protein_mapper import ProteinMatcher
 from gapms.peptides_to_genome import map_peptides_to_genome
 from gapms.parse_gffcompare_tmap import parse_gffcompare_tmap
 from gapms.compare_supp_ref import generate_annotation_report
@@ -34,7 +35,7 @@ def main():
         gapms_version = pkg_version("gapms")
     except PackageNotFoundError:
         # Fallback when running from source without an installed package.
-        gapms_version = "0.2.2"
+        gapms_version = "0.3.0"
 
     parser = argparse.ArgumentParser(
         description="Filter GTF predictions using mass-spec data and mapping information.",
@@ -257,17 +258,22 @@ def main():
                 protein_fasta=branch_protein_fasta,
             )
 
+        protein_matcher = None
+
         def run_gapms_branch(branch_name, branch_gtf, branch_protein_fasta, branch_output_dir, mapping_file=None, external_scores_csv=None):
+            nonlocal protein_matcher
             _ensure_branch_dirs(branch_output_dir)
 
             if mapping_file:
                 mapping = mapping_file
                 print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Using provided mapping file for {branch_name}: {mapping}")
             else:
-                print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Mapping peptides to proteins with Proteomapper for {branch_name}....")
-                mapping = run_proteomapper(branch_protein_fasta, args.peptides, branch_output_dir)
-                if args.gtf and args.bam and Path(mapping).parent != branch_output_dir:
-                    mapping = branch_output_dir / Path(mapping).name
+                print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Mapping peptides to proteins with Aho–Corasick for {branch_name}....")
+                if protein_matcher is None:
+                    protein_matcher = ProteinMatcher.from_file(args.peptides)
+                mapping = protein_matcher.map(
+                    branch_protein_fasta, branch_output_dir / "protein_mapping.tsv"
+                )
 
             print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Extracting Features for {branch_name}....")
             extract_features(branch_gtf, branch_protein_fasta, mapping, branch_output_dir, external_scores_csv)

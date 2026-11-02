@@ -27,8 +27,6 @@ From: mambaorg/micromamba:1.5.8
         python=3.10 \
         pip \
         perl \
-        perl-xml-parser \
-        perl-xml-twig \
         gffread \
         gffcompare \
         samtools \
@@ -46,7 +44,7 @@ From: mambaorg/micromamba:1.5.8
 
 %test
     set -e
-    /opt/conda/bin/python -c 'from importlib.metadata import version; import ahocorasick, pysam; from gapms.model_metadata import CodingRuns; assert version("gapms") == "0.2.2"'
+    /opt/conda/bin/python -c 'from importlib.metadata import version; import ahocorasick, pysam; from gapms.model_metadata import CodingRuns; assert version("gapms") == "0.3.0"'
     /opt/conda/bin/gapms map --help >/dev/null
     for executable in gffread gffcompare samtools stringtie TransDecoder.LongOrfs TransDecoder.Predict; do
         test -x "/opt/conda/bin/$executable"
@@ -63,7 +61,7 @@ From: mambaorg/micromamba:1.5.8
 
 %labels
     Author Qussai Abbas
-    Version 0.2.2
+    Version 0.3.0
     Description GAP-MS: Gene Model Assessment using Peptides from Mass Spectrometry
 
 %help

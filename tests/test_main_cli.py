@@ -125,12 +125,12 @@ class TestMainCli(unittest.TestCase):
     @patch("gapms.main.map_peptides_to_genome")
     @patch("gapms.main.filter_predictions")
     @patch("gapms.main.extract_features")
-    @patch("gapms.main.run_proteomapper")
+    @patch("gapms.main.ProteinMatcher.from_file")
     @patch("gapms.main.prepare_bam_search_inputs")
     def test_cli_accepts_bam_input_and_uses_generated_targets(
         self,
         mock_prepare_bam_search_inputs,
-        mock_run_proteomapper,
+        mock_matcher_factory,
         mock_extract_features,
         mock_filter_predictions,
         mock_map_peptides_to_genome,
@@ -154,7 +154,7 @@ class TestMainCli(unittest.TestCase):
                 "transcript_fasta": output_dir / "transcripts.fa",
                 "protein_fasta": generated_fasta,
             }
-            mock_run_proteomapper.return_value = output_dir / "proteomapper.tsv"
+            mock_matcher_factory.return_value.map.return_value = output_dir / "protein_mapping.tsv"
 
             argv = [
                 "gapms.main",
@@ -172,10 +172,10 @@ class TestMainCli(unittest.TestCase):
                 gapms_main.main()
 
             mock_prepare_bam_search_inputs.assert_called_once_with(bam_path, assembly_path, output_dir)
-            mock_extract_features.assert_called_once_with(generated_gtf, generated_fasta, mock_run_proteomapper.return_value, output_dir, None)
+            mock_extract_features.assert_called_once_with(generated_gtf, generated_fasta, mock_matcher_factory.return_value.map.return_value, output_dir, None)
             mock_filter_predictions.assert_called_once()
             mock_map_peptides_to_genome.assert_called_once_with(
-                generated_gtf, generated_fasta, mock_run_proteomapper.return_value, output_dir,
+                generated_gtf, generated_fasta, mock_matcher_factory.return_value.map.return_value, output_dir,
                 assembly=assembly_path, peptides=peptides_path, bam=bam_path,
                 threads=8, model_evidence=False,
             )
@@ -185,14 +185,14 @@ class TestMainCli(unittest.TestCase):
     @patch("gapms.main.map_peptides_to_genome")
     @patch("gapms.main.filter_predictions")
     @patch("gapms.main.extract_features")
-    @patch("gapms.main.run_proteomapper")
+    @patch("gapms.main.ProteinMatcher.from_file")
     @patch("gapms.main.prepare_bam_search_inputs")
     @patch("gapms.main.run_gffread")
     def test_cli_creates_prediction_branch_before_gffread_when_bam_and_gtf_are_provided_without_proteins(
         self,
         mock_run_gffread,
         mock_prepare_bam_search_inputs,
-        mock_run_proteomapper,
+        mock_matcher_factory,
         mock_extract_features,
         mock_filter_predictions,
         mock_map_peptides_to_genome,
@@ -226,7 +226,7 @@ class TestMainCli(unittest.TestCase):
                 "transcript_fasta": bam_dir / "transcripts.fa",
                 "protein_fasta": bam_dir / "transcripts.fa.transdecoder.pep",
             }
-            mock_run_proteomapper.side_effect = [prediction_dir / "proteomapper.tsv", bam_dir / "proteomapper.tsv"]
+            mock_matcher_factory.return_value.map.side_effect = [prediction_dir / "protein_mapping.tsv", bam_dir / "protein_mapping.tsv"]
 
             argv = [
                 "gapms.main",
@@ -252,12 +252,12 @@ class TestMainCli(unittest.TestCase):
     @patch("gapms.main.map_peptides_to_genome")
     @patch("gapms.main.filter_predictions")
     @patch("gapms.main.extract_features")
-    @patch("gapms.main.run_proteomapper")
+    @patch("gapms.main.ProteinMatcher.from_file")
     @patch("gapms.main.prepare_bam_search_inputs")
     def test_cli_runs_both_input_gtf_and_bam_branches_when_both_are_provided(
         self,
         mock_prepare_bam_search_inputs,
-        mock_run_proteomapper,
+        mock_matcher_factory,
         mock_extract_features,
         mock_filter_predictions,
         mock_map_peptides_to_genome,
@@ -289,7 +289,7 @@ class TestMainCli(unittest.TestCase):
                 "transcript_fasta": bam_dir / "transcripts.fa",
                 "protein_fasta": generated_fasta,
             }
-            mock_run_proteomapper.side_effect = [output_dir / "proteomapper.tsv", bam_dir / "proteomapper.tsv"]
+            mock_matcher_factory.return_value.map.side_effect = [prediction_dir / "protein_mapping.tsv", bam_dir / "protein_mapping.tsv"]
 
             argv = [
                 "gapms.main",
@@ -310,15 +310,15 @@ class TestMainCli(unittest.TestCase):
             with patch.object(sys, "argv", argv):
                 gapms_main.main()
 
-            self.assertEqual(mock_run_proteomapper.call_count, 2)
-            mock_run_proteomapper.assert_has_calls([
-                call(prediction_fasta, peptides_path, prediction_dir),
-                call(generated_fasta, peptides_path, bam_dir),
+            self.assertEqual(mock_matcher_factory.return_value.map.call_count, 2)
+            mock_matcher_factory.return_value.map.assert_has_calls([
+                call(prediction_fasta, prediction_dir / "protein_mapping.tsv"),
+                call(generated_fasta, bam_dir / "protein_mapping.tsv"),
             ])
             self.assertEqual(mock_extract_features.call_count, 2)
             mock_extract_features.assert_has_calls([
-                call(prediction_gtf, prediction_fasta, prediction_dir / "proteomapper.tsv", prediction_dir, None),
-                call(generated_gtf, generated_fasta, bam_dir / "proteomapper.tsv", bam_dir, None),
+                call(prediction_gtf, prediction_fasta, prediction_dir / "protein_mapping.tsv", prediction_dir, None),
+                call(generated_gtf, generated_fasta, bam_dir / "protein_mapping.tsv", bam_dir, None),
             ])
             self.assertEqual(mock_filter_predictions.call_count, 2)
             self.assertEqual(mock_map_peptides_to_genome.call_count, 2)

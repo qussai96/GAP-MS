@@ -4,28 +4,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from gapms.tools import run_gffcompare, run_proteomapper
+from gapms.tools import run_gffcompare
 
 
 class TestTools(unittest.TestCase):
-    @patch("gapms.tools.subprocess.run")
-    def test_run_proteomapper_passes_paths_without_a_shell(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_dir = Path(tmpdir) / "output with spaces"
-            output_dir.mkdir()
-            protein_fasta = Path(tmpdir) / "protein db.fa"
-            peptides = Path(tmpdir) / "peptide list.txt"
-
-            run_proteomapper(protein_fasta, peptides, output_dir)
-
-            promast_call = mock_run.call_args_list[1]
-            command = promast_call.args[0]
-            self.assertIsInstance(command, list)
-            self.assertEqual(command[-2:], [str(protein_fasta), str(peptides)])
-            self.assertNotIn("shell", promast_call.kwargs)
-
     @patch("gapms.tools.subprocess.run")
     def test_run_gffcompare_writes_outputs_under_compare_dir(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")

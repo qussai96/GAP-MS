@@ -13,7 +13,7 @@ gapms -a genome.fna -g helixer.gtf -b rnaseq.bam \
   -p peptides.tsv -rg reference.gtf -rf reference.faa -o results
 ```
 
-Current version: **0.2.2**. Python **3.10** is required.
+Current version: **0.3.0**. Python **3.10** is required.
 
 ## Installation
 
@@ -23,7 +23,7 @@ Create an environment with the external tools, then install GAP-MS:
 
 ```bash
 conda create -n gapms_env -c conda-forge -c bioconda \
-  python=3.10 pip perl-xml-parser perl-xml-twig \
+  python=3.10 pip \
   gffread gffcompare samtools stringtie transdecoder
 conda activate gapms_env
 
@@ -34,7 +34,7 @@ gapms --version
 ```
 
 The Python dependencies are installed with the package. The annotation workflow
-uses gffread and ProteoMapper; the ProteoMapper Perl scripts are bundled. BAM runs
+uses gffread and the bundled Python Aho–Corasick peptide mapper. BAM runs
 also use samtools, StringTie and TransDecoder. Reference comparisons use gffcompare.
 
 To update an existing checkout:
@@ -132,12 +132,31 @@ gapms -a genome.fna -g predictions.gtf -f predictions.faa \
 ```
 
 Protein identifiers must agree between the FASTA, annotation and mapping file.
-ProteoMapper positions are one-based. GAP-MS validates supplied positions against
+The built-in mapper reports one-based positions. GAP-MS validates supplied positions against
 the protein sequence and also accepts validated zero-based positions.
 
 A prediction run can omit the assembly if proteins are supplied with `-f`, but
 that uses the older protein-coordinate BED export. Include `-a` to use direct
 assembly mapping and obtain both standard and IGV BED files.
+
+### Protein peptide search
+
+GAP-MS searches the branch's translated proteins with a C-backed Aho–Corasick
+matcher (`pyahocorasick`). It builds the peptide automaton once and reuses it for
+the prediction and BAM-derived protein sets. Isoleucine and leucine are always
+equivalent. Every overlapping occurrence is retained, with no mismatch rescue in
+this protein search; PepLocus handles genomic matching separately.
+
+Each branch writes `protein_mapping.tsv` (`peptide`, `protein`, `location`) and
+`protein_mapping.summary.json` with counts and timings. Locations are one-based;
+unmapped queries have protein `UNMAPPED` and location `0`. Protein identifiers
+must be unique in each FASTA. Recognized table headers and modification labels
+are handled by the peptide input parser.
+
+ProteoMapper and its Perl scripts are no longer required. Existing mappings can
+still be supplied with `-m`. Across nine species and both branches, the new mapper
+reproduced all tested peptide–protein locations. See the
+[comparison and timing details](docs/protein_mapper_evaluation.md).
 
 ### Inputs and options
 
@@ -195,6 +214,8 @@ Start with these files:
 
 | File | What it contains |
 |---|---|
+| `protein_mapping.tsv` | Peptide-to-protein matches with one-based positions |
+| `protein_mapping.summary.json` | Protein-search counts and timings |
 | `all_proteins_scores.tsv` | Protein evidence features and scores |
 | `supported_proteins.gtf` / `.fa` | Models retained by the classifier |
 | `Txt/` | Supported, unsupported, high-confidence and low-confidence protein lists |

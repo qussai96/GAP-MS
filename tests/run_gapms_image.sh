@@ -54,8 +54,8 @@ WORK_INPUT_DIR="$OUTPUT_DIR/input"
 RESULTS_DIR="$OUTPUT_DIR/results"
 mkdir -p "$WORK_INPUT_DIR" "$RESULTS_DIR"
 
-# ProteoMapper creates index files beside its input FASTA. Stage the tutorial
-# files so the container can write those sidecars without modifying tutorials/.
+# Stage tutorial inputs so container tools can create any required sidecars
+# without modifying tutorials/.
 echo "[$(date '+%F %T')] Staging tutorial inputs"
 for filename in "${required_files[@]}"; do
     cp --reflink=auto "$TUTORIAL_DIR/$filename" "$WORK_INPUT_DIR/$filename"

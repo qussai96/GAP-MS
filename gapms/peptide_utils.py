@@ -5,7 +5,7 @@ import pandas as pd
 def resolve_peptide_starts(protein_sequence, peptide, location=None):
     """Return validated 1-based starts for a peptide-protein mapping.
 
-    ProteoMapper reports one-based positions.  A zero-based compatibility check
+    The built-in protein mapper reports one-based positions.  A zero-based compatibility check
     is retained for user-supplied mapping files, but one-based wins when both
     interpretations happen to match (for example in a homopolymer).  If no
     usable position is supplied, return every sequence occurrence rather than

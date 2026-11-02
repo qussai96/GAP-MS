@@ -23,11 +23,10 @@ with open("README.md", "r") as f:
     description=f.read()
 setup(
     name='gapms',
-    version='0.2.2',
+    version='0.3.0',
     packages=find_packages(),
     package_data={
-        'gapms': ['*.pl'],
-        'gapms._peplocus': ['LICENSE'],  # Include all Perl scripts in the gapms package
+        'gapms._peplocus': ['LICENSE'],
     },
     include_package_data=True,
     cmdclass={'build_py': BuildPyWithModel},
