@@ -1,0 +1,10 @@
+{
+  "label": "RefSeq FragPipe",
+  "minimum_searched": 7,
+  "maximum_observed": 50,
+  "percentage": "100 * multiple / (unique + multiple)",
+  "unit": "one crop at one peptide length; I/L-canonical distinct query sequences",
+  "missing": "no mapped queries: omitted, not imputed as zero",
+  "boxes": "unweighted crop-level median/IQR; min/max whiskers",
+  "input_jobs": "/home/students/q.abbas/GAPMS/batch_runs/v1_refseq_20261102/jobs.json"
+}

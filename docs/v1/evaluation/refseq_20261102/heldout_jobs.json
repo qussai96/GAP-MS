@@ -1,0 +1,48 @@
+[
+  {
+    "crop": "GCF_001625215.2_Daucus_carota",
+    "job_id": "193572",
+    "script": "/home/students/q.abbas/GAPMS/batch_runs/v1_refseq_20261102/heldout_carrot.sbatch"
+  },
+  {
+    "crop": "GCF_020520425.1_Spinacia_oleracea",
+    "job_id": "193574",
+    "script": "/home/students/q.abbas/GAPMS/batch_runs/v1_refseq_20261102/GCF_020520425.1_Spinacia_oleracea_holdout.sbatch"
+  },
+  {
+    "crop": "GCF_022201045.2_Citrus_sinensis",
+    "job_id": "193575",
+    "script": "/home/students/q.abbas/GAPMS/batch_runs/v1_refseq_20261102/GCF_022201045.2_Citrus_sinensis_holdout.sbatch"
+  },
+  {
+    "crop": "GCF_025177605.1_Cucumis_melo",
+    "job_id": "193582",
+    "script": "/home/students/q.abbas/GAPMS/batch_runs/v1_refseq_20261102/GCF_025177605.1_Cucumis_melo_holdout.sbatch",
+    "previous_job_id": "193576"
+  },
+  {
+    "crop": "GCF_036512215.1_Solanum_lycopersicum",
+    "job_id": "193577",
+    "script": "/home/students/q.abbas/GAPMS/batch_runs/v1_refseq_20261102/GCF_036512215.1_Solanum_lycopersicum_holdout.sbatch"
+  },
+  {
+    "crop": "GCF_042453785.1_Malus_domestica",
+    "job_id": "193578",
+    "script": "/home/students/q.abbas/GAPMS/batch_runs/v1_refseq_20261102/GCF_042453785.1_Malus_domestica_holdout.sbatch"
+  },
+  {
+    "crop": "GCF_902167145.1_Zea_mays",
+    "job_id": "193579",
+    "script": "/home/students/q.abbas/GAPMS/batch_runs/v1_refseq_20261102/GCF_902167145.1_Zea_mays_holdout.sbatch"
+  },
+  {
+    "crop": "GCF_904849725.1_Hordeum_vulgare",
+    "job_id": "193580",
+    "script": "/home/students/q.abbas/GAPMS/batch_runs/v1_refseq_20261102/GCF_904849725.1_Hordeum_vulgare_holdout.sbatch"
+  },
+  {
+    "crop": "GCF_963169125.1_Humulus_lupulus",
+    "job_id": "193581",
+    "script": "/home/students/q.abbas/GAPMS/batch_runs/v1_refseq_20261102/GCF_963169125.1_Humulus_lupulus_holdout.sbatch"
+  }
+]

@@ -1,0 +1,83 @@
+[
+  {
+    "crop": "GCF_001625215.2_Daucus_carota",
+    "old_models": 49780,
+    "new_models": 49780,
+    "shared_structures_with_multiplicity": 49780,
+    "identical_structure_multiset": true,
+    "shared_old_percent": 100.0,
+    "shared_new_percent": 100.0
+  },
+  {
+    "crop": "GCF_020520425.1_Spinacia_oleracea",
+    "old_models": 46978,
+    "new_models": 46978,
+    "shared_structures_with_multiplicity": 46978,
+    "identical_structure_multiset": true,
+    "shared_old_percent": 100.0,
+    "shared_new_percent": 100.0
+  },
+  {
+    "crop": "GCF_022201045.2_Citrus_sinensis",
+    "old_models": 42257,
+    "new_models": 42257,
+    "shared_structures_with_multiplicity": 42257,
+    "identical_structure_multiset": true,
+    "shared_old_percent": 100.0,
+    "shared_new_percent": 100.0
+  },
+  {
+    "crop": "GCF_025177605.1_Cucumis_melo",
+    "old_models": 46523,
+    "new_models": 46523,
+    "shared_structures_with_multiplicity": 46523,
+    "identical_structure_multiset": true,
+    "shared_old_percent": 100.0,
+    "shared_new_percent": 100.0
+  },
+  {
+    "crop": "GCF_036512215.1_Solanum_lycopersicum",
+    "old_models": 47360,
+    "new_models": 47360,
+    "shared_structures_with_multiplicity": 47360,
+    "identical_structure_multiset": true,
+    "shared_old_percent": 100.0,
+    "shared_new_percent": 100.0
+  },
+  {
+    "crop": "GCF_042453785.1_Malus_domestica",
+    "old_models": 64643,
+    "new_models": 64643,
+    "shared_structures_with_multiplicity": 64643,
+    "identical_structure_multiset": true,
+    "shared_old_percent": 100.0,
+    "shared_new_percent": 100.0
+  },
+  {
+    "crop": "GCF_902167145.1_Zea_mays",
+    "old_models": 63562,
+    "new_models": 63562,
+    "shared_structures_with_multiplicity": 63562,
+    "identical_structure_multiset": true,
+    "shared_old_percent": 100.0,
+    "shared_new_percent": 100.0
+  },
+  {
+    "crop": "GCF_904849725.1_Hordeum_vulgare",
+    "old_models": 53055,
+    "new_models": 53055,
+    "shared_structures_with_multiplicity": 53055,
+    "identical_structure_multiset": true,
+    "shared_old_percent": 100.0,
+    "shared_new_percent": 100.0
+  },
+  {
+    "crop": "GCF_963169125.1_Humulus_lupulus",
+    "old_models": 43140,
+    "new_models": 43140,
+    "shared_structures_with_multiplicity": 43140,
+    "identical_structure_multiset": true,
+    "shared_old_percent": 100.0,
+    "shared_new_percent": 100.0
+  }
+]

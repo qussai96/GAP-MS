@@ -1,0 +1,4678 @@
+[
+  {
+    "reference_comparison": {
+      "status": "not_compared_to_Casanovo_BED_with_different_peptide_input"
+    },
+    "crop": "GCF_001625215.2_Daucus_carota",
+    "job_id": "193559",
+    "status": "validated",
+    "peptides": 236631,
+    "mapped_peptides": 236539,
+    "mapped_percent": 99.961,
+    "unique_peptides": 187322,
+    "multiple_peptides": 49217,
+    "mapping_rows": 427495,
+    "spliced_mapping_rows": 48909,
+    "independently_translated_sample": 2000,
+    "independently_translated_orfs": 2000,
+    "diagnostic_event_peptide_checks": 6451,
+    "seconds": 2015.823,
+    "assessment": {
+      "annotation_events": {
+        "alternative_splice": 3203,
+        "alternative_start": 41,
+        "alternative_stop": 783,
+        "novel_orf": 207
+      },
+      "annotation_models": 41549,
+      "candidate_categories": {
+        "alternative_splice": 2602,
+        "alternative_start": 21,
+        "alternative_stop": 168,
+        "combined_refinement": 602,
+        "novel_orf": 207
+      },
+      "candidate_orfs": 48468,
+      "event_confidences": {
+        "ambiguous": 3350,
+        "peptide_supported": 47,
+        "rna_peptide_supported": 837
+      },
+      "model_categories": {
+        "ambiguous": 13105,
+        "no_observed_peptide_support": 29961,
+        "peptide_supported": 46951
+      },
+      "models": 90017
+    },
+    "ambiguity_by_length": [
+      {
+        "length": 7,
+        "status": "multiple",
+        "peptides": 11045
+      },
+      {
+        "length": 7,
+        "status": "unique",
+        "peptides": 5186
+      },
+      {
+        "length": 7,
+        "status": "unmapped",
+        "peptides": 4
+      },
+      {
+        "length": 8,
+        "status": "multiple",
+        "peptides": 6521
+      },
+      {
+        "length": 8,
+        "status": "unique",
+        "peptides": 13686
+      },
+      {
+        "length": 8,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 9,
+        "status": "multiple",
+        "peptides": 4573
+      },
+      {
+        "length": 9,
+        "status": "unique",
+        "peptides": 16280
+      },
+      {
+        "length": 9,
+        "status": "unmapped",
+        "peptides": 4
+      },
+      {
+        "length": 10,
+        "status": "multiple",
+        "peptides": 4017
+      },
+      {
+        "length": 10,
+        "status": "unique",
+        "peptides": 16424
+      },
+      {
+        "length": 10,
+        "status": "unmapped",
+        "peptides": 5
+      },
+      {
+        "length": 11,
+        "status": "multiple",
+        "peptides": 3612
+      },
+      {
+        "length": 11,
+        "status": "unique",
+        "peptides": 16473
+      },
+      {
+        "length": 11,
+        "status": "unmapped",
+        "peptides": 4
+      },
+      {
+        "length": 12,
+        "status": "multiple",
+        "peptides": 3218
+      },
+      {
+        "length": 12,
+        "status": "unique",
+        "peptides": 15566
+      },
+      {
+        "length": 12,
+        "status": "unmapped",
+        "peptides": 8
+      },
+      {
+        "length": 13,
+        "status": "multiple",
+        "peptides": 2629
+      },
+      {
+        "length": 13,
+        "status": "unique",
+        "peptides": 13848
+      },
+      {
+        "length": 13,
+        "status": "unmapped",
+        "peptides": 9
+      },
+      {
+        "length": 14,
+        "status": "multiple",
+        "peptides": 2152
+      },
+      {
+        "length": 14,
+        "status": "unique",
+        "peptides": 12167
+      },
+      {
+        "length": 14,
+        "status": "unmapped",
+        "peptides": 6
+      },
+      {
+        "length": 15,
+        "status": "multiple",
+        "peptides": 1941
+      },
+      {
+        "length": 15,
+        "status": "unique",
+        "peptides": 10914
+      },
+      {
+        "length": 15,
+        "status": "unmapped",
+        "peptides": 5
+      },
+      {
+        "length": 16,
+        "status": "multiple",
+        "peptides": 1683
+      },
+      {
+        "length": 16,
+        "status": "unique",
+        "peptides": 9732
+      },
+      {
+        "length": 16,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 17,
+        "status": "multiple",
+        "peptides": 1424
+      },
+      {
+        "length": 17,
+        "status": "unique",
+        "peptides": 8632
+      },
+      {
+        "length": 17,
+        "status": "unmapped",
+        "peptides": 5
+      },
+      {
+        "length": 18,
+        "status": "multiple",
+        "peptides": 1178
+      },
+      {
+        "length": 18,
+        "status": "unique",
+        "peptides": 7625
+      },
+      {
+        "length": 18,
+        "status": "unmapped",
+        "peptides": 6
+      },
+      {
+        "length": 19,
+        "status": "multiple",
+        "peptides": 943
+      },
+      {
+        "length": 19,
+        "status": "unique",
+        "peptides": 6885
+      },
+      {
+        "length": 19,
+        "status": "unmapped",
+        "peptides": 4
+      },
+      {
+        "length": 20,
+        "status": "multiple",
+        "peptides": 799
+      },
+      {
+        "length": 20,
+        "status": "unique",
+        "peptides": 5848
+      },
+      {
+        "length": 20,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 21,
+        "status": "multiple",
+        "peptides": 725
+      },
+      {
+        "length": 21,
+        "status": "unique",
+        "peptides": 5242
+      },
+      {
+        "length": 21,
+        "status": "unmapped",
+        "peptides": 4
+      },
+      {
+        "length": 22,
+        "status": "multiple",
+        "peptides": 534
+      },
+      {
+        "length": 22,
+        "status": "unique",
+        "peptides": 4513
+      },
+      {
+        "length": 23,
+        "status": "multiple",
+        "peptides": 434
+      },
+      {
+        "length": 23,
+        "status": "unique",
+        "peptides": 3594
+      },
+      {
+        "length": 23,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 24,
+        "status": "multiple",
+        "peptides": 354
+      },
+      {
+        "length": 24,
+        "status": "unique",
+        "peptides": 2947
+      },
+      {
+        "length": 24,
+        "status": "unmapped",
+        "peptides": 6
+      },
+      {
+        "length": 25,
+        "status": "multiple",
+        "peptides": 306
+      },
+      {
+        "length": 25,
+        "status": "unique",
+        "peptides": 2456
+      },
+      {
+        "length": 25,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 26,
+        "status": "multiple",
+        "peptides": 229
+      },
+      {
+        "length": 26,
+        "status": "unique",
+        "peptides": 2070
+      },
+      {
+        "length": 26,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 27,
+        "status": "multiple",
+        "peptides": 212
+      },
+      {
+        "length": 27,
+        "status": "unique",
+        "peptides": 1765
+      },
+      {
+        "length": 27,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 28,
+        "status": "multiple",
+        "peptides": 181
+      },
+      {
+        "length": 28,
+        "status": "unique",
+        "peptides": 1518
+      },
+      {
+        "length": 28,
+        "status": "unmapped",
+        "peptides": 6
+      },
+      {
+        "length": 29,
+        "status": "multiple",
+        "peptides": 145
+      },
+      {
+        "length": 29,
+        "status": "unique",
+        "peptides": 1233
+      },
+      {
+        "length": 30,
+        "status": "multiple",
+        "peptides": 126
+      },
+      {
+        "length": 30,
+        "status": "unique",
+        "peptides": 1084
+      },
+      {
+        "length": 31,
+        "status": "multiple",
+        "peptides": 54
+      },
+      {
+        "length": 31,
+        "status": "unique",
+        "peptides": 315
+      },
+      {
+        "length": 32,
+        "status": "multiple",
+        "peptides": 43
+      },
+      {
+        "length": 32,
+        "status": "unique",
+        "peptides": 254
+      },
+      {
+        "length": 33,
+        "status": "multiple",
+        "peptides": 27
+      },
+      {
+        "length": 33,
+        "status": "unique",
+        "peptides": 234
+      },
+      {
+        "length": 34,
+        "status": "multiple",
+        "peptides": 26
+      },
+      {
+        "length": 34,
+        "status": "unique",
+        "peptides": 196
+      },
+      {
+        "length": 35,
+        "status": "multiple",
+        "peptides": 17
+      },
+      {
+        "length": 35,
+        "status": "unique",
+        "peptides": 140
+      },
+      {
+        "length": 36,
+        "status": "multiple",
+        "peptides": 14
+      },
+      {
+        "length": 36,
+        "status": "unique",
+        "peptides": 114
+      },
+      {
+        "length": 37,
+        "status": "multiple",
+        "peptides": 17
+      },
+      {
+        "length": 37,
+        "status": "unique",
+        "peptides": 91
+      },
+      {
+        "length": 38,
+        "status": "multiple",
+        "peptides": 12
+      },
+      {
+        "length": 38,
+        "status": "unique",
+        "peptides": 67
+      },
+      {
+        "length": 39,
+        "status": "multiple",
+        "peptides": 6
+      },
+      {
+        "length": 39,
+        "status": "unique",
+        "peptides": 53
+      },
+      {
+        "length": 40,
+        "status": "multiple",
+        "peptides": 3
+      },
+      {
+        "length": 40,
+        "status": "unique",
+        "peptides": 34
+      },
+      {
+        "length": 41,
+        "status": "multiple",
+        "peptides": 4
+      },
+      {
+        "length": 41,
+        "status": "unique",
+        "peptides": 38
+      },
+      {
+        "length": 41,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 42,
+        "status": "multiple",
+        "peptides": 6
+      },
+      {
+        "length": 42,
+        "status": "unique",
+        "peptides": 23
+      },
+      {
+        "length": 43,
+        "status": "multiple",
+        "peptides": 3
+      },
+      {
+        "length": 43,
+        "status": "unique",
+        "peptides": 22
+      },
+      {
+        "length": 44,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 44,
+        "status": "unique",
+        "peptides": 17
+      },
+      {
+        "length": 45,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 45,
+        "status": "unique",
+        "peptides": 18
+      },
+      {
+        "length": 46,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 46,
+        "status": "unique",
+        "peptides": 6
+      },
+      {
+        "length": 47,
+        "status": "unique",
+        "peptides": 8
+      },
+      {
+        "length": 48,
+        "status": "unique",
+        "peptides": 1
+      },
+      {
+        "length": 49,
+        "status": "unique",
+        "peptides": 2
+      },
+      {
+        "length": 50,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 50,
+        "status": "unique",
+        "peptides": 1
+      }
+    ]
+  },
+  {
+    "reference_comparison": {
+      "status": "not_compared_to_Casanovo_BED_with_different_peptide_input"
+    },
+    "crop": "GCF_020520425.1_Spinacia_oleracea",
+    "job_id": "193560",
+    "status": "validated",
+    "peptides": 172838,
+    "mapped_peptides": 172810,
+    "mapped_percent": 99.984,
+    "unique_peptides": 143881,
+    "multiple_peptides": 28929,
+    "mapping_rows": 386146,
+    "spliced_mapping_rows": 32306,
+    "independently_translated_sample": 2000,
+    "independently_translated_orfs": 2000,
+    "diagnostic_event_peptide_checks": 7140,
+    "seconds": 1961.577,
+    "assessment": {
+      "annotation_events": {
+        "alternative_splice": 3220,
+        "alternative_start": 23,
+        "alternative_stop": 687,
+        "novel_orf": 483
+      },
+      "annotation_models": 29264,
+      "candidate_categories": {
+        "alternative_splice": 2744,
+        "alternative_start": 6,
+        "alternative_stop": 192,
+        "combined_refinement": 476,
+        "novel_orf": 483
+      },
+      "candidate_orfs": 43795,
+      "event_confidences": {
+        "ambiguous": 3425,
+        "peptide_supported": 61,
+        "rna_peptide_supported": 927
+      },
+      "model_categories": {
+        "ambiguous": 8171,
+        "no_observed_peptide_support": 26976,
+        "peptide_supported": 37912
+      },
+      "models": 73059
+    },
+    "ambiguity_by_length": [
+      {
+        "length": 7,
+        "status": "multiple",
+        "peptides": 8950
+      },
+      {
+        "length": 7,
+        "status": "unique",
+        "peptides": 4482
+      },
+      {
+        "length": 8,
+        "status": "multiple",
+        "peptides": 4415
+      },
+      {
+        "length": 8,
+        "status": "unique",
+        "peptides": 11725
+      },
+      {
+        "length": 8,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 9,
+        "status": "multiple",
+        "peptides": 2541
+      },
+      {
+        "length": 9,
+        "status": "unique",
+        "peptides": 13718
+      },
+      {
+        "length": 9,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 10,
+        "status": "multiple",
+        "peptides": 2052
+      },
+      {
+        "length": 10,
+        "status": "unique",
+        "peptides": 13330
+      },
+      {
+        "length": 10,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 11,
+        "status": "multiple",
+        "peptides": 1900
+      },
+      {
+        "length": 11,
+        "status": "unique",
+        "peptides": 13158
+      },
+      {
+        "length": 11,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 12,
+        "status": "multiple",
+        "peptides": 1596
+      },
+      {
+        "length": 12,
+        "status": "unique",
+        "peptides": 12265
+      },
+      {
+        "length": 13,
+        "status": "multiple",
+        "peptides": 1270
+      },
+      {
+        "length": 13,
+        "status": "unique",
+        "peptides": 10745
+      },
+      {
+        "length": 13,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 14,
+        "status": "multiple",
+        "peptides": 1092
+      },
+      {
+        "length": 14,
+        "status": "unique",
+        "peptides": 9243
+      },
+      {
+        "length": 14,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 15,
+        "status": "multiple",
+        "peptides": 859
+      },
+      {
+        "length": 15,
+        "status": "unique",
+        "peptides": 8248
+      },
+      {
+        "length": 15,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 16,
+        "status": "multiple",
+        "peptides": 764
+      },
+      {
+        "length": 16,
+        "status": "unique",
+        "peptides": 7233
+      },
+      {
+        "length": 16,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 17,
+        "status": "multiple",
+        "peptides": 642
+      },
+      {
+        "length": 17,
+        "status": "unique",
+        "peptides": 6365
+      },
+      {
+        "length": 17,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 18,
+        "status": "multiple",
+        "peptides": 498
+      },
+      {
+        "length": 18,
+        "status": "unique",
+        "peptides": 5601
+      },
+      {
+        "length": 18,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 19,
+        "status": "multiple",
+        "peptides": 438
+      },
+      {
+        "length": 19,
+        "status": "unique",
+        "peptides": 4854
+      },
+      {
+        "length": 19,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 20,
+        "status": "multiple",
+        "peptides": 377
+      },
+      {
+        "length": 20,
+        "status": "unique",
+        "peptides": 4192
+      },
+      {
+        "length": 21,
+        "status": "multiple",
+        "peptides": 326
+      },
+      {
+        "length": 21,
+        "status": "unique",
+        "peptides": 3691
+      },
+      {
+        "length": 21,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 22,
+        "status": "multiple",
+        "peptides": 267
+      },
+      {
+        "length": 22,
+        "status": "unique",
+        "peptides": 3135
+      },
+      {
+        "length": 22,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 23,
+        "status": "multiple",
+        "peptides": 193
+      },
+      {
+        "length": 23,
+        "status": "unique",
+        "peptides": 2482
+      },
+      {
+        "length": 24,
+        "status": "multiple",
+        "peptides": 146
+      },
+      {
+        "length": 24,
+        "status": "unique",
+        "peptides": 1981
+      },
+      {
+        "length": 24,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 25,
+        "status": "multiple",
+        "peptides": 120
+      },
+      {
+        "length": 25,
+        "status": "unique",
+        "peptides": 1575
+      },
+      {
+        "length": 25,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 26,
+        "status": "multiple",
+        "peptides": 87
+      },
+      {
+        "length": 26,
+        "status": "unique",
+        "peptides": 1255
+      },
+      {
+        "length": 27,
+        "status": "multiple",
+        "peptides": 82
+      },
+      {
+        "length": 27,
+        "status": "unique",
+        "peptides": 1094
+      },
+      {
+        "length": 27,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 28,
+        "status": "multiple",
+        "peptides": 68
+      },
+      {
+        "length": 28,
+        "status": "unique",
+        "peptides": 915
+      },
+      {
+        "length": 28,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 29,
+        "status": "multiple",
+        "peptides": 79
+      },
+      {
+        "length": 29,
+        "status": "unique",
+        "peptides": 758
+      },
+      {
+        "length": 30,
+        "status": "multiple",
+        "peptides": 79
+      },
+      {
+        "length": 30,
+        "status": "unique",
+        "peptides": 670
+      },
+      {
+        "length": 31,
+        "status": "multiple",
+        "peptides": 19
+      },
+      {
+        "length": 31,
+        "status": "unique",
+        "peptides": 224
+      },
+      {
+        "length": 32,
+        "status": "multiple",
+        "peptides": 25
+      },
+      {
+        "length": 32,
+        "status": "unique",
+        "peptides": 205
+      },
+      {
+        "length": 33,
+        "status": "multiple",
+        "peptides": 9
+      },
+      {
+        "length": 33,
+        "status": "unique",
+        "peptides": 155
+      },
+      {
+        "length": 34,
+        "status": "multiple",
+        "peptides": 6
+      },
+      {
+        "length": 34,
+        "status": "unique",
+        "peptides": 129
+      },
+      {
+        "length": 35,
+        "status": "multiple",
+        "peptides": 15
+      },
+      {
+        "length": 35,
+        "status": "unique",
+        "peptides": 102
+      },
+      {
+        "length": 36,
+        "status": "multiple",
+        "peptides": 5
+      },
+      {
+        "length": 36,
+        "status": "unique",
+        "peptides": 81
+      },
+      {
+        "length": 37,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 37,
+        "status": "unique",
+        "peptides": 54
+      },
+      {
+        "length": 38,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 38,
+        "status": "unique",
+        "peptides": 42
+      },
+      {
+        "length": 39,
+        "status": "multiple",
+        "peptides": 2
+      },
+      {
+        "length": 39,
+        "status": "unique",
+        "peptides": 35
+      },
+      {
+        "length": 40,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 40,
+        "status": "unique",
+        "peptides": 30
+      },
+      {
+        "length": 41,
+        "status": "multiple",
+        "peptides": 2
+      },
+      {
+        "length": 41,
+        "status": "unique",
+        "peptides": 22
+      },
+      {
+        "length": 42,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 42,
+        "status": "unique",
+        "peptides": 18
+      },
+      {
+        "length": 43,
+        "status": "unique",
+        "peptides": 26
+      },
+      {
+        "length": 44,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 44,
+        "status": "unique",
+        "peptides": 15
+      },
+      {
+        "length": 45,
+        "status": "unique",
+        "peptides": 16
+      },
+      {
+        "length": 46,
+        "status": "unique",
+        "peptides": 7
+      },
+      {
+        "length": 47,
+        "status": "unique",
+        "peptides": 2
+      },
+      {
+        "length": 48,
+        "status": "unique",
+        "peptides": 2
+      },
+      {
+        "length": 49,
+        "status": "unique",
+        "peptides": 1
+      }
+    ]
+  },
+  {
+    "reference_comparison": {
+      "status": "not_compared_to_Casanovo_BED_with_different_peptide_input"
+    },
+    "crop": "GCF_022201045.2_Citrus_sinensis",
+    "job_id": "193561",
+    "status": "validated",
+    "peptides": 172029,
+    "mapped_peptides": 171895,
+    "mapped_percent": 99.922,
+    "unique_peptides": 141063,
+    "multiple_peptides": 30832,
+    "mapping_rows": 292775,
+    "spliced_mapping_rows": 29722,
+    "independently_translated_sample": 2000,
+    "independently_translated_orfs": 2000,
+    "diagnostic_event_peptide_checks": 5042,
+    "seconds": 1815.517,
+    "assessment": {
+      "annotation_events": {
+        "alternative_splice": 2759,
+        "alternative_start": 37,
+        "alternative_stop": 566,
+        "novel_orf": 265
+      },
+      "annotation_models": 27405,
+      "candidate_categories": {
+        "alternative_splice": 2349,
+        "alternative_start": 20,
+        "alternative_stop": 150,
+        "combined_refinement": 410,
+        "novel_orf": 265
+      },
+      "candidate_orfs": 43098,
+      "event_confidences": {
+        "ambiguous": 2827,
+        "peptide_supported": 33,
+        "rna_peptide_supported": 767
+      },
+      "model_categories": {
+        "ambiguous": 9845,
+        "no_observed_peptide_support": 18895,
+        "peptide_supported": 41763
+      },
+      "models": 70503
+    },
+    "ambiguity_by_length": [
+      {
+        "length": 7,
+        "status": "multiple",
+        "peptides": 9556
+      },
+      {
+        "length": 7,
+        "status": "unique",
+        "peptides": 6221
+      },
+      {
+        "length": 7,
+        "status": "unmapped",
+        "peptides": 5
+      },
+      {
+        "length": 8,
+        "status": "multiple",
+        "peptides": 4528
+      },
+      {
+        "length": 8,
+        "status": "unique",
+        "peptides": 13550
+      },
+      {
+        "length": 8,
+        "status": "unmapped",
+        "peptides": 6
+      },
+      {
+        "length": 9,
+        "status": "multiple",
+        "peptides": 2821
+      },
+      {
+        "length": 9,
+        "status": "unique",
+        "peptides": 14588
+      },
+      {
+        "length": 9,
+        "status": "unmapped",
+        "peptides": 11
+      },
+      {
+        "length": 10,
+        "status": "multiple",
+        "peptides": 2353
+      },
+      {
+        "length": 10,
+        "status": "unique",
+        "peptides": 14191
+      },
+      {
+        "length": 10,
+        "status": "unmapped",
+        "peptides": 14
+      },
+      {
+        "length": 11,
+        "status": "multiple",
+        "peptides": 2182
+      },
+      {
+        "length": 11,
+        "status": "unique",
+        "peptides": 13328
+      },
+      {
+        "length": 11,
+        "status": "unmapped",
+        "peptides": 15
+      },
+      {
+        "length": 12,
+        "status": "multiple",
+        "peptides": 1803
+      },
+      {
+        "length": 12,
+        "status": "unique",
+        "peptides": 12074
+      },
+      {
+        "length": 12,
+        "status": "unmapped",
+        "peptides": 9
+      },
+      {
+        "length": 13,
+        "status": "multiple",
+        "peptides": 1349
+      },
+      {
+        "length": 13,
+        "status": "unique",
+        "peptides": 10362
+      },
+      {
+        "length": 13,
+        "status": "unmapped",
+        "peptides": 8
+      },
+      {
+        "length": 14,
+        "status": "multiple",
+        "peptides": 1125
+      },
+      {
+        "length": 14,
+        "status": "unique",
+        "peptides": 9001
+      },
+      {
+        "length": 14,
+        "status": "unmapped",
+        "peptides": 6
+      },
+      {
+        "length": 15,
+        "status": "multiple",
+        "peptides": 973
+      },
+      {
+        "length": 15,
+        "status": "unique",
+        "peptides": 7856
+      },
+      {
+        "length": 15,
+        "status": "unmapped",
+        "peptides": 8
+      },
+      {
+        "length": 16,
+        "status": "multiple",
+        "peptides": 809
+      },
+      {
+        "length": 16,
+        "status": "unique",
+        "peptides": 6715
+      },
+      {
+        "length": 16,
+        "status": "unmapped",
+        "peptides": 4
+      },
+      {
+        "length": 17,
+        "status": "multiple",
+        "peptides": 675
+      },
+      {
+        "length": 17,
+        "status": "unique",
+        "peptides": 5843
+      },
+      {
+        "length": 17,
+        "status": "unmapped",
+        "peptides": 7
+      },
+      {
+        "length": 18,
+        "status": "multiple",
+        "peptides": 519
+      },
+      {
+        "length": 18,
+        "status": "unique",
+        "peptides": 4904
+      },
+      {
+        "length": 18,
+        "status": "unmapped",
+        "peptides": 7
+      },
+      {
+        "length": 19,
+        "status": "multiple",
+        "peptides": 474
+      },
+      {
+        "length": 19,
+        "status": "unique",
+        "peptides": 4302
+      },
+      {
+        "length": 19,
+        "status": "unmapped",
+        "peptides": 5
+      },
+      {
+        "length": 20,
+        "status": "multiple",
+        "peptides": 362
+      },
+      {
+        "length": 20,
+        "status": "unique",
+        "peptides": 3728
+      },
+      {
+        "length": 20,
+        "status": "unmapped",
+        "peptides": 5
+      },
+      {
+        "length": 21,
+        "status": "multiple",
+        "peptides": 319
+      },
+      {
+        "length": 21,
+        "status": "unique",
+        "peptides": 3151
+      },
+      {
+        "length": 21,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 22,
+        "status": "multiple",
+        "peptides": 260
+      },
+      {
+        "length": 22,
+        "status": "unique",
+        "peptides": 2592
+      },
+      {
+        "length": 22,
+        "status": "unmapped",
+        "peptides": 5
+      },
+      {
+        "length": 23,
+        "status": "multiple",
+        "peptides": 170
+      },
+      {
+        "length": 23,
+        "status": "unique",
+        "peptides": 2047
+      },
+      {
+        "length": 23,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 24,
+        "status": "multiple",
+        "peptides": 129
+      },
+      {
+        "length": 24,
+        "status": "unique",
+        "peptides": 1561
+      },
+      {
+        "length": 24,
+        "status": "unmapped",
+        "peptides": 4
+      },
+      {
+        "length": 25,
+        "status": "multiple",
+        "peptides": 102
+      },
+      {
+        "length": 25,
+        "status": "unique",
+        "peptides": 1199
+      },
+      {
+        "length": 25,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 26,
+        "status": "multiple",
+        "peptides": 71
+      },
+      {
+        "length": 26,
+        "status": "unique",
+        "peptides": 901
+      },
+      {
+        "length": 26,
+        "status": "unmapped",
+        "peptides": 4
+      },
+      {
+        "length": 27,
+        "status": "multiple",
+        "peptides": 80
+      },
+      {
+        "length": 27,
+        "status": "unique",
+        "peptides": 820
+      },
+      {
+        "length": 27,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 28,
+        "status": "multiple",
+        "peptides": 65
+      },
+      {
+        "length": 28,
+        "status": "unique",
+        "peptides": 708
+      },
+      {
+        "length": 28,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 29,
+        "status": "multiple",
+        "peptides": 38
+      },
+      {
+        "length": 29,
+        "status": "unique",
+        "peptides": 546
+      },
+      {
+        "length": 29,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 30,
+        "status": "multiple",
+        "peptides": 37
+      },
+      {
+        "length": 30,
+        "status": "unique",
+        "peptides": 489
+      },
+      {
+        "length": 30,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 31,
+        "status": "multiple",
+        "peptides": 5
+      },
+      {
+        "length": 31,
+        "status": "unique",
+        "peptides": 83
+      },
+      {
+        "length": 31,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 32,
+        "status": "multiple",
+        "peptides": 5
+      },
+      {
+        "length": 32,
+        "status": "unique",
+        "peptides": 58
+      },
+      {
+        "length": 33,
+        "status": "multiple",
+        "peptides": 6
+      },
+      {
+        "length": 33,
+        "status": "unique",
+        "peptides": 57
+      },
+      {
+        "length": 34,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 34,
+        "status": "unique",
+        "peptides": 51
+      },
+      {
+        "length": 35,
+        "status": "multiple",
+        "peptides": 5
+      },
+      {
+        "length": 35,
+        "status": "unique",
+        "peptides": 28
+      },
+      {
+        "length": 36,
+        "status": "multiple",
+        "peptides": 4
+      },
+      {
+        "length": 36,
+        "status": "unique",
+        "peptides": 29
+      },
+      {
+        "length": 37,
+        "status": "multiple",
+        "peptides": 3
+      },
+      {
+        "length": 37,
+        "status": "unique",
+        "peptides": 26
+      },
+      {
+        "length": 38,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 38,
+        "status": "unique",
+        "peptides": 14
+      },
+      {
+        "length": 39,
+        "status": "unique",
+        "peptides": 11
+      },
+      {
+        "length": 40,
+        "status": "unique",
+        "peptides": 8
+      },
+      {
+        "length": 41,
+        "status": "unique",
+        "peptides": 4
+      },
+      {
+        "length": 42,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 42,
+        "status": "unique",
+        "peptides": 3
+      },
+      {
+        "length": 43,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 43,
+        "status": "unique",
+        "peptides": 2
+      },
+      {
+        "length": 44,
+        "status": "unique",
+        "peptides": 2
+      },
+      {
+        "length": 45,
+        "status": "unique",
+        "peptides": 4
+      },
+      {
+        "length": 46,
+        "status": "unique",
+        "peptides": 3
+      },
+      {
+        "length": 47,
+        "status": "unique",
+        "peptides": 1
+      },
+      {
+        "length": 49,
+        "status": "unique",
+        "peptides": 1
+      },
+      {
+        "length": 50,
+        "status": "unique",
+        "peptides": 1
+      }
+    ]
+  },
+  {
+    "reference_comparison": {
+      "status": "not_compared_to_Casanovo_BED_with_different_peptide_input"
+    },
+    "crop": "GCF_025177605.1_Cucumis_melo",
+    "job_id": "193562",
+    "status": "validated",
+    "peptides": 192501,
+    "mapped_peptides": 192448,
+    "mapped_percent": 99.972,
+    "unique_peptides": 162359,
+    "multiple_peptides": 30089,
+    "mapping_rows": 564344,
+    "spliced_mapping_rows": 35510,
+    "independently_translated_sample": 2000,
+    "independently_translated_orfs": 2000,
+    "diagnostic_event_peptide_checks": 9010,
+    "seconds": 2117.866,
+    "assessment": {
+      "annotation_events": {
+        "alternative_splice": 3558,
+        "alternative_start": 44,
+        "alternative_stop": 764,
+        "novel_orf": 593
+      },
+      "annotation_models": 32795,
+      "candidate_categories": {
+        "alternative_splice": 3031,
+        "alternative_start": 16,
+        "alternative_stop": 222,
+        "combined_refinement": 527,
+        "novel_orf": 593
+      },
+      "candidate_orfs": 49955,
+      "event_confidences": {
+        "ambiguous": 4103,
+        "peptide_supported": 34,
+        "rna_peptide_supported": 822
+      },
+      "model_categories": {
+        "ambiguous": 16302,
+        "no_observed_peptide_support": 19572,
+        "peptide_supported": 46876
+      },
+      "models": 82750
+    },
+    "ambiguity_by_length": [
+      {
+        "length": 7,
+        "status": "multiple",
+        "peptides": 10423
+      },
+      {
+        "length": 7,
+        "status": "unique",
+        "peptides": 6276
+      },
+      {
+        "length": 7,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 8,
+        "status": "multiple",
+        "peptides": 4549
+      },
+      {
+        "length": 8,
+        "status": "unique",
+        "peptides": 14597
+      },
+      {
+        "length": 8,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 9,
+        "status": "multiple",
+        "peptides": 2525
+      },
+      {
+        "length": 9,
+        "status": "unique",
+        "peptides": 16232
+      },
+      {
+        "length": 9,
+        "status": "unmapped",
+        "peptides": 4
+      },
+      {
+        "length": 10,
+        "status": "multiple",
+        "peptides": 1968
+      },
+      {
+        "length": 10,
+        "status": "unique",
+        "peptides": 15756
+      },
+      {
+        "length": 10,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 11,
+        "status": "multiple",
+        "peptides": 1776
+      },
+      {
+        "length": 11,
+        "status": "unique",
+        "peptides": 14623
+      },
+      {
+        "length": 11,
+        "status": "unmapped",
+        "peptides": 5
+      },
+      {
+        "length": 12,
+        "status": "multiple",
+        "peptides": 1481
+      },
+      {
+        "length": 12,
+        "status": "unique",
+        "peptides": 13513
+      },
+      {
+        "length": 12,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 13,
+        "status": "multiple",
+        "peptides": 1230
+      },
+      {
+        "length": 13,
+        "status": "unique",
+        "peptides": 11865
+      },
+      {
+        "length": 13,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 14,
+        "status": "multiple",
+        "peptides": 1064
+      },
+      {
+        "length": 14,
+        "status": "unique",
+        "peptides": 10340
+      },
+      {
+        "length": 14,
+        "status": "unmapped",
+        "peptides": 4
+      },
+      {
+        "length": 15,
+        "status": "multiple",
+        "peptides": 910
+      },
+      {
+        "length": 15,
+        "status": "unique",
+        "peptides": 9337
+      },
+      {
+        "length": 15,
+        "status": "unmapped",
+        "peptides": 7
+      },
+      {
+        "length": 16,
+        "status": "multiple",
+        "peptides": 768
+      },
+      {
+        "length": 16,
+        "status": "unique",
+        "peptides": 8074
+      },
+      {
+        "length": 16,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 17,
+        "status": "multiple",
+        "peptides": 611
+      },
+      {
+        "length": 17,
+        "status": "unique",
+        "peptides": 7079
+      },
+      {
+        "length": 17,
+        "status": "unmapped",
+        "peptides": 4
+      },
+      {
+        "length": 18,
+        "status": "multiple",
+        "peptides": 527
+      },
+      {
+        "length": 18,
+        "status": "unique",
+        "peptides": 6058
+      },
+      {
+        "length": 18,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 19,
+        "status": "multiple",
+        "peptides": 442
+      },
+      {
+        "length": 19,
+        "status": "unique",
+        "peptides": 5284
+      },
+      {
+        "length": 20,
+        "status": "multiple",
+        "peptides": 368
+      },
+      {
+        "length": 20,
+        "status": "unique",
+        "peptides": 4458
+      },
+      {
+        "length": 21,
+        "status": "multiple",
+        "peptides": 343
+      },
+      {
+        "length": 21,
+        "status": "unique",
+        "peptides": 3913
+      },
+      {
+        "length": 21,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 22,
+        "status": "multiple",
+        "peptides": 261
+      },
+      {
+        "length": 22,
+        "status": "unique",
+        "peptides": 3327
+      },
+      {
+        "length": 22,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 23,
+        "status": "multiple",
+        "peptides": 203
+      },
+      {
+        "length": 23,
+        "status": "unique",
+        "peptides": 2633
+      },
+      {
+        "length": 23,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 24,
+        "status": "multiple",
+        "peptides": 145
+      },
+      {
+        "length": 24,
+        "status": "unique",
+        "peptides": 2212
+      },
+      {
+        "length": 24,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 25,
+        "status": "multiple",
+        "peptides": 122
+      },
+      {
+        "length": 25,
+        "status": "unique",
+        "peptides": 1680
+      },
+      {
+        "length": 25,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 26,
+        "status": "multiple",
+        "peptides": 95
+      },
+      {
+        "length": 26,
+        "status": "unique",
+        "peptides": 1313
+      },
+      {
+        "length": 26,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 27,
+        "status": "multiple",
+        "peptides": 79
+      },
+      {
+        "length": 27,
+        "status": "unique",
+        "peptides": 1210
+      },
+      {
+        "length": 28,
+        "status": "multiple",
+        "peptides": 79
+      },
+      {
+        "length": 28,
+        "status": "unique",
+        "peptides": 1032
+      },
+      {
+        "length": 28,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 29,
+        "status": "multiple",
+        "peptides": 58
+      },
+      {
+        "length": 29,
+        "status": "unique",
+        "peptides": 780
+      },
+      {
+        "length": 29,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 30,
+        "status": "multiple",
+        "peptides": 52
+      },
+      {
+        "length": 30,
+        "status": "unique",
+        "peptides": 691
+      },
+      {
+        "length": 30,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 31,
+        "status": "multiple",
+        "peptides": 2
+      },
+      {
+        "length": 31,
+        "status": "unique",
+        "peptides": 15
+      },
+      {
+        "length": 32,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 32,
+        "status": "unique",
+        "peptides": 16
+      },
+      {
+        "length": 33,
+        "status": "multiple",
+        "peptides": 2
+      },
+      {
+        "length": 33,
+        "status": "unique",
+        "peptides": 8
+      },
+      {
+        "length": 34,
+        "status": "multiple",
+        "peptides": 3
+      },
+      {
+        "length": 34,
+        "status": "unique",
+        "peptides": 11
+      },
+      {
+        "length": 35,
+        "status": "unique",
+        "peptides": 9
+      },
+      {
+        "length": 36,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 36,
+        "status": "unique",
+        "peptides": 4
+      },
+      {
+        "length": 37,
+        "status": "unique",
+        "peptides": 8
+      },
+      {
+        "length": 38,
+        "status": "unique",
+        "peptides": 1
+      },
+      {
+        "length": 40,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 40,
+        "status": "unique",
+        "peptides": 1
+      },
+      {
+        "length": 42,
+        "status": "unique",
+        "peptides": 1
+      },
+      {
+        "length": 43,
+        "status": "unique",
+        "peptides": 1
+      },
+      {
+        "length": 46,
+        "status": "unique",
+        "peptides": 1
+      }
+    ]
+  },
+  {
+    "reference_comparison": {
+      "status": "not_compared_to_Casanovo_BED_with_different_peptide_input"
+    },
+    "crop": "GCF_036512215.1_Solanum_lycopersicum",
+    "job_id": "193563",
+    "status": "validated",
+    "peptides": 200334,
+    "mapped_peptides": 200088,
+    "mapped_percent": 99.877,
+    "unique_peptides": 162312,
+    "multiple_peptides": 37776,
+    "mapping_rows": 454745,
+    "spliced_mapping_rows": 35402,
+    "independently_translated_sample": 2000,
+    "independently_translated_orfs": 2000,
+    "diagnostic_event_peptide_checks": 5591,
+    "seconds": 1213.678,
+    "assessment": {
+      "annotation_events": {
+        "alternative_splice": 3630,
+        "alternative_start": 31,
+        "alternative_stop": 528,
+        "novel_orf": 160
+      },
+      "annotation_models": 42267,
+      "candidate_categories": {
+        "alternative_splice": 3258,
+        "alternative_start": 21,
+        "alternative_stop": 141,
+        "combined_refinement": 372,
+        "novel_orf": 160
+      },
+      "candidate_orfs": 45084,
+      "event_confidences": {
+        "ambiguous": 3236,
+        "peptide_supported": 34,
+        "rna_peptide_supported": 1079
+      },
+      "model_categories": {
+        "ambiguous": 7864,
+        "no_observed_peptide_support": 32894,
+        "peptide_supported": 46593
+      },
+      "models": 87351
+    },
+    "ambiguity_by_length": [
+      {
+        "length": 7,
+        "status": "multiple",
+        "peptides": 12542
+      },
+      {
+        "length": 7,
+        "status": "unique",
+        "peptides": 4650
+      },
+      {
+        "length": 7,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 8,
+        "status": "multiple",
+        "peptides": 6475
+      },
+      {
+        "length": 8,
+        "status": "unique",
+        "peptides": 13570
+      },
+      {
+        "length": 8,
+        "status": "unmapped",
+        "peptides": 11
+      },
+      {
+        "length": 9,
+        "status": "multiple",
+        "peptides": 3485
+      },
+      {
+        "length": 9,
+        "status": "unique",
+        "peptides": 16143
+      },
+      {
+        "length": 9,
+        "status": "unmapped",
+        "peptides": 21
+      },
+      {
+        "length": 10,
+        "status": "multiple",
+        "peptides": 2648
+      },
+      {
+        "length": 10,
+        "status": "unique",
+        "peptides": 16226
+      },
+      {
+        "length": 10,
+        "status": "unmapped",
+        "peptides": 12
+      },
+      {
+        "length": 11,
+        "status": "multiple",
+        "peptides": 2338
+      },
+      {
+        "length": 11,
+        "status": "unique",
+        "peptides": 15730
+      },
+      {
+        "length": 11,
+        "status": "unmapped",
+        "peptides": 17
+      },
+      {
+        "length": 12,
+        "status": "multiple",
+        "peptides": 1947
+      },
+      {
+        "length": 12,
+        "status": "unique",
+        "peptides": 14435
+      },
+      {
+        "length": 12,
+        "status": "unmapped",
+        "peptides": 25
+      },
+      {
+        "length": 13,
+        "status": "multiple",
+        "peptides": 1515
+      },
+      {
+        "length": 13,
+        "status": "unique",
+        "peptides": 12433
+      },
+      {
+        "length": 13,
+        "status": "unmapped",
+        "peptides": 15
+      },
+      {
+        "length": 14,
+        "status": "multiple",
+        "peptides": 1239
+      },
+      {
+        "length": 14,
+        "status": "unique",
+        "peptides": 10549
+      },
+      {
+        "length": 14,
+        "status": "unmapped",
+        "peptides": 18
+      },
+      {
+        "length": 15,
+        "status": "multiple",
+        "peptides": 1022
+      },
+      {
+        "length": 15,
+        "status": "unique",
+        "peptides": 9524
+      },
+      {
+        "length": 15,
+        "status": "unmapped",
+        "peptides": 24
+      },
+      {
+        "length": 16,
+        "status": "multiple",
+        "peptides": 834
+      },
+      {
+        "length": 16,
+        "status": "unique",
+        "peptides": 8059
+      },
+      {
+        "length": 16,
+        "status": "unmapped",
+        "peptides": 16
+      },
+      {
+        "length": 17,
+        "status": "multiple",
+        "peptides": 730
+      },
+      {
+        "length": 17,
+        "status": "unique",
+        "peptides": 6966
+      },
+      {
+        "length": 17,
+        "status": "unmapped",
+        "peptides": 11
+      },
+      {
+        "length": 18,
+        "status": "multiple",
+        "peptides": 571
+      },
+      {
+        "length": 18,
+        "status": "unique",
+        "peptides": 6045
+      },
+      {
+        "length": 18,
+        "status": "unmapped",
+        "peptides": 8
+      },
+      {
+        "length": 19,
+        "status": "multiple",
+        "peptides": 519
+      },
+      {
+        "length": 19,
+        "status": "unique",
+        "peptides": 5280
+      },
+      {
+        "length": 19,
+        "status": "unmapped",
+        "peptides": 12
+      },
+      {
+        "length": 20,
+        "status": "multiple",
+        "peptides": 438
+      },
+      {
+        "length": 20,
+        "status": "unique",
+        "peptides": 4580
+      },
+      {
+        "length": 20,
+        "status": "unmapped",
+        "peptides": 9
+      },
+      {
+        "length": 21,
+        "status": "multiple",
+        "peptides": 356
+      },
+      {
+        "length": 21,
+        "status": "unique",
+        "peptides": 3892
+      },
+      {
+        "length": 21,
+        "status": "unmapped",
+        "peptides": 6
+      },
+      {
+        "length": 22,
+        "status": "multiple",
+        "peptides": 268
+      },
+      {
+        "length": 22,
+        "status": "unique",
+        "peptides": 3219
+      },
+      {
+        "length": 22,
+        "status": "unmapped",
+        "peptides": 11
+      },
+      {
+        "length": 23,
+        "status": "multiple",
+        "peptides": 185
+      },
+      {
+        "length": 23,
+        "status": "unique",
+        "peptides": 2452
+      },
+      {
+        "length": 23,
+        "status": "unmapped",
+        "peptides": 4
+      },
+      {
+        "length": 24,
+        "status": "multiple",
+        "peptides": 159
+      },
+      {
+        "length": 24,
+        "status": "unique",
+        "peptides": 1887
+      },
+      {
+        "length": 24,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 25,
+        "status": "multiple",
+        "peptides": 119
+      },
+      {
+        "length": 25,
+        "status": "unique",
+        "peptides": 1465
+      },
+      {
+        "length": 25,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 26,
+        "status": "multiple",
+        "peptides": 90
+      },
+      {
+        "length": 26,
+        "status": "unique",
+        "peptides": 1156
+      },
+      {
+        "length": 26,
+        "status": "unmapped",
+        "peptides": 4
+      },
+      {
+        "length": 27,
+        "status": "multiple",
+        "peptides": 82
+      },
+      {
+        "length": 27,
+        "status": "unique",
+        "peptides": 1041
+      },
+      {
+        "length": 27,
+        "status": "unmapped",
+        "peptides": 4
+      },
+      {
+        "length": 28,
+        "status": "multiple",
+        "peptides": 60
+      },
+      {
+        "length": 28,
+        "status": "unique",
+        "peptides": 883
+      },
+      {
+        "length": 28,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 29,
+        "status": "multiple",
+        "peptides": 52
+      },
+      {
+        "length": 29,
+        "status": "unique",
+        "peptides": 711
+      },
+      {
+        "length": 29,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 30,
+        "status": "multiple",
+        "peptides": 41
+      },
+      {
+        "length": 30,
+        "status": "unique",
+        "peptides": 604
+      },
+      {
+        "length": 30,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 31,
+        "status": "multiple",
+        "peptides": 13
+      },
+      {
+        "length": 31,
+        "status": "unique",
+        "peptides": 179
+      },
+      {
+        "length": 32,
+        "status": "multiple",
+        "peptides": 10
+      },
+      {
+        "length": 32,
+        "status": "unique",
+        "peptides": 136
+      },
+      {
+        "length": 32,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 33,
+        "status": "multiple",
+        "peptides": 9
+      },
+      {
+        "length": 33,
+        "status": "unique",
+        "peptides": 110
+      },
+      {
+        "length": 34,
+        "status": "multiple",
+        "peptides": 3
+      },
+      {
+        "length": 34,
+        "status": "unique",
+        "peptides": 95
+      },
+      {
+        "length": 34,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 35,
+        "status": "multiple",
+        "peptides": 4
+      },
+      {
+        "length": 35,
+        "status": "unique",
+        "peptides": 64
+      },
+      {
+        "length": 36,
+        "status": "multiple",
+        "peptides": 8
+      },
+      {
+        "length": 36,
+        "status": "unique",
+        "peptides": 45
+      },
+      {
+        "length": 37,
+        "status": "multiple",
+        "peptides": 3
+      },
+      {
+        "length": 37,
+        "status": "unique",
+        "peptides": 36
+      },
+      {
+        "length": 38,
+        "status": "multiple",
+        "peptides": 3
+      },
+      {
+        "length": 38,
+        "status": "unique",
+        "peptides": 27
+      },
+      {
+        "length": 39,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 39,
+        "status": "unique",
+        "peptides": 28
+      },
+      {
+        "length": 40,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 40,
+        "status": "unique",
+        "peptides": 26
+      },
+      {
+        "length": 41,
+        "status": "unique",
+        "peptides": 20
+      },
+      {
+        "length": 41,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 42,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 42,
+        "status": "unique",
+        "peptides": 13
+      },
+      {
+        "length": 42,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 43,
+        "status": "unique",
+        "peptides": 10
+      },
+      {
+        "length": 44,
+        "status": "multiple",
+        "peptides": 3
+      },
+      {
+        "length": 44,
+        "status": "unique",
+        "peptides": 7
+      },
+      {
+        "length": 45,
+        "status": "multiple",
+        "peptides": 2
+      },
+      {
+        "length": 45,
+        "status": "unique",
+        "peptides": 5
+      },
+      {
+        "length": 46,
+        "status": "unique",
+        "peptides": 2
+      },
+      {
+        "length": 47,
+        "status": "unique",
+        "peptides": 5
+      },
+      {
+        "length": 48,
+        "status": "unique",
+        "peptides": 2
+      },
+      {
+        "length": 49,
+        "status": "unique",
+        "peptides": 2
+      }
+    ]
+  },
+  {
+    "reference_comparison": {
+      "status": "not_compared_to_Casanovo_BED_with_different_peptide_input"
+    },
+    "crop": "GCF_042453785.1_Malus_domestica",
+    "job_id": "193564",
+    "status": "validated",
+    "peptides": 192952,
+    "mapped_peptides": 192813,
+    "mapped_percent": 99.928,
+    "unique_peptides": 107250,
+    "multiple_peptides": 85563,
+    "mapping_rows": 467690,
+    "spliced_mapping_rows": 44177,
+    "independently_translated_sample": 2000,
+    "independently_translated_orfs": 2000,
+    "diagnostic_event_peptide_checks": 6865,
+    "seconds": 1496.621,
+    "assessment": {
+      "annotation_events": {
+        "alternative_splice": 3475,
+        "alternative_start": 35,
+        "alternative_stop": 1035,
+        "novel_orf": 453
+      },
+      "annotation_models": 44900,
+      "candidate_categories": {
+        "alternative_splice": 2712,
+        "alternative_start": 17,
+        "alternative_stop": 225,
+        "combined_refinement": 763,
+        "novel_orf": 453
+      },
+      "candidate_orfs": 62916,
+      "event_confidences": {
+        "ambiguous": 4390,
+        "peptide_supported": 46,
+        "rna_peptide_supported": 562
+      },
+      "model_categories": {
+        "ambiguous": 24168,
+        "no_observed_peptide_support": 32564,
+        "peptide_supported": 51084
+      },
+      "models": 107816
+    },
+    "ambiguity_by_length": [
+      {
+        "length": 7,
+        "status": "multiple",
+        "peptides": 14875
+      },
+      {
+        "length": 7,
+        "status": "unique",
+        "peptides": 2868
+      },
+      {
+        "length": 7,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 8,
+        "status": "multiple",
+        "peptides": 12289
+      },
+      {
+        "length": 8,
+        "status": "unique",
+        "peptides": 8770
+      },
+      {
+        "length": 8,
+        "status": "unmapped",
+        "peptides": 6
+      },
+      {
+        "length": 9,
+        "status": "multiple",
+        "peptides": 10114
+      },
+      {
+        "length": 9,
+        "status": "unique",
+        "peptides": 10605
+      },
+      {
+        "length": 9,
+        "status": "unmapped",
+        "peptides": 14
+      },
+      {
+        "length": 10,
+        "status": "multiple",
+        "peptides": 8584
+      },
+      {
+        "length": 10,
+        "status": "unique",
+        "peptides": 10740
+      },
+      {
+        "length": 10,
+        "status": "unmapped",
+        "peptides": 16
+      },
+      {
+        "length": 11,
+        "status": "multiple",
+        "peptides": 7631
+      },
+      {
+        "length": 11,
+        "status": "unique",
+        "peptides": 10435
+      },
+      {
+        "length": 11,
+        "status": "unmapped",
+        "peptides": 11
+      },
+      {
+        "length": 12,
+        "status": "multiple",
+        "peptides": 6305
+      },
+      {
+        "length": 12,
+        "status": "unique",
+        "peptides": 9630
+      },
+      {
+        "length": 12,
+        "status": "unmapped",
+        "peptides": 12
+      },
+      {
+        "length": 13,
+        "status": "multiple",
+        "peptides": 5070
+      },
+      {
+        "length": 13,
+        "status": "unique",
+        "peptides": 8505
+      },
+      {
+        "length": 13,
+        "status": "unmapped",
+        "peptides": 8
+      },
+      {
+        "length": 14,
+        "status": "multiple",
+        "peptides": 4163
+      },
+      {
+        "length": 14,
+        "status": "unique",
+        "peptides": 7375
+      },
+      {
+        "length": 14,
+        "status": "unmapped",
+        "peptides": 7
+      },
+      {
+        "length": 15,
+        "status": "multiple",
+        "peptides": 3370
+      },
+      {
+        "length": 15,
+        "status": "unique",
+        "peptides": 6589
+      },
+      {
+        "length": 15,
+        "status": "unmapped",
+        "peptides": 10
+      },
+      {
+        "length": 16,
+        "status": "multiple",
+        "peptides": 2818
+      },
+      {
+        "length": 16,
+        "status": "unique",
+        "peptides": 5470
+      },
+      {
+        "length": 16,
+        "status": "unmapped",
+        "peptides": 6
+      },
+      {
+        "length": 17,
+        "status": "multiple",
+        "peptides": 2195
+      },
+      {
+        "length": 17,
+        "status": "unique",
+        "peptides": 4860
+      },
+      {
+        "length": 17,
+        "status": "unmapped",
+        "peptides": 6
+      },
+      {
+        "length": 18,
+        "status": "multiple",
+        "peptides": 1730
+      },
+      {
+        "length": 18,
+        "status": "unique",
+        "peptides": 4088
+      },
+      {
+        "length": 18,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 19,
+        "status": "multiple",
+        "peptides": 1493
+      },
+      {
+        "length": 19,
+        "status": "unique",
+        "peptides": 3547
+      },
+      {
+        "length": 19,
+        "status": "unmapped",
+        "peptides": 10
+      },
+      {
+        "length": 20,
+        "status": "multiple",
+        "peptides": 1223
+      },
+      {
+        "length": 20,
+        "status": "unique",
+        "peptides": 3020
+      },
+      {
+        "length": 20,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 21,
+        "status": "multiple",
+        "peptides": 1008
+      },
+      {
+        "length": 21,
+        "status": "unique",
+        "peptides": 2400
+      },
+      {
+        "length": 21,
+        "status": "unmapped",
+        "peptides": 5
+      },
+      {
+        "length": 22,
+        "status": "multiple",
+        "peptides": 731
+      },
+      {
+        "length": 22,
+        "status": "unique",
+        "peptides": 2001
+      },
+      {
+        "length": 22,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 23,
+        "status": "multiple",
+        "peptides": 532
+      },
+      {
+        "length": 23,
+        "status": "unique",
+        "peptides": 1654
+      },
+      {
+        "length": 23,
+        "status": "unmapped",
+        "peptides": 6
+      },
+      {
+        "length": 24,
+        "status": "multiple",
+        "peptides": 390
+      },
+      {
+        "length": 24,
+        "status": "unique",
+        "peptides": 1287
+      },
+      {
+        "length": 24,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 25,
+        "status": "multiple",
+        "peptides": 293
+      },
+      {
+        "length": 25,
+        "status": "unique",
+        "peptides": 937
+      },
+      {
+        "length": 25,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 26,
+        "status": "multiple",
+        "peptides": 222
+      },
+      {
+        "length": 26,
+        "status": "unique",
+        "peptides": 624
+      },
+      {
+        "length": 26,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 27,
+        "status": "multiple",
+        "peptides": 185
+      },
+      {
+        "length": 27,
+        "status": "unique",
+        "peptides": 601
+      },
+      {
+        "length": 27,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 28,
+        "status": "multiple",
+        "peptides": 137
+      },
+      {
+        "length": 28,
+        "status": "unique",
+        "peptides": 479
+      },
+      {
+        "length": 29,
+        "status": "multiple",
+        "peptides": 107
+      },
+      {
+        "length": 29,
+        "status": "unique",
+        "peptides": 376
+      },
+      {
+        "length": 29,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 30,
+        "status": "multiple",
+        "peptides": 86
+      },
+      {
+        "length": 30,
+        "status": "unique",
+        "peptides": 297
+      },
+      {
+        "length": 30,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 31,
+        "status": "multiple",
+        "peptides": 4
+      },
+      {
+        "length": 31,
+        "status": "unique",
+        "peptides": 20
+      },
+      {
+        "length": 32,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 32,
+        "status": "unique",
+        "peptides": 20
+      },
+      {
+        "length": 33,
+        "status": "multiple",
+        "peptides": 3
+      },
+      {
+        "length": 33,
+        "status": "unique",
+        "peptides": 11
+      },
+      {
+        "length": 34,
+        "status": "multiple",
+        "peptides": 2
+      },
+      {
+        "length": 34,
+        "status": "unique",
+        "peptides": 7
+      },
+      {
+        "length": 35,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 35,
+        "status": "unique",
+        "peptides": 10
+      },
+      {
+        "length": 36,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 36,
+        "status": "unique",
+        "peptides": 8
+      },
+      {
+        "length": 37,
+        "status": "unique",
+        "peptides": 7
+      },
+      {
+        "length": 38,
+        "status": "unique",
+        "peptides": 5
+      },
+      {
+        "length": 39,
+        "status": "unique",
+        "peptides": 1
+      },
+      {
+        "length": 41,
+        "status": "unique",
+        "peptides": 2
+      },
+      {
+        "length": 44,
+        "status": "unique",
+        "peptides": 1
+      }
+    ]
+  },
+  {
+    "reference_comparison": {
+      "status": "not_compared_to_Casanovo_BED_with_different_peptide_input"
+    },
+    "crop": "GCF_902167145.1_Zea_mays",
+    "job_id": "193565",
+    "status": "validated",
+    "peptides": 223529,
+    "mapped_peptides": 223375,
+    "mapped_percent": 99.931,
+    "unique_peptides": 154308,
+    "multiple_peptides": 69067,
+    "mapping_rows": 927235,
+    "spliced_mapping_rows": 46451,
+    "independently_translated_sample": 2000,
+    "independently_translated_orfs": 2000,
+    "diagnostic_event_peptide_checks": 9384,
+    "seconds": 1837.759,
+    "assessment": {
+      "annotation_events": {
+        "alternative_splice": 3774,
+        "alternative_start": 20,
+        "alternative_stop": 795,
+        "novel_orf": 1172
+      },
+      "annotation_models": 42058,
+      "candidate_categories": {
+        "alternative_splice": 3247,
+        "alternative_start": 10,
+        "alternative_stop": 257,
+        "combined_refinement": 527,
+        "novel_orf": 1172
+      },
+      "candidate_orfs": 58280,
+      "event_confidences": {
+        "ambiguous": 4756,
+        "peptide_supported": 61,
+        "rna_peptide_supported": 944
+      },
+      "model_categories": {
+        "ambiguous": 20047,
+        "no_observed_peptide_support": 28179,
+        "peptide_supported": 52112
+      },
+      "models": 100338
+    },
+    "ambiguity_by_length": [
+      {
+        "length": 7,
+        "status": "multiple",
+        "peptides": 15450
+      },
+      {
+        "length": 7,
+        "status": "unique",
+        "peptides": 3416
+      },
+      {
+        "length": 8,
+        "status": "multiple",
+        "peptides": 10173
+      },
+      {
+        "length": 8,
+        "status": "unique",
+        "peptides": 11602
+      },
+      {
+        "length": 8,
+        "status": "unmapped",
+        "peptides": 10
+      },
+      {
+        "length": 9,
+        "status": "multiple",
+        "peptides": 6929
+      },
+      {
+        "length": 9,
+        "status": "unique",
+        "peptides": 14350
+      },
+      {
+        "length": 9,
+        "status": "unmapped",
+        "peptides": 9
+      },
+      {
+        "length": 10,
+        "status": "multiple",
+        "peptides": 5943
+      },
+      {
+        "length": 10,
+        "status": "unique",
+        "peptides": 14361
+      },
+      {
+        "length": 10,
+        "status": "unmapped",
+        "peptides": 15
+      },
+      {
+        "length": 11,
+        "status": "multiple",
+        "peptides": 5330
+      },
+      {
+        "length": 11,
+        "status": "unique",
+        "peptides": 14065
+      },
+      {
+        "length": 11,
+        "status": "unmapped",
+        "peptides": 9
+      },
+      {
+        "length": 12,
+        "status": "multiple",
+        "peptides": 4411
+      },
+      {
+        "length": 12,
+        "status": "unique",
+        "peptides": 13230
+      },
+      {
+        "length": 12,
+        "status": "unmapped",
+        "peptides": 10
+      },
+      {
+        "length": 13,
+        "status": "multiple",
+        "peptides": 3728
+      },
+      {
+        "length": 13,
+        "status": "unique",
+        "peptides": 11660
+      },
+      {
+        "length": 13,
+        "status": "unmapped",
+        "peptides": 7
+      },
+      {
+        "length": 14,
+        "status": "multiple",
+        "peptides": 2941
+      },
+      {
+        "length": 14,
+        "status": "unique",
+        "peptides": 10209
+      },
+      {
+        "length": 14,
+        "status": "unmapped",
+        "peptides": 8
+      },
+      {
+        "length": 15,
+        "status": "multiple",
+        "peptides": 2650
+      },
+      {
+        "length": 15,
+        "status": "unique",
+        "peptides": 9078
+      },
+      {
+        "length": 15,
+        "status": "unmapped",
+        "peptides": 8
+      },
+      {
+        "length": 16,
+        "status": "multiple",
+        "peptides": 2120
+      },
+      {
+        "length": 16,
+        "status": "unique",
+        "peptides": 8343
+      },
+      {
+        "length": 16,
+        "status": "unmapped",
+        "peptides": 7
+      },
+      {
+        "length": 17,
+        "status": "multiple",
+        "peptides": 1784
+      },
+      {
+        "length": 17,
+        "status": "unique",
+        "peptides": 7014
+      },
+      {
+        "length": 17,
+        "status": "unmapped",
+        "peptides": 6
+      },
+      {
+        "length": 18,
+        "status": "multiple",
+        "peptides": 1481
+      },
+      {
+        "length": 18,
+        "status": "unique",
+        "peptides": 6312
+      },
+      {
+        "length": 18,
+        "status": "unmapped",
+        "peptides": 5
+      },
+      {
+        "length": 19,
+        "status": "multiple",
+        "peptides": 1185
+      },
+      {
+        "length": 19,
+        "status": "unique",
+        "peptides": 5547
+      },
+      {
+        "length": 19,
+        "status": "unmapped",
+        "peptides": 9
+      },
+      {
+        "length": 20,
+        "status": "multiple",
+        "peptides": 1025
+      },
+      {
+        "length": 20,
+        "status": "unique",
+        "peptides": 4639
+      },
+      {
+        "length": 20,
+        "status": "unmapped",
+        "peptides": 8
+      },
+      {
+        "length": 21,
+        "status": "multiple",
+        "peptides": 903
+      },
+      {
+        "length": 21,
+        "status": "unique",
+        "peptides": 4169
+      },
+      {
+        "length": 21,
+        "status": "unmapped",
+        "peptides": 5
+      },
+      {
+        "length": 22,
+        "status": "multiple",
+        "peptides": 702
+      },
+      {
+        "length": 22,
+        "status": "unique",
+        "peptides": 3484
+      },
+      {
+        "length": 22,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 23,
+        "status": "multiple",
+        "peptides": 524
+      },
+      {
+        "length": 23,
+        "status": "unique",
+        "peptides": 2744
+      },
+      {
+        "length": 23,
+        "status": "unmapped",
+        "peptides": 7
+      },
+      {
+        "length": 24,
+        "status": "multiple",
+        "peptides": 417
+      },
+      {
+        "length": 24,
+        "status": "unique",
+        "peptides": 2265
+      },
+      {
+        "length": 24,
+        "status": "unmapped",
+        "peptides": 6
+      },
+      {
+        "length": 25,
+        "status": "multiple",
+        "peptides": 299
+      },
+      {
+        "length": 25,
+        "status": "unique",
+        "peptides": 1650
+      },
+      {
+        "length": 25,
+        "status": "unmapped",
+        "peptides": 4
+      },
+      {
+        "length": 26,
+        "status": "multiple",
+        "peptides": 244
+      },
+      {
+        "length": 26,
+        "status": "unique",
+        "peptides": 1309
+      },
+      {
+        "length": 26,
+        "status": "unmapped",
+        "peptides": 4
+      },
+      {
+        "length": 27,
+        "status": "multiple",
+        "peptides": 214
+      },
+      {
+        "length": 27,
+        "status": "unique",
+        "peptides": 1167
+      },
+      {
+        "length": 27,
+        "status": "unmapped",
+        "peptides": 5
+      },
+      {
+        "length": 28,
+        "status": "multiple",
+        "peptides": 191
+      },
+      {
+        "length": 28,
+        "status": "unique",
+        "peptides": 946
+      },
+      {
+        "length": 28,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 29,
+        "status": "multiple",
+        "peptides": 147
+      },
+      {
+        "length": 29,
+        "status": "unique",
+        "peptides": 878
+      },
+      {
+        "length": 29,
+        "status": "unmapped",
+        "peptides": 4
+      },
+      {
+        "length": 30,
+        "status": "multiple",
+        "peptides": 100
+      },
+      {
+        "length": 30,
+        "status": "unique",
+        "peptides": 713
+      },
+      {
+        "length": 30,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 31,
+        "status": "multiple",
+        "peptides": 25
+      },
+      {
+        "length": 31,
+        "status": "unique",
+        "peptides": 247
+      },
+      {
+        "length": 32,
+        "status": "multiple",
+        "peptides": 32
+      },
+      {
+        "length": 32,
+        "status": "unique",
+        "peptides": 189
+      },
+      {
+        "length": 33,
+        "status": "multiple",
+        "peptides": 28
+      },
+      {
+        "length": 33,
+        "status": "unique",
+        "peptides": 178
+      },
+      {
+        "length": 34,
+        "status": "multiple",
+        "peptides": 17
+      },
+      {
+        "length": 34,
+        "status": "unique",
+        "peptides": 112
+      },
+      {
+        "length": 35,
+        "status": "multiple",
+        "peptides": 19
+      },
+      {
+        "length": 35,
+        "status": "unique",
+        "peptides": 103
+      },
+      {
+        "length": 35,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 36,
+        "status": "multiple",
+        "peptides": 15
+      },
+      {
+        "length": 36,
+        "status": "unique",
+        "peptides": 69
+      },
+      {
+        "length": 37,
+        "status": "multiple",
+        "peptides": 11
+      },
+      {
+        "length": 37,
+        "status": "unique",
+        "peptides": 69
+      },
+      {
+        "length": 38,
+        "status": "multiple",
+        "peptides": 8
+      },
+      {
+        "length": 38,
+        "status": "unique",
+        "peptides": 38
+      },
+      {
+        "length": 39,
+        "status": "multiple",
+        "peptides": 3
+      },
+      {
+        "length": 39,
+        "status": "unique",
+        "peptides": 29
+      },
+      {
+        "length": 40,
+        "status": "multiple",
+        "peptides": 6
+      },
+      {
+        "length": 40,
+        "status": "unique",
+        "peptides": 32
+      },
+      {
+        "length": 41,
+        "status": "multiple",
+        "peptides": 2
+      },
+      {
+        "length": 41,
+        "status": "unique",
+        "peptides": 21
+      },
+      {
+        "length": 42,
+        "status": "multiple",
+        "peptides": 2
+      },
+      {
+        "length": 42,
+        "status": "unique",
+        "peptides": 14
+      },
+      {
+        "length": 43,
+        "status": "multiple",
+        "peptides": 4
+      },
+      {
+        "length": 43,
+        "status": "unique",
+        "peptides": 18
+      },
+      {
+        "length": 44,
+        "status": "multiple",
+        "peptides": 2
+      },
+      {
+        "length": 44,
+        "status": "unique",
+        "peptides": 11
+      },
+      {
+        "length": 45,
+        "status": "unique",
+        "peptides": 11
+      },
+      {
+        "length": 46,
+        "status": "unique",
+        "peptides": 4
+      },
+      {
+        "length": 47,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 47,
+        "status": "unique",
+        "peptides": 3
+      },
+      {
+        "length": 48,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 48,
+        "status": "unique",
+        "peptides": 1
+      },
+      {
+        "length": 49,
+        "status": "unique",
+        "peptides": 5
+      },
+      {
+        "length": 50,
+        "status": "unique",
+        "peptides": 3
+      }
+    ]
+  },
+  {
+    "reference_comparison": {
+      "status": "not_compared_to_Casanovo_BED_with_different_peptide_input"
+    },
+    "crop": "GCF_904849725.1_Hordeum_vulgare",
+    "job_id": "193566",
+    "status": "validated",
+    "peptides": 187369,
+    "mapped_peptides": 187329,
+    "mapped_percent": 99.979,
+    "unique_peptides": 142439,
+    "multiple_peptides": 44890,
+    "mapping_rows": 1231243,
+    "spliced_mapping_rows": 32639,
+    "independently_translated_sample": 2000,
+    "independently_translated_orfs": 2000,
+    "diagnostic_event_peptide_checks": 5084,
+    "seconds": 1985.761,
+    "assessment": {
+      "annotation_events": {
+        "alternative_splice": 2237,
+        "alternative_start": 12,
+        "alternative_stop": 516,
+        "novel_orf": 550
+      },
+      "annotation_models": 51620,
+      "candidate_categories": {
+        "alternative_splice": 1904,
+        "alternative_start": 3,
+        "alternative_stop": 176,
+        "combined_refinement": 333,
+        "novel_orf": 550
+      },
+      "candidate_orfs": 50909,
+      "event_confidences": {
+        "ambiguous": 2699,
+        "peptide_supported": 36,
+        "rna_peptide_supported": 580
+      },
+      "model_categories": {
+        "ambiguous": 17878,
+        "no_observed_peptide_support": 41632,
+        "peptide_supported": 43019
+      },
+      "models": 102529
+    },
+    "ambiguity_by_length": [
+      {
+        "length": 7,
+        "status": "multiple",
+        "peptides": 15208
+      },
+      {
+        "length": 7,
+        "status": "unique",
+        "peptides": 2502
+      },
+      {
+        "length": 7,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 8,
+        "status": "multiple",
+        "peptides": 8540
+      },
+      {
+        "length": 8,
+        "status": "unique",
+        "peptides": 11375
+      },
+      {
+        "length": 8,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 9,
+        "status": "multiple",
+        "peptides": 4111
+      },
+      {
+        "length": 9,
+        "status": "unique",
+        "peptides": 15497
+      },
+      {
+        "length": 9,
+        "status": "unmapped",
+        "peptides": 8
+      },
+      {
+        "length": 10,
+        "status": "multiple",
+        "peptides": 3027
+      },
+      {
+        "length": 10,
+        "status": "unique",
+        "peptides": 15142
+      },
+      {
+        "length": 10,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 11,
+        "status": "multiple",
+        "peptides": 2580
+      },
+      {
+        "length": 11,
+        "status": "unique",
+        "peptides": 14162
+      },
+      {
+        "length": 11,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 12,
+        "status": "multiple",
+        "peptides": 2185
+      },
+      {
+        "length": 12,
+        "status": "unique",
+        "peptides": 12550
+      },
+      {
+        "length": 12,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 13,
+        "status": "multiple",
+        "peptides": 1716
+      },
+      {
+        "length": 13,
+        "status": "unique",
+        "peptides": 11084
+      },
+      {
+        "length": 13,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 14,
+        "status": "multiple",
+        "peptides": 1430
+      },
+      {
+        "length": 14,
+        "status": "unique",
+        "peptides": 9582
+      },
+      {
+        "length": 14,
+        "status": "unmapped",
+        "peptides": 5
+      },
+      {
+        "length": 15,
+        "status": "multiple",
+        "peptides": 1198
+      },
+      {
+        "length": 15,
+        "status": "unique",
+        "peptides": 8583
+      },
+      {
+        "length": 15,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 16,
+        "status": "multiple",
+        "peptides": 983
+      },
+      {
+        "length": 16,
+        "status": "unique",
+        "peptides": 7385
+      },
+      {
+        "length": 16,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 17,
+        "status": "multiple",
+        "peptides": 797
+      },
+      {
+        "length": 17,
+        "status": "unique",
+        "peptides": 6178
+      },
+      {
+        "length": 17,
+        "status": "unmapped",
+        "peptides": 5
+      },
+      {
+        "length": 18,
+        "status": "multiple",
+        "peptides": 619
+      },
+      {
+        "length": 18,
+        "status": "unique",
+        "peptides": 5255
+      },
+      {
+        "length": 18,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 19,
+        "status": "multiple",
+        "peptides": 539
+      },
+      {
+        "length": 19,
+        "status": "unique",
+        "peptides": 4460
+      },
+      {
+        "length": 20,
+        "status": "multiple",
+        "peptides": 437
+      },
+      {
+        "length": 20,
+        "status": "unique",
+        "peptides": 3842
+      },
+      {
+        "length": 21,
+        "status": "multiple",
+        "peptides": 359
+      },
+      {
+        "length": 21,
+        "status": "unique",
+        "peptides": 3294
+      },
+      {
+        "length": 22,
+        "status": "multiple",
+        "peptides": 286
+      },
+      {
+        "length": 22,
+        "status": "unique",
+        "peptides": 2799
+      },
+      {
+        "length": 22,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 23,
+        "status": "multiple",
+        "peptides": 242
+      },
+      {
+        "length": 23,
+        "status": "unique",
+        "peptides": 2240
+      },
+      {
+        "length": 24,
+        "status": "multiple",
+        "peptides": 165
+      },
+      {
+        "length": 24,
+        "status": "unique",
+        "peptides": 1696
+      },
+      {
+        "length": 25,
+        "status": "multiple",
+        "peptides": 112
+      },
+      {
+        "length": 25,
+        "status": "unique",
+        "peptides": 1209
+      },
+      {
+        "length": 26,
+        "status": "multiple",
+        "peptides": 78
+      },
+      {
+        "length": 26,
+        "status": "unique",
+        "peptides": 939
+      },
+      {
+        "length": 27,
+        "status": "multiple",
+        "peptides": 95
+      },
+      {
+        "length": 27,
+        "status": "unique",
+        "peptides": 825
+      },
+      {
+        "length": 28,
+        "status": "multiple",
+        "peptides": 82
+      },
+      {
+        "length": 28,
+        "status": "unique",
+        "peptides": 693
+      },
+      {
+        "length": 29,
+        "status": "multiple",
+        "peptides": 52
+      },
+      {
+        "length": 29,
+        "status": "unique",
+        "peptides": 623
+      },
+      {
+        "length": 30,
+        "status": "multiple",
+        "peptides": 45
+      },
+      {
+        "length": 30,
+        "status": "unique",
+        "peptides": 469
+      },
+      {
+        "length": 30,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 31,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 31,
+        "status": "unique",
+        "peptides": 18
+      },
+      {
+        "length": 32,
+        "status": "unique",
+        "peptides": 10
+      },
+      {
+        "length": 33,
+        "status": "unique",
+        "peptides": 5
+      },
+      {
+        "length": 34,
+        "status": "unique",
+        "peptides": 6
+      },
+      {
+        "length": 35,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 35,
+        "status": "unique",
+        "peptides": 3
+      },
+      {
+        "length": 36,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 36,
+        "status": "unique",
+        "peptides": 2
+      },
+      {
+        "length": 37,
+        "status": "unique",
+        "peptides": 1
+      },
+      {
+        "length": 38,
+        "status": "unique",
+        "peptides": 2
+      },
+      {
+        "length": 39,
+        "status": "multiple",
+        "peptides": 1
+      },
+      {
+        "length": 39,
+        "status": "unique",
+        "peptides": 1
+      },
+      {
+        "length": 40,
+        "status": "unique",
+        "peptides": 1
+      },
+      {
+        "length": 41,
+        "status": "unique",
+        "peptides": 1
+      },
+      {
+        "length": 43,
+        "status": "unique",
+        "peptides": 1
+      },
+      {
+        "length": 44,
+        "status": "unique",
+        "peptides": 3
+      },
+      {
+        "length": 47,
+        "status": "unique",
+        "peptides": 1
+      }
+    ]
+  },
+  {
+    "reference_comparison": {
+      "status": "not_compared_to_Casanovo_BED_with_different_peptide_input"
+    },
+    "crop": "GCF_963169125.1_Humulus_lupulus",
+    "job_id": "193567",
+    "status": "validated",
+    "peptides": 163718,
+    "mapped_peptides": 163662,
+    "mapped_percent": 99.966,
+    "unique_peptides": 126154,
+    "multiple_peptides": 37508,
+    "mapping_rows": 815178,
+    "spliced_mapping_rows": 30367,
+    "independently_translated_sample": 2000,
+    "independently_translated_orfs": 2000,
+    "diagnostic_event_peptide_checks": 5339,
+    "seconds": 1209.479,
+    "assessment": {
+      "annotation_events": {
+        "alternative_splice": 1689,
+        "alternative_start": 19,
+        "alternative_stop": 496,
+        "novel_orf": 799
+      },
+      "annotation_models": 29857,
+      "candidate_categories": {
+        "alternative_splice": 1346,
+        "alternative_start": 7,
+        "alternative_stop": 137,
+        "combined_refinement": 343,
+        "novel_orf": 799
+      },
+      "candidate_orfs": 35497,
+      "event_confidences": {
+        "ambiguous": 2238,
+        "peptide_supported": 55,
+        "rna_peptide_supported": 710
+      },
+      "model_categories": {
+        "ambiguous": 12178,
+        "no_observed_peptide_support": 19228,
+        "peptide_supported": 33948
+      },
+      "models": 65354
+    },
+    "ambiguity_by_length": [
+      {
+        "length": 7,
+        "status": "multiple",
+        "peptides": 12945
+      },
+      {
+        "length": 7,
+        "status": "unique",
+        "peptides": 3133
+      },
+      {
+        "length": 7,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 8,
+        "status": "multiple",
+        "peptides": 6899
+      },
+      {
+        "length": 8,
+        "status": "unique",
+        "peptides": 11605
+      },
+      {
+        "length": 8,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 9,
+        "status": "multiple",
+        "peptides": 3370
+      },
+      {
+        "length": 9,
+        "status": "unique",
+        "peptides": 14529
+      },
+      {
+        "length": 9,
+        "status": "unmapped",
+        "peptides": 7
+      },
+      {
+        "length": 10,
+        "status": "multiple",
+        "peptides": 2589
+      },
+      {
+        "length": 10,
+        "status": "unique",
+        "peptides": 13527
+      },
+      {
+        "length": 10,
+        "status": "unmapped",
+        "peptides": 4
+      },
+      {
+        "length": 11,
+        "status": "multiple",
+        "peptides": 2190
+      },
+      {
+        "length": 11,
+        "status": "unique",
+        "peptides": 12656
+      },
+      {
+        "length": 11,
+        "status": "unmapped",
+        "peptides": 4
+      },
+      {
+        "length": 12,
+        "status": "multiple",
+        "peptides": 1832
+      },
+      {
+        "length": 12,
+        "status": "unique",
+        "peptides": 11191
+      },
+      {
+        "length": 12,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 13,
+        "status": "multiple",
+        "peptides": 1451
+      },
+      {
+        "length": 13,
+        "status": "unique",
+        "peptides": 9440
+      },
+      {
+        "length": 13,
+        "status": "unmapped",
+        "peptides": 6
+      },
+      {
+        "length": 14,
+        "status": "multiple",
+        "peptides": 1257
+      },
+      {
+        "length": 14,
+        "status": "unique",
+        "peptides": 8470
+      },
+      {
+        "length": 14,
+        "status": "unmapped",
+        "peptides": 4
+      },
+      {
+        "length": 15,
+        "status": "multiple",
+        "peptides": 1001
+      },
+      {
+        "length": 15,
+        "status": "unique",
+        "peptides": 7309
+      },
+      {
+        "length": 15,
+        "status": "unmapped",
+        "peptides": 3
+      },
+      {
+        "length": 16,
+        "status": "multiple",
+        "peptides": 826
+      },
+      {
+        "length": 16,
+        "status": "unique",
+        "peptides": 6202
+      },
+      {
+        "length": 16,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 17,
+        "status": "multiple",
+        "peptides": 692
+      },
+      {
+        "length": 17,
+        "status": "unique",
+        "peptides": 5242
+      },
+      {
+        "length": 17,
+        "status": "unmapped",
+        "peptides": 4
+      },
+      {
+        "length": 18,
+        "status": "multiple",
+        "peptides": 503
+      },
+      {
+        "length": 18,
+        "status": "unique",
+        "peptides": 4333
+      },
+      {
+        "length": 18,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 19,
+        "status": "multiple",
+        "peptides": 461
+      },
+      {
+        "length": 19,
+        "status": "unique",
+        "peptides": 3805
+      },
+      {
+        "length": 19,
+        "status": "unmapped",
+        "peptides": 5
+      },
+      {
+        "length": 20,
+        "status": "multiple",
+        "peptides": 357
+      },
+      {
+        "length": 20,
+        "status": "unique",
+        "peptides": 3247
+      },
+      {
+        "length": 20,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 21,
+        "status": "multiple",
+        "peptides": 291
+      },
+      {
+        "length": 21,
+        "status": "unique",
+        "peptides": 2726
+      },
+      {
+        "length": 21,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 22,
+        "status": "multiple",
+        "peptides": 223
+      },
+      {
+        "length": 22,
+        "status": "unique",
+        "peptides": 2229
+      },
+      {
+        "length": 22,
+        "status": "unmapped",
+        "peptides": 2
+      },
+      {
+        "length": 23,
+        "status": "multiple",
+        "peptides": 155
+      },
+      {
+        "length": 23,
+        "status": "unique",
+        "peptides": 1736
+      },
+      {
+        "length": 24,
+        "status": "multiple",
+        "peptides": 130
+      },
+      {
+        "length": 24,
+        "status": "unique",
+        "peptides": 1272
+      },
+      {
+        "length": 24,
+        "status": "unmapped",
+        "peptides": 1
+      },
+      {
+        "length": 25,
+        "status": "multiple",
+        "peptides": 88
+      },
+      {
+        "length": 25,
+        "status": "unique",
+        "peptides": 929
+      },
+      {
+        "length": 26,
+        "status": "multiple",
+        "peptides": 61
+      },
+      {
+        "length": 26,
+        "status": "unique",
+        "peptides": 693
+      },
+      {
+        "length": 27,
+        "status": "multiple",
+        "peptides": 68
+      },
+      {
+        "length": 27,
+        "status": "unique",
+        "peptides": 616
+      },
+      {
+        "length": 28,
+        "status": "multiple",
+        "peptides": 55
+      },
+      {
+        "length": 28,
+        "status": "unique",
+        "peptides": 501
+      },
+      {
+        "length": 28,
+        "status": "unmapped",
+        "peptides": 4
+      },
+      {
+        "length": 29,
+        "status": "multiple",
+        "peptides": 30
+      },
+      {
+        "length": 29,
+        "status": "unique",
+        "peptides": 404
+      },
+      {
+        "length": 30,
+        "status": "multiple",
+        "peptides": 34
+      },
+      {
+        "length": 30,
+        "status": "unique",
+        "peptides": 347
+      },
+      {
+        "length": 31,
+        "status": "unique",
+        "peptides": 4
+      },
+      {
+        "length": 33,
+        "status": "unique",
+        "peptides": 4
+      },
+      {
+        "length": 34,
+        "status": "unique",
+        "peptides": 3
+      },
+      {
+        "length": 37,
+        "status": "unique",
+        "peptides": 1
+      }
+    ]
+  }
+]

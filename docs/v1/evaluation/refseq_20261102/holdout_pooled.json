@@ -1,0 +1,22 @@
+{
+  "heldout_genes": 900,
+  "multi_exon_targets": 450,
+  "expected_peptide_loci": 11020,
+  "recovered_peptide_loci": 10989,
+  "exact_cds_recovered": 517,
+  "exact_splice_chain_recovered": 361,
+  "start_recovered": 553,
+  "stop_recovered": 695,
+  "junction_tp": 2569,
+  "junction_fn": 261,
+  "junction_fp": 328,
+  "genes_with_peptide_supported_RNA_candidate": 741,
+  "genes_all_expected_peptide_loci_recovered": 882,
+  "single_exon_exact_cds": 220,
+  "multi_exon_exact_cds": 297,
+  "peptide_coordinate_recall": 0.9971869328493648,
+  "full_cds_recall": 0.5744444444444444,
+  "full_splice_chain_recall": 0.8022222222222222,
+  "splice_junction_recall": 0.907773851590106,
+  "splice_junction_precision": 0.8867794269934415
+}

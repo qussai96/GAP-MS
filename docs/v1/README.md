@@ -96,3 +96,5 @@ See [methods](SCIENTIFIC_METHODS.md), [output schemas](OUTPUT_FORMATS.md),
 ## Cite GAPMS
 
 [GAPMS bioRxiv manuscript](https://www.biorxiv.org/content/10.64898/2026.03.17.712294v3).
+
+The [RefSeq follow-up evaluation](evaluation/refseq_20261102/RESULTS.md) includes the nine-crop rerun, a 900-gene annotation-removal benchmark, and ambiguity boxplots for every observed peptide length. Read its [protocol and repeatability notes](evaluation/refseq_20261102/README.md) when using these results.

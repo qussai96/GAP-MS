@@ -1,3 +1,11 @@
+> Historical classification note: the Casanovo proposal counts below predate
+> the correction separating same-frame refinements from novel ORFs. An audit
+> found 18,515 candidate models in both lists. Use those historical counts as
+> overlapping event reports, not distinct novel-ORF counts. Genomic mapping
+> results and ambiguity counts are unaffected. The corrected classifier and
+> blinded gene-removal evaluation are described in
+> [the RefSeq follow-up](refseq_20261102/README.md).
+
 # GAPMS 1.0.0: nine-crop Casanovo evaluation
 
 All nine integrated biological jobs completed successfully, followed by audited

@@ -1,0 +1,65 @@
+[
+  {
+    "crop": "GCF_001625215.2_Daucus_carota",
+    "historical_novel_orf_events": 2603,
+    "same_frame_events_previously_in_novel_list": 2460,
+    "historical_candidates_in_novel_and_refinement": 1949,
+    "historical_refinement_events_without_same_frame_relationship": 2
+  },
+  {
+    "crop": "GCF_020520425.1_Spinacia_oleracea",
+    "historical_novel_orf_events": 2918,
+    "same_frame_events_previously_in_novel_list": 2442,
+    "historical_candidates_in_novel_and_refinement": 2064,
+    "historical_refinement_events_without_same_frame_relationship": 10
+  },
+  {
+    "crop": "GCF_022201045.2_Citrus_sinensis",
+    "historical_novel_orf_events": 2631,
+    "same_frame_events_previously_in_novel_list": 2393,
+    "historical_candidates_in_novel_and_refinement": 1934,
+    "historical_refinement_events_without_same_frame_relationship": 4
+  },
+  {
+    "crop": "GCF_025177605.1_Cucumis_melo",
+    "historical_novel_orf_events": 3429,
+    "same_frame_events_previously_in_novel_list": 2895,
+    "historical_candidates_in_novel_and_refinement": 2215,
+    "historical_refinement_events_without_same_frame_relationship": 0
+  },
+  {
+    "crop": "GCF_036512215.1_Solanum_lycopersicum",
+    "historical_novel_orf_events": 3040,
+    "same_frame_events_previously_in_novel_list": 2868,
+    "historical_candidates_in_novel_and_refinement": 2387,
+    "historical_refinement_events_without_same_frame_relationship": 3
+  },
+  {
+    "crop": "GCF_042453785.1_Malus_domestica",
+    "historical_novel_orf_events": 3510,
+    "same_frame_events_previously_in_novel_list": 3135,
+    "historical_candidates_in_novel_and_refinement": 2490,
+    "historical_refinement_events_without_same_frame_relationship": 6
+  },
+  {
+    "crop": "GCF_902167145.1_Zea_mays",
+    "historical_novel_orf_events": 4364,
+    "same_frame_events_previously_in_novel_list": 3467,
+    "historical_candidates_in_novel_and_refinement": 2605,
+    "historical_refinement_events_without_same_frame_relationship": 17
+  },
+  {
+    "crop": "GCF_904849725.1_Hordeum_vulgare",
+    "historical_novel_orf_events": 2743,
+    "same_frame_events_previously_in_novel_list": 2209,
+    "historical_candidates_in_novel_and_refinement": 1652,
+    "historical_refinement_events_without_same_frame_relationship": 15
+  },
+  {
+    "crop": "GCF_963169125.1_Humulus_lupulus",
+    "historical_novel_orf_events": 2331,
+    "same_frame_events_previously_in_novel_list": 1627,
+    "historical_candidates_in_novel_and_refinement": 1219,
+    "historical_refinement_events_without_same_frame_relationship": 2
+  }
+]
