@@ -1,3 +1,7 @@
+> This is the isolated GAPMS 1.0.0 development branch. The new `gapms-v1`
+> command and its installation are documented in [docs/v1/README.md](docs/v1/README.md).
+> The legacy GAPMS workflow below remains available through `gapms`.
+
 # GAP-MS: Gene Model Assessment using Peptides from Mass Spectrometry
 
 GAP-MS uses mass spectrometry peptide evidence to assess predicted gene models.

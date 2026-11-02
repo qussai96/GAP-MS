@@ -1,0 +1,28 @@
+Bootstrap: localimage
+From: /home/students/q.abbas/Git/GAP-MS/gapms.sif
+
+%files
+    gapms_v1 /opt/gapms-v1/gapms_v1
+    setup.py /opt/gapms-v1/setup.py
+    pyproject.toml /opt/gapms-v1/pyproject.toml
+    MANIFEST.in /opt/gapms-v1/MANIFEST.in
+    LICENSE /opt/gapms-v1/LICENSE
+    docs/v1 /opt/gapms-v1/docs/v1
+
+%post
+    set -e
+    cd /opt/gapms-v1
+    /opt/conda/bin/python -m pip install --no-cache-dir --no-deps .
+
+%test
+    set -e
+    cd /tmp
+    /opt/conda/bin/python -c 'from importlib.metadata import version; assert version("gapms")=="0.3.0"; assert version("gapms-v1")=="1.0.0"'
+    /opt/conda/bin/gapms-v1 --help >/dev/null
+
+%runscript
+    exec /opt/conda/bin/gapms-v1 "$@"
+
+%labels
+    Version 1.0.0
+    LegacyGAPMSVersion 0.3.0

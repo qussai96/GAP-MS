@@ -1,6 +1,3 @@
-include xgb_protein_classifier.pkl
-
-include gapms/_peplocus/LICENSE
-include THIRD_PARTY.md
-recursive-include docs *.md
-recursive-include docs *.json
+include LICENSE
+recursive-include docs/v1 *.md
+recursive-include tests/v1 *.py

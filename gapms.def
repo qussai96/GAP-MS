@@ -3,11 +3,11 @@ From: mambaorg/micromamba:1.5.8
 
 %files
     gapms /opt/gapms/gapms
-    setup.py /opt/gapms/setup.py
-    pyproject.toml /opt/gapms/pyproject.toml
+    packaging/legacy/setup.py /opt/gapms/setup.py
+    packaging/legacy/pyproject.toml /opt/gapms/pyproject.toml
     README.md /opt/gapms/README.md
     requirements.txt /opt/gapms/requirements.txt
-    MANIFEST.in /opt/gapms/MANIFEST.in
+    packaging/legacy/MANIFEST.in /opt/gapms/MANIFEST.in
     LICENSE /opt/gapms/LICENSE
     THIRD_PARTY.md /opt/gapms/THIRD_PARTY.md
     docs /opt/gapms/docs
