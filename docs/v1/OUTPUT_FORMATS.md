@@ -74,6 +74,15 @@ TransDecoder outputs remain under transcripts for provenance.
 
 ## Annotation proposals
 
+`orfs/candidate_classification.tsv` contains one row per proposed candidate:
+`candidate_model_id`, `category`, `component_changes`, `event_ids`. Primary
+categories are mutually exclusive; `combined_refinement` records multiple
+supported changes without counting the model as a novel ORF. Component event
+tables can contain multiple rows for the same candidate or comparisons with
+multiple annotation models. Use `candidate_categories` in the summary for
+model counts and `annotation_events` for event counts.
+
+
 `refinement/annotation_change_proposals.tsv` is the unified proposal table.
 Separate `alternative_start_candidates.tsv`, `alternative_stop_candidates.tsv`,
 `alternative_splice_candidates.tsv`, and `orfs/novel_orf_candidates.tsv` use the

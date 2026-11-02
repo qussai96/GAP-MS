@@ -95,12 +95,23 @@ Only RNA-derived candidate coding models are proposed as new ORFs in this
 release. Models with identical coding paths to an input annotation are not
 novel. Supported differing candidates are classified against overlapping
 annotation models as intergenic, antisense, intronic, UTR-associated,
-overlapping alternative-frame or new transcript isoform. Genomic overlap does
-not disqualify novelty. The classification uses annotation CDS/exon intervals
+overlapping alternative-frame or new transcript isoform. A same-frame,
+overlapping coding model is assessed as an annotation refinement, not counted
+as a novel ORF. Antisense and alternative-frame ORFs can overlap an annotated
+locus without being refinements of its existing coding path. The classification uses annotation CDS/exon intervals
 and relative coding frame at shared bases; missing or incomplete annotations
 can change that relationship. UTR-associated means exonic outside an available
 CDS, not experimentally validated UTR translation. Annotation source conflicts
 remain visible rather than being resolved into a presumed truth.
+
+`orfs/candidate_classification.tsv` assigns each proposed RNA model one primary
+category. A model with just one supported refinement is classified as
+`alternative_start`, `alternative_stop` or `alternative_splice`; a model with
+several supported changes is `combined_refinement`. Its component changes
+remain in the event tables. Thus event counts can overlap between refinement
+types, but primary model counts are mutually exclusive and no refinement is
+also counted as a novel ORF. An unsupported boundary difference is not promoted
+to a proposal merely to give every candidate an event label.
 
 Diagnostic placements are peptide paths absent from the input annotations'
 compatible peptide placements. Single-peptide ORFs are retained with lower

@@ -86,6 +86,9 @@ def test_boundary_events_need_diagnostic_peptides_and_not_absence(tmp_path):
     assess(args,[ref,candidate],MockEvidence({'c':hs},{'PEPTIDE':1,'ACDEFGH':1}),metadata,{})
     starts=table(tmp_path/'refinement/alternative_start_candidates.tsv');stops=table(tmp_path/'refinement/alternative_stop_candidates.tsv')
     assert len(starts)==1 and len(stops)==1
+    assert table(tmp_path/'orfs/novel_orf_candidates.tsv')==[]
+    primary=table(tmp_path/'orfs/candidate_classification.tsv')
+    assert len(primary)==1 and primary[0]['category']=='combined_refinement'
     assert all(r['confidence']!='high_confidence_candidate' for r in starts+stops)
     # Ordinary tryptic cleavage far from the N terminus is not alternative-start evidence.
     hs[0]['aa_start']=8;hs[0]['aa_end']=15
@@ -102,6 +105,8 @@ def test_novel_splice_requires_peptide_crossing_and_records_rna(tmp_path):
     assess(args,[ref,candidate],MockEvidence({'c':[crossing]},{'PEPTIDE':1}),{'PEPTIDE':dict(quality='qvalue_pass')},{('chr1',33,90,'+'):3})
     rows=table(tmp_path/'refinement/alternative_splice_candidates.tsv')
     assert len(rows)==1 and rows[0]['minimum_rna_support']=='3'
+    assert table(tmp_path/'orfs/novel_orf_candidates.tsv')==[]
+    assert table(tmp_path/'orfs/candidate_classification.tsv')[0]['category']=='alternative_splice'
     assert rows[0]['confidence']=='rna_peptide_supported'
     assert 'full_length' in rows[0]['limitations']
     elsewhere=hit('PEPTIDE',[(0,21)],0)
@@ -149,3 +154,14 @@ def test_unresolved_orf_residues_preclude_high_confidence(tmp_path):
     row=table(tmp_path/'orfs/novel_orf_candidates.tsv')[0]
     assert row['confidence']!='high_confidence_candidate'
     assert 'unresolved_amino_acids_in_candidate_ORF' in row['limitations']
+
+
+def test_alternative_frame_orf_is_not_boundary_refinement(tmp_path):
+    args=config(tmp_path)
+    ref=Model('ref','A01','ref','g','chr1','+',cds=[(31,91)],coding=[(31,91)],protein='M'+'Q'*19)
+    candidate=Model('c','RNA_ORF','c','g','chr1','+',cds=[(0,120)],coding=[(0,120)],protein='MPEPTIDEK'+'Q'*31,complete_start=True,complete_stop=True)
+    hs=[hit('PEPTIDE',[(3,24)],1)]
+    assess(args,[ref,candidate],MockEvidence({'c':hs},{'PEPTIDE':1}),{'PEPTIDE':dict(quality='unknown')},{})
+    assert len(table(tmp_path/'orfs/novel_orf_candidates.tsv'))==1
+    assert table(tmp_path/'refinement/alternative_start_candidates.tsv')==[]
+    assert table(tmp_path/'orfs/candidate_classification.tsv')[0]['category']=='novel_orf'

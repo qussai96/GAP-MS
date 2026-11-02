@@ -165,9 +165,9 @@ def assess(args,models,store,metadata,rna_junctions):
                 peptides=sorted(sequences),mapping_ids=sorted({h['mapping_id'] for h in placements}),distinct_diagnostic_peptides=len(sequences),
                 mapping_multiplicity={p:counts[p] for p in sorted(sequences)},rna_junctions=[dict(chrom=k[0],start=k[1],end=k[2],strand=k[3],reads=rna_junctions.get(k,0)) for k in rna_keys],
                 minimum_rna_support=minimum,confidence=confidence,reasons=extra or 'direct_peptide_compatibility_with_candidate_coding_path',limitations=limitations))
-        if diagnostic:event('novel_orf',diagnostic,refs)
+        if diagnostic and relation!='new_transcript_isoform':event('novel_orf',diagnostic,refs)
         elif relation=='intergenic':event('novel_orf',all_hits,refs,'no_comparable_annotation_provided' if not annotation else 'intergenic_peptide_supported_ORF')
-        same=[m for m in refs if m.strand==candidate.strand and m.coding and interval_overlap(m.cds,candidate.cds)]
+        same=[m for m in refs if m.coding and relationship(candidate,[m])=='new_transcript_isoform']
         if same:
             # A peptide elsewhere in the protein never supports a changed boundary/junction.
             for ref in same:
@@ -181,6 +181,15 @@ def assess(args,models,store,metadata,rna_junctions):
             new_junctions=set(candidate.junctions)-annotated_junctions
             crossing=[h for h in diagnostic if any((a[1],b[0]) in new_junctions for a,b in zip(h['blocks'],h['blocks'][1:]))]
             if new_junctions:event('alternative_splice',crossing,same,'peptide_directly_crosses_junction_absent_from_overlapping_reference_CDS',True)
+    # A coding model has one primary classification; component events remain auditable.
+    grouped=defaultdict(list)
+    for row in events:grouped[row['candidate_model_id']].append(row)
+    primary=[]
+    for model_id,rows in sorted(grouped.items()):
+        kinds=sorted({row['event_type'] for row in rows})
+        primary.append(dict(candidate_model_id=model_id,category=kinds[0] if len(kinds)==1 else 'combined_refinement',component_changes=kinds,event_ids=[row['event_id'] for row in rows]))
+    if args.bam:
+        write_table(args.output/'orfs/candidate_classification.tsv',['candidate_model_id','category','component_changes','event_ids'],primary)
     events.sort(key=lambda e:(e['chrom'],e['start'],e['strand'],e['event_type'],e['event_id']))
     if args.bam:
         directory=args.output/'orfs'
@@ -203,4 +212,4 @@ def assess(args,models,store,metadata,rna_junctions):
             first=model.protein[h['aa_start']:h['aa_start']+1]
             occurrence_rows.append(dict(model_id=model.id,mapping_id=h['mapping_id'],peptide=h['peptide'],aa_start=h['aa_start'],aa_end=h['aa_end'],previous_aa=previous,n_terminal_context='protein_N_terminus' if not previous else 'tryptic' if previous in 'KR' and first!='P' else 'nontryptic',initiator_methionine_processing=h['aa_start']==1 and model.protein.startswith('M') and first in 'ACGPSTV'))
     write_table(args.output/'mapping/model_peptide_occurrences.tsv',['model_id','mapping_id','peptide','aa_start','aa_end','previous_aa','n_terminal_context','initiator_methionine_processing'],occurrence_rows)
-    return dict(models=len(models),annotation_models=len(annotation),candidate_orfs=len(candidates),model_categories=dict(Counter(categories.values())),annotation_events=dict(Counter(e['event_type'] for e in events)),event_confidences=dict(Counter(e['confidence'] for e in events)))
+    return dict(models=len(models),annotation_models=len(annotation),candidate_orfs=len(candidates),model_categories=dict(Counter(categories.values())),candidate_categories=dict(Counter(r['category'] for r in primary)),annotation_events=dict(Counter(e['event_type'] for e in events)),event_confidences=dict(Counter(e['confidence'] for e in events)))
