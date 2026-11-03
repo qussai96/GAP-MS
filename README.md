@@ -1,4 +1,4 @@
-> This is the isolated GAPMS 1.0.4 development branch. The new `gapms-v1`
+> This is the isolated GAPMS 1.1 development branch. The new `gapms-v1`
 > command and its installation are documented in [docs/v1/README.md](docs/v1/README.md).
 > The legacy GAPMS workflow below remains available through `gapms`.
 
@@ -337,3 +337,6 @@ Peptide uniqueness is relative to the searched assembly, the annotations being a
 Version 1.0.2 removes the auxiliary search-annotation option introduced in 1.0.1. The stop-codon and local-evidence fixes remain.
 
 In v1.0.4, `orfs/candidate_orfs.gtf` and `.faa` contain only ORFs with peptide support. The complete RNA prediction set is named `all_predicted_orfs.gtf`/`.faa` for audit; `orfs_without_peptide_support.tsv` lists unsupported predictions. Shared or ambiguous peptide support remains explicitly labeled. Peptide support alone does not establish novelty or validate a complete model.
+
+
+With v1.1, `-a assembly.fna -p peptides.tsv -g models.gtf -o results` also produces annotation-guided local start, stop, extension and splice proposals without a BAM. Internal ATG-starting peptides with non-tryptic N-terminal context are considered even when their sequence is already contained in an annotated longer protein. Existing isoforms are checked before claiming a new feature. Uncertain boundaries remain unresolved; peptide-supported local changes do not validate a replacement transcript. Optional BAM junction evidence can strengthen a local proposal. See [technical methods](docs/v1/SCIENTIFIC_METHODS.md) for the default 3,000-nt terminal window, 30-nt splice-site window, single-exon skips and search caps. Full new ORF reconstruction continues to require BAM.

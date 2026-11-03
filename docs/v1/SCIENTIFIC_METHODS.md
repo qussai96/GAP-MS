@@ -91,8 +91,7 @@ to novel ORFs or present its scores as calibrated probabilities.
 
 ## Novel ORFs and event specificity
 
-Only RNA-derived candidate coding models are proposed as new ORFs in this
-release. Models with identical coding paths to an input annotation are not
+Full new ORF models are proposed from RNA reconstruction. Since v1.1, supplied annotations also support local refinement without BAM; these local events do not assert a full ORF or transcript. Models with identical coding paths to an input annotation are not
 novel. Supported differing candidates are classified against overlapping
 annotation models as intergenic, antisense, intronic, UTR-associated,
 overlapping alternative-frame or new transcript isoform. A same-frame,
@@ -136,9 +135,7 @@ tryptic. A distant internal tryptic peptide cannot nominate a new start.
 N-terminal modifications remain available in the identification records but
 are not given a custom initiation likelihood. Proteolytic processing remains
 an explicit competing interpretation; non-tryptic status alone is insufficient.
-The current conservative detector primarily supports coding extensions and
-will miss internal alternative starts whose peptides are indistinguishable
-from an existing protein.
+The RNA-model detector primarily supports coding extensions. The v1.1 annotation-guided context rule below separately handles internal ATG peptides already contained in an annotated protein; these remain start candidates rather than confirmed initiation sites.
 
 Alternative CDS ends require a diagnostic peptide extending beyond an
 annotation's coding end. An `alternative_stop` additionally requires a complete in-frame stop in the assembly-derived ORF; without it the event is `c_terminal_extension` and termination is unresolved. Inferred stop positions are labeled as such. Terminal changes accompanied by splice-chain changes are explicitly flagged.
@@ -200,3 +197,20 @@ The search uses the supplied assessment annotations and BAM-supported or reconst
 RNA candidates are compared against all overlapping same-strand, same-frame annotation isoforms, rather than against one representative transcript. An exact CDS-path match to any annotation isoform produces no change proposal. Diagnostic peptide placements exclude paths already explained by any supplied annotation. Start/end boundaries already present in any comparable isoform are not proposed as new boundaries relative to another isoform. Splice proposals require a peptide crossing a junction absent from the union of comparable annotated junctions. A different combination of existing features does not by itself establish a novel start, stop or junction. A genuinely new diagnostic feature at an annotated locus can still be proposed; locus overlap alone does not establish that the feature is already annotated. Full transcript connectivity remains a separate question.
 
 `orfs/annotation_isoform_checks.tsv` records peptide-supported RNA models, exact annotated CDS matches, known boundary isoforms, new junctions and the number of diagnostic peptide sequences. This includes candidates excluded from change proposals. Annotation transcript and gene identities are scoped by contig and strand; reused IDs at different loci are not merged. Gene evidence tables include contig and strand. These rules apply to whichever annotation is supplied through `-g`; there is no auxiliary search annotation.
+
+
+## Annotation-guided refinement without BAM (1.1)
+
+With `-g`, the workflow now performs a local refinement stage after ordinary genomic and model-protein mapping, before final multiplicities and candidate confidence are evaluated. No additional reference annotation is introduced. An annotation-derived peptide placement explains that placement, not every occurrence of its sequence elsewhere. All observed peptide sequences are searched in bounded alternative paths, so an annotated occurrence does not conceal a second novel splice occurrence. I/L equivalence always applies. Every new peptide path is retranslated from the assembly before being added to the shared evidence store. Final multiplicities include those new paths; internal-start hypotheses that lose uniqueness are removed.
+
+The stage searches contiguous extensions of the first/last CDS segment up to 3,000 nt by default, respecting transcript-direction phase. N-terminal extensions must connect to the known CDS without an intervening stop or unresolved translated sequence. Only evidence in the stop-free upstream segment connected to that CDS is used. The start remains unresolved unless the observed peptide itself begins at a genomic ATG with the required terminal context. The program does not choose an arbitrary upstream ATG. A C-terminal extension cannot pass an existing in-frame stop. An observed peptide beyond an incomplete annotated end can support an extension; a stop is inferred only when it occurs within the searched assembly path. Otherwise the termination position remains unresolved.
+
+A distinct context rule examines internal methionine-starting peptides already contained in annotated proteins. They must map to a genomic ATG, have no expected tryptic cleavage before the M in the longer reference translation, have a compatible tryptic or native protein C terminus, and remain unique in the final searched space. Unknown preceding amino acids are not accepted as non-tryptic evidence. Starts already present in any overlapping same-strand, frame-compatible annotation isoform are excluded. Upstream peptide observations are reported descriptively; their presence does not exclude coexisting proteoforms, and their absence is not evidence of absent translation. Proteolytic processing remains a competing explanation. Initiator-methionine removal and near-cognate initiation are not inferred by this new ATG rule.
+
+Local splice discovery searches canonical GT–AG donor/acceptor shifts within 30 nt of annotated sites and single-exon skips. Candidate exon pairs must preserve downstream coding phase, retain at least nine peptide nucleotides on each side of the junction, and reproduce the peptide exactly with I/L equivalence. Already annotated junctions are not new splice features. The default cap is 64 candidate paths per exon pair, ordered by distance from existing sites and then coordinates; capped contexts are reported. The search does not enumerate arbitrary new exons, distant new splice sites, or all possible exon combinations. Genomic motif and frame compatibility do not establish full transcript connectivity.
+
+A single C-backed Aho–Corasick automaton scans the local translated paths. Shared CDS paths and repeated exon-pair contexts are deduplicated. The method scans short local sequences, rather than retranslating the entire genome or rebuilding an RNA reconstruction. This design limits the added work; genome-scale runtime still requires measurement for the particular inputs and search bounds.
+
+BAM junction counts can strengthen a peptide-supported local path when the peptide crosses the supported junction. They do not independently prove initiation or termination. Events remain local candidates and never receive the full-transcript high-confidence category from this stage. Tryptic context is recorded as supporting evidence; non-tryptic splice/extension peptide matches remain visible with explicit limitations. Identification quality is retained and failing q-value evidence is classified ambiguous. Global genomic uniqueness, isoform specificity, cleavage specificity and peptide-identification quality are separate properties.
+
+Use `--refinement-window`, `--refinement-splice-window`, `--max-refinement-paths`, and `--min-refinement-anchor` to adjust the bounds. `--no-refinement-splice` disables local splice discovery while retaining terminal refinement. Bounds are part of the run manifest and guarded resume identity.

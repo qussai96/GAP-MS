@@ -34,12 +34,18 @@ def parser():
     p.add_argument('--max-paths-per-junction', type=int, default=1000)
     p.add_argument('--min-orf-aa', type=positive, default=100, help='TransDecoder minimum ORF size (default: 100 aa; partial/single-peptide ORFs remain reportable)')
     p.add_argument('--max-peptide-qvalue', type=float, default=0.01)
+    p.add_argument('--refinement-window', type=positive, default=3000, help='maximum contiguous CDS extension searched in nucleotides (default: 3000)')
+    p.add_argument('--refinement-splice-window', type=int, default=30, help='splice-site shift radius in nucleotides (default: 30; zero searches single-exon skips at existing sites)')
+    p.add_argument('--max-refinement-paths', type=positive, default=64, help='maximum canonical phase-preserving paths per local exon pair')
+    p.add_argument('--min-refinement-anchor', type=positive, default=9, help='minimum peptide nucleotides on each side of a discovered junction')
+    p.add_argument('--no-refinement-splice', action='store_true', help='disable annotation-guided local splice discovery; terminal refinement remains enabled')
     p.add_argument('--resume', action='store_true', help='resume only when inputs, parameters and implementation fingerprint agree')
     return p
 
 
 def main(argv=None):
     args = parser().parse_args(argv)
+    if args.refinement_splice_window < 0:parser().error('refinement splice window must be nonnegative')
     if args.min_mapq < 0 or args.max_paths_per_junction < 0 or not 0 <= args.max_peptide_qvalue <= 1:
         parser().error('MAPQ/path cap must be nonnegative and q-value must be in [0,1]')
     from .workflow import run

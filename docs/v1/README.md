@@ -1,4 +1,4 @@
-# GAPMS 1.0.4
+# GAPMS 1.1
 
 GAPMS v1 maps mass-spectrometry peptide sequences to eukaryotic assemblies and
 organizes evidence for reviewing gene annotations. Genomic peptide locations are
@@ -100,3 +100,6 @@ See [methods](SCIENTIFIC_METHODS.md), [output schemas](OUTPUT_FORMATS.md),
 The [RefSeq follow-up evaluation](evaluation/refseq_20261102/RESULTS.md) includes the nine-crop rerun, a 900-gene annotation-removal benchmark, and ambiguity boxplots for every observed peptide length. Read its [protocol and repeatability notes](evaluation/refseq_20261102/README.md) when using these results.
 
 In v1.0.4, `orfs/candidate_orfs.gtf` and `.faa` contain only ORFs with peptide support. The complete RNA prediction set is named `all_predicted_orfs.gtf`/`.faa` for audit; `orfs_without_peptide_support.tsv` lists unsupported predictions. Shared or ambiguous peptide support remains explicitly labeled. Peptide support alone does not establish novelty or validate a complete model.
+
+
+With v1.1, `-a assembly.fna -p peptides.tsv -g models.gtf -o results` also produces annotation-guided local start, stop, extension and splice proposals without a BAM. Internal ATG-starting peptides with non-tryptic N-terminal context are considered even when their sequence is already contained in an annotated longer protein. Existing isoforms are checked before claiming a new feature. Uncertain boundaries remain unresolved; peptide-supported local changes do not validate a replacement transcript. Optional BAM junction evidence can strengthen a local proposal. See [technical methods](SCIENTIFIC_METHODS.md) for the default 3,000-nt terminal window, 30-nt splice-site window, single-exon skips and search caps. Full new ORF reconstruction continues to require BAM.

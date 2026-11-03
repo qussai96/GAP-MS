@@ -21,6 +21,7 @@ from .peptides import load_peptides
 from .models import load_models, write_models
 from .mapping import EvidenceStore
 from .assessment import assess
+from .refinement import refine_annotations
 from .rnaseq import reconstruct, validate_bam
 
 
@@ -150,16 +151,20 @@ def run(args):
                 if protein_dir.exists():shutil.rmtree(protein_dir)
                 protein_dir.mkdir()
                 store.associate(models,peptides,protein_dir,reference,args.genetic_code)
+            guided_events=[];refinement_stats={}
+            if args.gtf:
+                guided_events,refinement_stats=refine_annotations(args,models,store,metadata,reference,{(j.chrom,j.start,j.end,j.strand):j.support for j in rna_junctions})
+                if refinement_stats.get('splice_contexts_capped'):args.splice_search_capped=True
             mapping_stats=store.export(args.output/'mapping',peptides,metadata)
-            model_stats=assess(args,models,store,metadata,{(j.chrom,j.start,j.end,j.strand):j.support for j in rna_junctions}) if models else {}
+            model_stats=assess(args,models,store,metadata,{(j.chrom,j.start,j.end,j.strand):j.support for j in rna_junctions},guided_events) if models else {}
         limits=json.loads((engine/'summary.json').read_text())
         write_json(args.output/'mapping/mapping_summary.json',dict(mapping=mapping_stats,engine=limits,
-                   interpretation='Exact genomic placements plus verified full-CDS projections; rescue is separate and excluded from model/event evidence.'))
+                   annotation_guided_search=refinement_stats,interpretation='Exact genomic placements, verified local annotation-guided paths and full-CDS projections; rescue is separate and excluded from model/event evidence.'))
         if args.rescue_one_edit:
             rescue=args.output/'mapping/rescue';rescue.mkdir(exist_ok=True)
             for path in engine.glob('rescue_*'):
                 if path.is_file():shutil.copyfile(path,rescue/path.name)
-        summary=dict(version=__version__,mode=manifest['mode'],input=input_stats,mapping=mapping_stats,assessment=model_stats,rna_junctions=rna_stats,
+        summary=dict(version=__version__,mode=manifest['mode'],input=input_stats,mapping=mapping_stats,assessment=model_stats,annotation_guided_search=refinement_stats,rna_junctions=rna_stats,
                      seconds=round(time.monotonic()-started,3),scientific_limitations=[
                        'Mapping validates sequence compatibility, not peptide identification accuracy.',
                        'I/L-equivalent sequences are one evidence unit; reported multiplicity is within the searched genome and supported splice paths.',
@@ -167,7 +172,7 @@ def run(args):
                        'RNA-supported local splice paths do not prove full-length transcript connectivity.',
                        'Novel and boundary events are candidates for annotation review, not experimentally confirmed changes.',
                        'Partial ORFs and uncertain peptide quality do not receive high-confidence candidate status.',
-                       'Unannotated ORFs require BAM reconstruction in this version; genome-only mode reports mapping evidence.',
+                       'Full unannotated ORF reconstruction requires BAM; supplied annotations also support bounded local refinement without BAM.',
                        'The legacy XGBoost classifier remains available through gapms and is not applied to novel ORFs.'])
         write_json(args.output/'reports/summary.json',summary)
         after=[input_identity(p) for p in inputs]

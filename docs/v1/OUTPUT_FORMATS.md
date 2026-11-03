@@ -109,7 +109,8 @@ same schema:
 `minimum_rna_support`, `confidence`, `reasons`, `limitations`,
 `coding_structure_id`, `local_peptide_blocks`, `diagnostic_junctions`,
 `splice_chain_changed`, `whole_model_status`, `whole_model_review_reasons`,
-`uniqueness_scope`.
+`uniqueness_scope`, `evidence_origin`, `boundary_status`, `cleavage_context`,
+`upstream_peptide_support`, `proposed_feature_blocks`.
 
 The candidate and reference blocks show the proposed coding structures.
 Peptide/mapping identifiers trace back to placements and identifications.
@@ -137,3 +138,16 @@ the output. Completed outputs can be archived after scientific review.
 `refinement/local_evidence_only.tsv` and `complete_models_for_manual_review.tsv` partition the integrated event table by whole-model review status. Neither is an approved correction list. `local_peptide_evidence.bed` is BED6 with one row per observed peptide block per event, named `event_id.block_index`. It does not connect blocks into a reconstructed CDS. Event JSON fields retain diagnostic junctions and mapping IDs for that purpose. The directory README explains the full-context GTF policy.
 
 `orfs/annotation_isoform_checks.tsv` contains `candidate_model_id`, `chrom`, `strand`, `coding_structure_id`, `exact_annotated_isoform_ids`, `comparable_annotated_isoform_ids`, `known_start_isoform_ids`, `known_end_isoform_ids`, `new_junctions`, `observed_peptide_sequences`, `diagnostic_peptide_sequences`, `interpretation`. It audits all peptide-supported RNA candidates, including exact annotated isoforms that correctly produce no event. Gene-level `gene_evidence.tsv` now includes `chrom` and `strand` to distinguish reused gene names across loci.
+
+
+## Annotation-guided local proposals (1.1)
+
+`refinement/annotation_guided_events.tsv` reports local events inferred from the supplied annotations and peptide evidence, with or without BAM. These rows also appear in the unified `annotation_change_proposals.tsv` and event-type candidate tables. `evidence_origin` distinguishes `annotation_guided` from `RNA_ORF`. RNA-model comparisons and local events can describe the same feature; their summed row counts are not counts of distinct genes or biological events.
+
+For annotation-guided rows, `candidate_model_id`, `coding_structure_id` and `candidate_cds_blocks` are empty because no full transcript is inferred. `local_peptide_blocks` and `mapping_ids` trace the exact observed placements; `proposed_feature_blocks` records an inferred start/stop codon when justified. `boundary_status` distinguishes unresolved extension boundaries, genomic stop inference, ATG start candidates and sequence-verified junctions. `cleavage_context` contains reference-specific flanking amino acids and tryptic-context flags. `upstream_peptide_support` is descriptive for internal starts, not a filter requiring absent upstream translation.
+
+`annotation_guided_features.gtf` contains only local start/stop codons or peptide-supported regions. Its transcript IDs are event grouping IDs, not reconstructed transcript models. These features are for review, not replacement annotations. `local_peptide_evidence.bed` is a BED6 view of the observed blocks; the standard mapping BED12 retains each real peptide path for visualization.
+
+Full RNA-derived model contexts, when available, are now named `<event_type>_rna_model_context.gtf`. They are distinct from local feature GTFs; annotation-only runs do not create these full-model context files. This replaces the ambiguous refinement `<event_type>_candidates.gtf` names from earlier versions. Complete novel ORF reconstruction still requires BAM, and peptide-supported candidate ORF exports retain the v1.0.4 filtering rules.
+
+`reports/summary.json` and `mapping/mapping_summary.json` record the annotation-guided search bounds, cap counts, path counts and runtime. Assessment summaries give `annotation_guided_event_rows` and `rna_event_rows` separately. Changing search bounds can change mapping coverage and apparent uniqueness.

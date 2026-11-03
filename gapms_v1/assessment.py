@@ -7,7 +7,7 @@ from .common import stable_id, write_table
 from .models import write_models, write_proteins
 
 MODEL_FIELDS=['model_id','source','original_transcript_id','gene_id','chrom','start','end','strand','category','distinct_peptides','locus_discriminating_peptides','non_nested_discriminating_peptides','peptides','mapping_ids','complete_start','complete_stop','issues','quality','reasons']
-EVENT_FIELDS=['event_id','event_type','candidate_model_id','reference_model_ids','annotation_sources','chrom','start','end','strand','candidate_cds_blocks','reference_cds_blocks','relationship','peptides','mapping_ids','distinct_diagnostic_peptides','mapping_multiplicity','rna_junctions','minimum_rna_support','confidence','reasons','limitations','coding_structure_id','local_peptide_blocks','diagnostic_junctions','splice_chain_changed','whole_model_status','whole_model_review_reasons','uniqueness_scope']
+EVENT_FIELDS=['event_id','event_type','candidate_model_id','reference_model_ids','annotation_sources','chrom','start','end','strand','candidate_cds_blocks','reference_cds_blocks','relationship','peptides','mapping_ids','distinct_diagnostic_peptides','mapping_multiplicity','rna_junctions','minimum_rna_support','confidence','reasons','limitations','coding_structure_id','local_peptide_blocks','diagnostic_junctions','splice_chain_changed','whole_model_status','whole_model_review_reasons','uniqueness_scope','evidence_origin','boundary_status','cleavage_context','upstream_peptide_support','proposed_feature_blocks']
 
 
 def non_nested(sequences):
@@ -72,7 +72,7 @@ def beyond(hit,reference,which):
     return right>point if reference.strand=='+' else left<point
 
 
-def assess(args,models,store,metadata,rna_junctions):
+def assess(args,models,store,metadata,rna_junctions,guided_events=None):
     hits=store.model_hits();counts=store.counts();by_id={m.id:m for m in models}
     qualities=defaultdict(list)
     for p,item in metadata.items():qualities[canonical(p)].append(item['quality'])
@@ -224,19 +224,23 @@ def assess(args,models,store,metadata,rna_junctions):
         primary.append(dict(candidate_model_id=model_id,category=kinds[0] if len(kinds)==1 else 'combined_refinement',component_changes=kinds,event_ids=[row['event_id'] for row in rows]))
     if args.bam:
         write_table(args.output/'orfs/candidate_classification.tsv',['candidate_model_id','category','component_changes','event_ids'],primary)
+    for row in events:row['evidence_origin']='RNA_ORF'
+    rna_event_count=len(events)
+    events.extend(guided_events or [])
     events.sort(key=lambda e:(e['chrom'],e['start'],e['strand'],e['event_type'],e['event_id']))
     if args.bam:
         directory=args.output/'orfs'
         novel=[e for e in events if e['event_type']=='novel_orf']
         write_table(directory/'novel_orf_candidates.tsv',EVENT_FIELDS,novel)
-        novel_models=[by_id[i] for i in sorted({e['candidate_model_id'] for e in novel})]
+        novel_models=[by_id[i] for i in sorted({e['candidate_model_id'] for e in novel}) if i in by_id]
         write_models(novel_models,directory/'novel_orf_candidates.gtf');write_proteins(novel_models,directory/'novel_orf_candidates.faa')
-    if args.gtf and args.bam:
+    if args.gtf:
         directory=args.output/'refinement';directory.mkdir(exist_ok=True)
-        for kind in ['alternative_start','alternative_stop','alternative_splice','c_terminal_extension']:
+        for kind in ['alternative_start','alternative_stop','alternative_splice','n_terminal_extension','c_terminal_extension']:
             selected=[e for e in events if e['event_type']==kind]
             write_table(directory/(kind+'_candidates.tsv'),EVENT_FIELDS,selected)
-            write_models([by_id[i] for i in sorted({e['candidate_model_id'] for e in selected})],directory/(kind+'_candidates.gtf'))
+            context_models=[by_id[i] for i in sorted({e['candidate_model_id'] for e in selected}) if i in by_id]
+            if context_models:write_models(context_models,directory/(kind+'_rna_model_context.gtf'))
         write_table(directory/'annotation_change_proposals.tsv',EVENT_FIELDS,events)
         write_table(directory/'local_evidence_only.tsv',EVENT_FIELDS,(e for e in events if e['whole_model_status']=='local_evidence_only'))
         write_table(directory/'complete_models_for_manual_review.tsv',EVENT_FIELDS,(e for e in events if e['whole_model_status']=='complete_model_for_manual_review'))
@@ -244,7 +248,7 @@ def assess(args,models,store,metadata,rna_junctions):
             for e in events:
                 for i,(a,b) in enumerate(e['local_peptide_blocks'],1):
                     stream.write(f"{e['chrom']}\t{a}\t{b}\t{e['event_id']}.{i}\t0\t{e['strand']}\n")
-        (directory/'README.txt').write_text('Candidate GTF files contain full RNA models for context and manual review only. They are not corrected annotations or automatic replacements. Local peptide blocks and diagnostic junctions in the event tables delimit the direct evidence. local_peptide_evidence.bed contains separate supported blocks (BED6), not reconstructed CDSs. Complete models still require independent full-structure validation. IDs are run-scoped; join with the run/crop. Coding structure IDs collapse duplicate CDS paths within an assembly; retain run identity across assemblies.\n')
+        (directory/'README.txt').write_text('Annotation-guided events have local features in annotation_guided_features.gtf; their candidate_model_id and full-CDS blocks are empty because no full transcript was inferred. RNA and annotation-guided rows can support the same local feature and are not counts of distinct genes. Files ending _rna_model_context.gtf contain full RNA models for context and manual review only. They are not corrected annotations or automatic replacements. Local peptide blocks and diagnostic junctions in the event tables delimit the direct evidence. local_peptide_evidence.bed contains separate supported blocks (BED6), not reconstructed CDSs. Complete models still require independent full-structure validation. IDs are run-scoped; join with the run/crop. Coding structure IDs collapse duplicate CDS paths within an assembly; retain run identity across assemblies.\n')
     # Traceable individual protein occurrences, including N-terminal cleavage context.
     occurrence_rows=[]
     for model in models:
@@ -253,4 +257,4 @@ def assess(args,models,store,metadata,rna_junctions):
             first=model.protein[h['aa_start']:h['aa_start']+1]
             occurrence_rows.append(dict(model_id=model.id,mapping_id=h['mapping_id'],peptide=h['peptide'],aa_start=h['aa_start'],aa_end=h['aa_end'],previous_aa=previous,n_terminal_context='protein_N_terminus' if not previous else 'tryptic' if previous in 'KR' and first!='P' else 'nontryptic',initiator_methionine_processing=h['aa_start']==1 and model.protein.startswith('M') and first in 'ACGPSTV'))
     write_table(args.output/'mapping/model_peptide_occurrences.tsv',['model_id','mapping_id','peptide','aa_start','aa_end','previous_aa','n_terminal_context','initiator_methionine_processing'],occurrence_rows)
-    return dict(isoform_checks=dict(Counter(row['interpretation'] for row in isoform_checks)),distinct_candidate_cds_paths=len({m.signature() for m in supported_candidates if m.coding}),distinct_predicted_cds_paths=len({m.signature() for m in candidates if m.coding}),whole_model_statuses=dict(Counter(e['whole_model_status'] for e in events)),models=len(models),annotation_models=len(annotation),predicted_orfs=len(candidates),candidate_orfs=len(supported_candidates),orfs_without_peptide_support=len(candidates)-len(supported_candidates),model_categories=dict(Counter(categories.values())),candidate_categories=dict(Counter(r['category'] for r in primary)),annotation_events=dict(Counter(e['event_type'] for e in events)),event_confidences=dict(Counter(e['confidence'] for e in events)))
+    return dict(rna_event_rows=rna_event_count,annotation_guided_event_rows=len(guided_events or []),isoform_checks=dict(Counter(row['interpretation'] for row in isoform_checks)),distinct_candidate_cds_paths=len({m.signature() for m in supported_candidates if m.coding}),distinct_predicted_cds_paths=len({m.signature() for m in candidates if m.coding}),whole_model_statuses=dict(Counter(e['whole_model_status'] for e in events)),models=len(models),annotation_models=len(annotation),predicted_orfs=len(candidates),candidate_orfs=len(supported_candidates),orfs_without_peptide_support=len(candidates)-len(supported_candidates),model_categories=dict(Counter(categories.values())),candidate_categories=dict(Counter(r['category'] for r in primary)),annotation_events=dict(Counter(e['event_type'] for e in events)),event_confidences=dict(Counter(e['confidence'] for e in events)))
