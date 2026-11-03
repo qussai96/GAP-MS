@@ -334,4 +334,4 @@ The full RNA models in candidate GTFs are context for manual review, not replace
 
 Peptide uniqueness is relative to the searched assembly, the annotations being assessed (`-g`) and BAM-supported or reconstructed splice paths. Unknown splice paths can contain additional locations. Reference annotations used for evaluation are kept outside the mapping search.
 
-Version 1.0.2 removes the auxiliary search-annotation option introduced in 1.0.1. The stop-codon and local-evidence fixes remain. The earlier nine-crop `GAPMS_V1_refseq_fixed` outputs used that option and are historical reference-assisted results, not evaluations of 1.0.2.
+Version 1.0.2 removes the auxiliary search-annotation option introduced in 1.0.1. The stop-codon and local-evidence fixes remain.
