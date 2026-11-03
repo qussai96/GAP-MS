@@ -121,5 +121,3 @@ the output. Completed outputs can be archived after scientific review.
 ## Local-evidence review outputs in 1.0.1
 
 `refinement/local_evidence_only.tsv` and `complete_models_for_manual_review.tsv` partition the integrated event table by whole-model review status. Neither is an approved correction list. `local_peptide_evidence.bed` is BED6 with one row per observed peptide block per event, named `event_id.block_index`. It does not connect blocks into a reconstructed CDS. Event JSON fields retain diagnostic junctions and mapping IDs for that purpose. The directory README explains the full-context GTF policy.
-
-`reports/skipped_search_annotation_features.tsv` lists mapping-only orphan exon records by path, line, feature and reason; a header-only file means none were skipped. Source rows with kind `mapping_only_annotation` identify `--search-gtf` inputs, distinct from `input_annotation`. The run manifest records the count of mapping-only models and skipped records. Search-only model IDs can appear in internal associations, but are not targets in annotation assessment tables.

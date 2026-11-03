@@ -1,4 +1,4 @@
-# GAPMS 1.0.1
+# GAPMS 1.0.2
 
 GAPMS v1 maps mass-spectrometry peptide sequences to eukaryotic assemblies and
 organizes evidence for reviewing gene annotations. Genomic peptide locations are
@@ -51,12 +51,6 @@ gapms-v1 -a genome.fna -p peptides.tsv -b sorted.bam -o rna_results
 gapms-v1 -a genome.fna -p peptides.tsv -b sorted.bam \
   -g helixer.gtf -g another.gff3 -t 8 -o integrated_results
 ```
-
-To use another annotation only to broaden mapping and assess ambiguity, add
-`--search-gtf refseq.gtf`. Unlike `-g`, it is not assessed and does not suppress
-candidates relative to Helixer. Its coding paths are translated from the
-assembly and peptide projections are verified against the genomic sequence.
-Uniqueness remains relative to the searched splice paths.
 
 Assembly and peptides are required. Annotation and coordinate-sorted BAM are
 optional. GTF/GFF3 transcript relationships, compressed annotation/assembly,

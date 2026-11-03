@@ -1,4 +1,4 @@
-> This is the isolated GAPMS 1.0.1 development branch. The new `gapms-v1`
+> This is the isolated GAPMS 1.0.2 development branch. The new `gapms-v1`
 > command and its installation are documented in [docs/v1/README.md](docs/v1/README.md).
 > The legacy GAPMS workflow below remains available through `gapms`.
 
@@ -332,13 +332,6 @@ A C-terminal peptide supports translated sequence beyond an annotation, but it d
 
 The full RNA models in candidate GTFs are context for manual review, not replacement annotations. Event tables now give the directly observed `local_peptide_blocks` and `diagnostic_junctions`, a run-scoped `coding_structure_id`, and `whole_model_status` with explicit review reasons. Partial models, ambiguous diagnostic evidence, missing RNA junction support, multiple overlapping annotation genes, fewer than two independent diagnostic peptides, and loss of compared annotation coding sequence keep a model in `local_evidence_only`. Even `complete_model_for_manual_review` is not a validated whole-CDS correction. The refinement directory contains separate tables for these statuses and a BED6 track of individual observed peptide blocks. These blocks are not a reconstructed CDS. Duplicate RNA IDs can represent the same coding structure; use distinct CDS paths when counting candidates, and always join IDs with the run or crop.
 
-Peptide uniqueness is relative to the searched genome and splice paths. An unsearched splice path can contain another exact location. If a second annotation is available, add its coding paths without making it a target of annotation assessment:
+Peptide uniqueness is relative to the searched assembly, the annotations being assessed (`-g`) and BAM-supported or reconstructed splice paths. Unknown splice paths can contain additional locations. Reference annotations used for evaluation are kept outside the mapping search.
 
-```bash
-gapms-v1 -a assembly.fna -p peptides.tsv -g helixer.gtf -b reads.bam \
-  --search-gtf refseq.gtf -o results -t 8
-```
-
-`--search-gtf` can be repeated and accepts the same GTF/GFF syntax as `-g`. Its junctions expand the mapping graph, and its full coding paths participate in the shared, genome-verified protein projection search. These placements contribute to multiplicity before candidate assessment. Search-only models do not suppress Helixer-relative proposals and do not count as annotations being assessed. Reused transcript IDs on different contigs or strands are namespaced for this mapping-only input. Omitting this option preserves the original search inputs, with the same explicit scope limitation. Adding it changes search coverage and ambiguity, so comparisons must disclose the additional annotation. Reference-assisted ambiguity checks are not an independent validation of novelty or peptide identification.
-
-Orphan exon records without transcript parents in mapping-only annotations are skipped and listed in `reports/skipped_search_annotation_features.tsv`; they cannot define a coding path. Orphan CDS records and malformed assessment-target models remain errors.
+Version 1.0.2 removes the auxiliary search-annotation option introduced in 1.0.1. The stop-codon and local-evidence fixes remain. The earlier nine-crop `GAPMS_V1_refseq_fixed` outputs used that option and are historical reference-assisted results, not evaluations of 1.0.2.

@@ -19,7 +19,6 @@ def parser():
     p.add_argument('-a', '--assembly', type=Path, required=True)
     p.add_argument('-p', '--peptides', type=Path, required=True)
     p.add_argument('-g', '--gtf', type=Path, action='append', default=[], help='repeat to assess independent annotation sources')
-    p.add_argument('--search-gtf', type=Path, action='append', default=[], help='additional GTF/GFF coding paths for mapping and ambiguity checks only; not an annotation assessment target')
     p.add_argument('-b', '--bam', type=Path)
     p.add_argument('-o', '--output', type=Path, required=True)
     p.add_argument('-t', '--threads', type=positive, default=8)
