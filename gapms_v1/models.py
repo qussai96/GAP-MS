@@ -72,7 +72,7 @@ def load_models(path, source, reference, lengths, genetic_code=1, allow_unstrand
             if feature in {'mrna', 'transcript'}:
                 tid = attrs.get('id') or attrs.get('transcript_id')
                 if tid:
-                    gene_parents[tid] = attrs.get('gene_id') or attrs.get('parent') or tid
+                    gene_parents[(chrom,strand,tid)] = attrs.get('gene_id') or attrs.get('parent') or tid
             if feature not in {'exon', 'cds'}:
                 continue
             left, right = int(left) - 1, int(right)
@@ -86,10 +86,13 @@ def load_models(path, source, reference, lengths, genetic_code=1, allow_unstrand
             if phase not in {'.', '0', '1', '2'}:
                 raise ValueError(f'{path}:{number}: invalid CDS phase {phase}')
             rows.append((parents, chrom, strand, feature, left, right, phase, attrs))
+    scopes={}
+    for parents,chrom,strand,*_ in rows:
+        for tid in parents:scopes.setdefault(tid,set()).add((chrom,strand))
     for parents, chrom, strand, feature, left, right, phase, attrs in rows:
         for tid in parents:
-            model = models.setdefault(tid, Model(stable_id('M', source, tid), source, tid,
-                    attrs.get('gene_id') or gene_parents.get(tid, tid), chrom, strand))
+            model = models.setdefault((chrom,strand,tid), Model(stable_id('M', source, (chrom,strand,tid) if len(scopes[tid])>1 else tid), source, tid,
+                    attrs.get('gene_id') or gene_parents.get((chrom,strand,tid), tid), chrom, strand))
             if (model.chrom, model.strand) != (chrom, strand):
                 raise ValueError(f'{path}: transcript {tid} has conflicting contigs or strands')
             interval = (left, right)

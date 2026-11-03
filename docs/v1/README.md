@@ -1,4 +1,4 @@
-# GAPMS 1.0.2
+# GAPMS 1.0.3
 
 GAPMS v1 maps mass-spectrometry peptide sequences to eukaryotic assemblies and
 organizes evidence for reviewing gene annotations. Genomic peptide locations are

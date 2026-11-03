@@ -121,3 +121,5 @@ the output. Completed outputs can be archived after scientific review.
 ## Local-evidence review outputs in 1.0.1
 
 `refinement/local_evidence_only.tsv` and `complete_models_for_manual_review.tsv` partition the integrated event table by whole-model review status. Neither is an approved correction list. `local_peptide_evidence.bed` is BED6 with one row per observed peptide block per event, named `event_id.block_index`. It does not connect blocks into a reconstructed CDS. Event JSON fields retain diagnostic junctions and mapping IDs for that purpose. The directory README explains the full-context GTF policy.
+
+`orfs/annotation_isoform_checks.tsv` contains `candidate_model_id`, `chrom`, `strand`, `coding_structure_id`, `exact_annotated_isoform_ids`, `comparable_annotated_isoform_ids`, `known_start_isoform_ids`, `known_end_isoform_ids`, `new_junctions`, `observed_peptide_sequences`, `diagnostic_peptide_sequences`, `interpretation`. It audits all peptide-supported RNA candidates, including exact annotated isoforms that correctly produce no event. Gene-level `gene_evidence.tsv` now includes `chrom` and `strand` to distinguish reused gene names across loci.

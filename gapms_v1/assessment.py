@@ -105,12 +105,12 @@ def assess(args,models,store,metadata,rna_junctions):
             write_table(directory/filename,MODEL_FIELDS,(r for r in original_rows if r['category']==category))
         write_models([m for m in annotation if categories[m.id]=='peptide_supported'],directory/'supported_gene_models.gtf')
         genes=defaultdict(list)
-        for r in original_rows:genes[(r['source'],r['gene_id'])].append(r)
+        for r in original_rows:genes[(r['source'],r['chrom'],r['strand'],r['gene_id'])].append(r)
         gene_rows=[]
-        for (source,gene),rows in sorted(genes.items()):
+        for (source,chrom,strand,gene),rows in sorted(genes.items()):
             sequences={p for row in rows for p in row['peptides']}
-            gene_rows.append(dict(source=source,gene_id=gene,models=len(rows),distinct_peptides=len(sequences),locus_discriminating_peptides=sum(counts[p]==1 for p in sequences),category='peptide_supported' if sequences else 'no_observed_peptide_support'))
-        write_table(directory/'gene_evidence.tsv',['source','gene_id','models','distinct_peptides','locus_discriminating_peptides','category'],gene_rows)
+            gene_rows.append(dict(source=source,chrom=chrom,strand=strand,gene_id=gene,models=len(rows),distinct_peptides=len(sequences),locus_discriminating_peptides=sum(counts[p]==1 for p in sequences),category='peptide_supported' if sequences else 'no_observed_peptide_support'))
+        write_table(directory/'gene_evidence.tsv',['source','chrom','strand','gene_id','models','distinct_peptides','locus_discriminating_peptides','category'],gene_rows)
     if args.bam:
         directory=args.output/'orfs'
         write_table(directory/'orf_peptide_evidence.tsv',MODEL_FIELDS,(r for r in records if r['source']=='RNA_ORF'))
@@ -124,14 +124,24 @@ def assess(args,models,store,metadata,rna_junctions):
     reference_loci=defaultdict(set)
     for m in annotation:
         for hit in hits[m.id]:reference_loci[hit['canonical']].add((m.chrom,m.strand,tuple(tuple(b) for b in hit['blocks'])))
-    signature={m.signature() for m in annotation if m.coding}
-    events=[]
+    events=[];isoform_checks=[]
+    annotated_paths=defaultdict(list)
+    for model in annotation:
+        if model.coding:annotated_paths[model.signature()].append(model.id)
     for candidate in candidates:
-        if not hits[candidate.id] or candidate.signature() in signature:continue
+        if not hits[candidate.id]:continue
         refs=reference_index.overlap(candidate)
         relation=relationship(candidate,refs)
         all_hits=hits[candidate.id]
         diagnostic=[h for h in all_hits if (candidate.chrom,candidate.strand,tuple(tuple(b) for b in h['blocks'])) not in reference_loci[h['canonical']]]
+        same=[m for m in refs if m.coding and relationship(candidate,[m])=='new_transcript_isoform']
+        known_starts=[m.id for m in same if boundary(m,'start')==boundary(candidate,'start')]
+        known_ends=[m.id for m in same if boundary(m,'end')==boundary(candidate,'end')]
+        annotated_junctions={j for m in same for j in m.junctions}
+        new_junctions=set(candidate.junctions)-annotated_junctions
+        exact=sorted(annotated_paths.get(candidate.signature(),[]))
+        isoform_checks.append(dict(candidate_model_id=candidate.id,chrom=candidate.chrom,strand=candidate.strand,coding_structure_id=stable_id('CDS',candidate.signature()),exact_annotated_isoform_ids=exact,comparable_annotated_isoform_ids=sorted(m.id for m in same),known_start_isoform_ids=sorted(known_starts),known_end_isoform_ids=sorted(known_ends),new_junctions=sorted(new_junctions),observed_peptide_sequences=len({h['canonical'] for h in all_hits}),diagnostic_peptide_sequences=len({h['canonical'] for h in diagnostic}),interpretation='exact_annotated_isoform' if exact else 'existing_isoforms_explain_all_observed_peptides' if not diagnostic else 'diagnostic_evidence_requires_feature_specific_review'))
+        if exact:continue
         rna_keys=[(candidate.chrom,a,b,candidate.strand) for a,b in candidate.junctions]
         minimum=min((rna_junctions.get(k,0) for k in rna_keys),default=0)
         def event(kind,placements,related,extra='',rna_required=False):
@@ -184,20 +194,19 @@ def assess(args,models,store,metadata,rna_junctions):
                 minimum_rna_support=minimum,confidence=confidence,coding_structure_id=stable_id('CDS',candidate.signature()),local_peptide_blocks=sorted({tuple(b) for h in placements for b in h['blocks']}),diagnostic_junctions=diagnostic_junctions,splice_chain_changed=changed,whole_model_status=status,whole_model_review_reasons=review_reasons,uniqueness_scope='searched_assembly_and_supplied_splice_paths',reasons=extra or 'direct_peptide_compatibility_with_candidate_coding_path',limitations=limitations))
         if diagnostic and relation!='new_transcript_isoform':event('novel_orf',diagnostic,refs)
         elif relation=='intergenic':event('novel_orf',all_hits,refs,'no_comparable_annotation_provided' if not annotation else 'intergenic_peptide_supported_ORF')
-        same=[m for m in refs if m.coding and relationship(candidate,[m])=='new_transcript_isoform']
         if same:
             # A peptide elsewhere in the protein never supports a changed boundary/junction.
             for ref in same:
-                if boundary(candidate,'start')!=boundary(ref,'start') and candidate.complete_start:
+                if not known_starts and boundary(candidate,'start')!=boundary(ref,'start') and candidate.complete_start:
                     terminal=[h for h in diagnostic if beyond(h,ref,'start') and (h['aa_start']==0 or (h['aa_start']==1 and candidate.protein.startswith('M') and candidate.protein[1:2] in 'ACGPSTV'))]
                     event('alternative_start',terminal,[ref],'diagnostic_N_terminal_peptide; ATG_start; tryptic_and_initiator_processing_context_recorded')
-                if boundary(candidate,'end')!=boundary(ref,'end'):
+                if not known_ends and boundary(candidate,'end')!=boundary(ref,'end'):
                     terminal=[h for h in diagnostic if beyond(h,ref,'end')]
                     event('alternative_stop' if candidate.complete_stop else 'c_terminal_extension',terminal,[ref],'diagnostic_peptide_extends_beyond_annotated_coding_end')
-            annotated_junctions={j for m in same for j in m.junctions}
-            new_junctions=set(candidate.junctions)-annotated_junctions
             crossing=[h for h in diagnostic if any((a[1],b[0]) in new_junctions for a,b in zip(h['blocks'],h['blocks'][1:]))]
             if new_junctions:event('alternative_splice',crossing,same,'peptide_directly_crosses_junction_absent_from_overlapping_reference_CDS',True)
+    if args.bam:
+        write_table(args.output/'orfs/annotation_isoform_checks.tsv',['candidate_model_id','chrom','strand','coding_structure_id','exact_annotated_isoform_ids','comparable_annotated_isoform_ids','known_start_isoform_ids','known_end_isoform_ids','new_junctions','observed_peptide_sequences','diagnostic_peptide_sequences','interpretation'],isoform_checks)
     # A coding model has one primary classification; component events remain auditable.
     grouped=defaultdict(list)
     for row in events:grouped[row['candidate_model_id']].append(row)
@@ -236,4 +245,4 @@ def assess(args,models,store,metadata,rna_junctions):
             first=model.protein[h['aa_start']:h['aa_start']+1]
             occurrence_rows.append(dict(model_id=model.id,mapping_id=h['mapping_id'],peptide=h['peptide'],aa_start=h['aa_start'],aa_end=h['aa_end'],previous_aa=previous,n_terminal_context='protein_N_terminus' if not previous else 'tryptic' if previous in 'KR' and first!='P' else 'nontryptic',initiator_methionine_processing=h['aa_start']==1 and model.protein.startswith('M') and first in 'ACGPSTV'))
     write_table(args.output/'mapping/model_peptide_occurrences.tsv',['model_id','mapping_id','peptide','aa_start','aa_end','previous_aa','n_terminal_context','initiator_methionine_processing'],occurrence_rows)
-    return dict(distinct_candidate_cds_paths=len({m.signature() for m in candidates if m.coding}),whole_model_statuses=dict(Counter(e['whole_model_status'] for e in events)),models=len(models),annotation_models=len(annotation),candidate_orfs=len(candidates),model_categories=dict(Counter(categories.values())),candidate_categories=dict(Counter(r['category'] for r in primary)),annotation_events=dict(Counter(e['event_type'] for e in events)),event_confidences=dict(Counter(e['confidence'] for e in events)))
+    return dict(isoform_checks=dict(Counter(row['interpretation'] for row in isoform_checks)),distinct_candidate_cds_paths=len({m.signature() for m in candidates if m.coding}),whole_model_statuses=dict(Counter(e['whole_model_status'] for e in events)),models=len(models),annotation_models=len(annotation),candidate_orfs=len(candidates),model_categories=dict(Counter(categories.values())),candidate_categories=dict(Counter(r['category'] for r in primary)),annotation_events=dict(Counter(e['event_type'] for e in events)),event_confidences=dict(Counter(e['confidence'] for e in events)))

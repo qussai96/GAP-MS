@@ -1,4 +1,4 @@
-> This is the isolated GAPMS 1.0.2 development branch. The new `gapms-v1`
+> This is the isolated GAPMS 1.0.3 development branch. The new `gapms-v1`
 > command and its installation are documented in [docs/v1/README.md](docs/v1/README.md).
 > The legacy GAPMS workflow below remains available through `gapms`.
 

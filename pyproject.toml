@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gapms-v1"
-version = "1.0.2"
+version = "1.0.3"
 description = "Peptide-centric genome mapping and auditable annotation refinement"
 readme = "docs/v1/README.md"
 requires-python = ">=3.10,<3.11"

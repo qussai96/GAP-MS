@@ -193,3 +193,45 @@ def test_local_splice_evidence_does_not_validate_partial_whole_model(tmp_path):
     assert row['whole_model_status']=='local_evidence_only'
     assert json.loads(row['diagnostic_junctions'])==[[33,90]]
     assert not table(tmp_path/'refinement/complete_models_for_manual_review.tsv')
+
+
+@pytest.mark.parametrize('strand',['+','-'])
+def test_boundaries_known_in_other_isoforms_are_not_new(tmp_path,strand):
+    args=config(tmp_path)
+    first=Model('a','A01','a','gene','chr1',strand,cds=[(0,60)],coding=[(0,60)],protein='M'+'Q'*19)
+    second=Model('b','A01','b','gene','chr1',strand,cds=[(30,120)],coding=[(30,120)],protein='M'+'Q'*29)
+    candidate=Model('c','RNA_ORF','c','rna','chr1',strand,cds=[(0,120)],coding=[(0,120)],protein='MPEPTIDEK'+'Q'*23+'ACDEFGHK',complete_start=True,complete_stop=True)
+    placements=[hit('PEPTIDE',[(3,24)],1),hit('ACDEFGH',[(96,117)],32)]
+    assess(args,[first,second,candidate],MockEvidence({'c':placements},{'PEPTIDE':1,'ACDEFGH':1}),{p:dict(quality='unknown') for p in ['PEPTIDE','ACDEFGH']},{})
+    assert not table(tmp_path/'refinement/annotation_change_proposals.tsv')
+    row=table(tmp_path/'orfs/annotation_isoform_checks.tsv')[0]
+    assert json.loads(row['known_start_isoform_ids'])==(['a'] if strand=='+' else ['b'])
+    assert json.loads(row['known_end_isoform_ids'])==(['b'] if strand=='+' else ['a'])
+
+
+def test_exact_alternative_isoform_is_logged_without_any_proposal(tmp_path):
+    args=config(tmp_path)
+    a=Model('a','A01','a','g','chr1','+',cds=[(0,60)],coding=[(0,60)],protein='M'+'Q'*19)
+    b=Model('b','A01','b','g','chr1','+',cds=[(0,30),(90,120)],coding=[(0,30),(90,120)],protein='M'+'Q'*19)
+    candidate=Model('c','RNA_ORF','c','rna','chr1','+',cds=b.cds,coding=b.coding,protein=b.protein)
+    placement=hit('PEPTIDE',[(21,30),(90,102)],7)
+    assess(args,[a,b,candidate],MockEvidence({'b':[placement],'c':[placement]},{'PEPTIDE':1}),{'PEPTIDE':dict(quality='unknown')},{})
+    assert not table(tmp_path/'refinement/annotation_change_proposals.tsv')
+    row=table(tmp_path/'orfs/annotation_isoform_checks.tsv')[0]
+    assert row['interpretation']=='exact_annotated_isoform'
+    assert json.loads(row['exact_annotated_isoform_ids'])==['b']
+
+
+def test_recombining_known_boundaries_and_junctions_does_not_invent_features(tmp_path):
+    args=config(tmp_path)
+    def model(mid,source,blocks):
+        return Model(mid,source,mid,'gene','chr1','+',cds=blocks,coding=blocks,protein='M'+'Q'*39,complete_start=True,complete_stop=True)
+    a=model('a','A01',[(0,30),(60,90),(120,150)])
+    b=model('b','A01',[(0,60),(90,120),(150,180)])
+    c=model('c','RNA_ORF',[(0,30),(60,120),(150,180)])
+    placement=hit('PEPTIDE',[(81,102)],17)
+    assess(args,[a,b,c],MockEvidence({'c':[placement]},{'PEPTIDE':1}),{'PEPTIDE':dict(quality='unknown')},{('chr1',30,60,'+'):5,('chr1',120,150,'+'):5})
+    assert not table(tmp_path/'refinement/annotation_change_proposals.tsv')
+    row=table(tmp_path/'orfs/annotation_isoform_checks.tsv')[0]
+    assert json.loads(row['new_junctions'])==[]
+    assert row['exact_annotated_isoform_ids']=='[]'
