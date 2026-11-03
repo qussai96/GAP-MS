@@ -106,7 +106,7 @@ remain visible rather than being resolved into a presumed truth.
 
 `orfs/candidate_classification.tsv` assigns each proposed RNA model one primary
 category. A model with just one supported refinement is classified as
-`alternative_start`, `alternative_stop` or `alternative_splice`; a model with
+`alternative_start`, `alternative_stop`, `c_terminal_extension` or `alternative_splice`; a model with
 several supported changes is `combined_refinement`. Its component changes
 remain in the event tables. Thus event counts can overlap between refinement
 types, but primary model counts are mutually exclusive and no refinement is
@@ -141,7 +141,7 @@ will miss internal alternative starts whose peptides are indistinguishable
 from an existing protein.
 
 Alternative CDS ends require a diagnostic peptide extending beyond an
-annotation's coding end. Inferred stop positions are labeled as such.
+annotation's coding end. An `alternative_stop` additionally requires a complete in-frame stop in the assembly-derived ORF; without it the event is `c_terminal_extension` and termination is unresolved. Inferred stop positions are labeled as such. Terminal changes accompanied by splice-chain changes are explicitly flagged.
 Missing downstream detections never establish shortening. Some alternative
 ends, especially shortening, cannot be resolved with these peptide inputs.
 
@@ -184,3 +184,12 @@ One-edit rescue is scoped to the bundled engine's exact-unmapped set. Full-CDS
 exact projections are integrated afterward and can add exact paths beyond local
 splice caps. Interpret exploratory rescue against the final exact mapping
 table; it never contributes to model assessment or annotation proposals.
+
+
+## Local evidence and full-model review in 1.0.1
+
+Diagnostic peptide blocks and new junctions are explicit event fields. They establish local coding compatibility, not every feature of the RNA model. Full candidate GTFs remain context models. `whole_model_status` separates `local_evidence_only` from `complete_model_for_manual_review`; neither is an automatic replacement. Review reasons flag partial starts/stops, coding-path issues, ambiguous diagnostic support, junctions below the RNA threshold, fewer than two independent diagnostic peptides, multiple overlapping annotation gene identities, and loss of compared annotation CDS sequence. The last condition deliberately prevents local evidence from implicitly validating wider deletions. It can also flag valid changes, so the evidence remains reportable. Full-structure correctness still requires independent evaluation.
+
+A coding-structure ID hashes contig, strand and phased translation blocks. It groups identical paths under different RNA transcript IDs within an assembly; it is not globally unique across assemblies. Counts of RNA model IDs, distinct CDS paths and event comparisons have different denominators.
+
+`--search-gtf` adds annotation junctions and complete CDS projections to the mapping evidence space without adding assessment targets. Search-only models contribute genome-verified loci and therefore multiplicity before assessment, but are excluded from annotation identity suppression, reference-relative diagnostic classification and model-competition assessment. Reused transcript names are scoped by contig and strand in these mapping-only annotations. Orphan noncoding exon records are skipped with a report; orphan CDS records remain errors. Input identity and parameters record these extra search inputs. RefSeq-assisted searches must be disclosed when evaluating against RefSeq: they are not independent tests of biological novelty. Absence of other placements in this graph cannot rule out unsearched splice structures.

@@ -85,14 +85,17 @@ model counts and `annotation_events` for event counts.
 
 `refinement/annotation_change_proposals.tsv` is the unified proposal table.
 Separate `alternative_start_candidates.tsv`, `alternative_stop_candidates.tsv`,
-`alternative_splice_candidates.tsv`, and `orfs/novel_orf_candidates.tsv` use the
+`alternative_splice_candidates.tsv`, `c_terminal_extension_candidates.tsv`, and `orfs/novel_orf_candidates.tsv` use the
 same schema:
 
 `event_id`, `event_type`, `candidate_model_id`, `reference_model_ids`,
 `annotation_sources`, `chrom`, `start`, `end`, `strand`, `candidate_cds_blocks`,
 `reference_cds_blocks`, `relationship`, `peptides`, `mapping_ids`,
 `distinct_diagnostic_peptides`, `mapping_multiplicity`, `rna_junctions`,
-`minimum_rna_support`, `confidence`, `reasons`, `limitations`.
+`minimum_rna_support`, `confidence`, `reasons`, `limitations`,
+`coding_structure_id`, `local_peptide_blocks`, `diagnostic_junctions`,
+`splice_chain_changed`, `whole_model_status`, `whole_model_review_reasons`,
+`uniqueness_scope`.
 
 The candidate and reference blocks show the proposed coding structures.
 Peptide/mapping identifiers trace back to placements and identifications.
@@ -113,3 +116,10 @@ protein search results, indexed reference, the locus database and PepLocus
 engine outputs. These support resume and audit. Do not delete them while a job
 is running. Very large compressed assemblies require decompression space within
 the output. Completed outputs can be archived after scientific review.
+
+
+## Local-evidence review outputs in 1.0.1
+
+`refinement/local_evidence_only.tsv` and `complete_models_for_manual_review.tsv` partition the integrated event table by whole-model review status. Neither is an approved correction list. `local_peptide_evidence.bed` is BED6 with one row per observed peptide block per event, named `event_id.block_index`. It does not connect blocks into a reconstructed CDS. Event JSON fields retain diagnostic junctions and mapping IDs for that purpose. The directory README explains the full-context GTF policy.
+
+`reports/skipped_search_annotation_features.tsv` lists mapping-only orphan exon records by path, line, feature and reason; a header-only file means none were skipped. Source rows with kind `mapping_only_annotation` identify `--search-gtf` inputs, distinct from `input_annotation`. The run manifest records the count of mapping-only models and skipped records. Search-only model IDs can appear in internal associations, but are not targets in annotation assessment tables.
