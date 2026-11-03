@@ -51,7 +51,7 @@ class Model:
         return (self.chrom, self.strand, tuple(self.coding))
 
 
-def load_models(path, source, reference, lengths, genetic_code=1, allow_unstranded=False):
+def load_models(path, source, reference, lengths, genetic_code=1, allow_unstranded=False, namespace_loci=False):
     """Preserve isoforms and GFF Parent lists; trim only the first CDS phase."""
     opener = gzip.open if str(path).endswith('.gz') else open
     models = {}
@@ -88,7 +88,7 @@ def load_models(path, source, reference, lengths, genetic_code=1, allow_unstrand
             rows.append((parents, chrom, strand, feature, left, right, phase, attrs))
     for parents, chrom, strand, feature, left, right, phase, attrs in rows:
         for tid in parents:
-            model = models.setdefault(tid, Model(stable_id('M', source, tid), source, tid,
+            model = models.setdefault((chrom,strand,tid) if namespace_loci else tid, Model(stable_id('M', source, (chrom,strand,tid) if namespace_loci else tid), source, tid,
                     attrs.get('gene_id') or gene_parents.get(tid, tid), chrom, strand))
             if (model.chrom, model.strand) != (chrom, strand):
                 raise ValueError(f'{path}: transcript {tid} has conflicting contigs or strands')

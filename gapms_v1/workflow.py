@@ -52,14 +52,16 @@ def run(args):
     args.output=args.output.resolve()
     if args.bam and args.genetic_code!=1:
         raise ValueError('BAM ORF prediction currently requires --genetic-code 1')
-    inputs=[args.assembly,args.peptides]+args.gtf+([args.bam] if args.bam else [])
+    args.search_gtf=getattr(args,'search_gtf',[])
+    inputs=[args.assembly,args.peptides]+args.gtf+args.search_gtf+([args.bam] if args.bam else [])
     for path in inputs:
         if not path.is_file():raise ValueError(f'input does not exist: {path}')
     # Resolve all paths before external commands change their working directory.
     args.assembly=args.assembly.resolve();args.peptides=args.peptides.resolve()
+    args.search_gtf=[p.resolve() for p in args.search_gtf]
     args.gtf=[p.resolve() for p in args.gtf];args.bam=args.bam.resolve() if args.bam else None
     if len(set(args.gtf))!=len(args.gtf):raise ValueError('same annotation supplied more than once')
-    params={k:str(v) if isinstance(v,Path) else [str(x) for x in v] if k=='gtf' else v for k,v in vars(args).items() if k not in {'resume','output'}}
+    params={k:str(v) if isinstance(v,Path) else [str(x) for x in v] if k in {'gtf','search_gtf'} else v for k,v in vars(args).items() if k not in {'resume','output'}}
     identities=[input_identity(p) for p in inputs]
     run_key=stable_id('R',params,identities,fingerprint())
     manifest_path=args.output/'run_manifest.json'
@@ -95,6 +97,11 @@ def run(args):
                 source=f'A{i:02d}_{path.name}'
                 models.extend(load_models(path,source,reference,lengths,args.genetic_code))
                 source_rows.append(dict(source=source,path=str(path),kind='input_annotation'))
+            search_models=[]
+            for i,path in enumerate(args.search_gtf,1):
+                source=f'SEARCH{i:02d}_{path.name}'
+                search_models.extend(load_models(path,source,reference,lengths,args.genetic_code,namespace_loci=True))
+                source_rows.append(dict(source=source,path=str(path),kind='mapping_only_annotation'))
             rna_path=None
             if args.bam:
                 LOG.info('Reconstructing RNA-supported transcripts and candidate ORFs')
@@ -115,8 +122,8 @@ def run(args):
                     rna_junctions,rna_stats=extract_bam(args.bam,reference,lengths,args.min_mapq,args.min_read_anchor,args.min_junction_support)
                     write_junctions(rna_file,rna_junctions);write_json(cache,rna_stats)
             junctions={(j.chrom,j.start,j.end,j.strand):j for j in rna_junctions}
-            if models:
-                combined=args.output/'work/source_models.gtf';write_models(models,combined)
+            if models or search_models:
+                combined=args.output/'work/source_models.gtf';write_models(models+search_models,combined)
                 annotation_junctions,annotation_stats=read_annotation(combined,reference,lengths)
                 for j in annotation_junctions:
                     key=(j.chrom,j.start,j.end,j.strand)
@@ -144,12 +151,13 @@ def run(args):
                 Path(str(store_path)+suffix).unlink(missing_ok=True)
             store=EvidenceStore(store_path)
             store.import_genomic(engine/'mappings.tsv')
-            if models:
-                LOG.info('Associating peptides with %s source-aware coding models',len(models))
+            if models or search_models:
+                LOG.info('Associating peptides with %s source-aware coding models',len(models)+len(search_models))
                 protein_dir=args.output/'work/protein_search'
                 if protein_dir.exists():shutil.rmtree(protein_dir)
                 protein_dir.mkdir()
-                store.associate(models,peptides,protein_dir,reference,args.genetic_code)
+                store.associate(models+search_models,peptides,protein_dir,reference,args.genetic_code)
+            manifest['mapping_only_models']=len(search_models)
             mapping_stats=store.export(args.output/'mapping',peptides,metadata)
             model_stats=assess(args,models,store,metadata,{(j.chrom,j.start,j.end,j.strand):j.support for j in rna_junctions}) if models else {}
         limits=json.loads((engine/'summary.json').read_text())

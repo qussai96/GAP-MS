@@ -7,7 +7,7 @@ from .common import stable_id, write_table
 from .models import write_models, write_proteins
 
 MODEL_FIELDS=['model_id','source','original_transcript_id','gene_id','chrom','start','end','strand','category','distinct_peptides','locus_discriminating_peptides','non_nested_discriminating_peptides','peptides','mapping_ids','complete_start','complete_stop','issues','quality','reasons']
-EVENT_FIELDS=['event_id','event_type','candidate_model_id','reference_model_ids','annotation_sources','chrom','start','end','strand','candidate_cds_blocks','reference_cds_blocks','relationship','peptides','mapping_ids','distinct_diagnostic_peptides','mapping_multiplicity','rna_junctions','minimum_rna_support','confidence','reasons','limitations']
+EVENT_FIELDS=['event_id','event_type','candidate_model_id','reference_model_ids','annotation_sources','chrom','start','end','strand','candidate_cds_blocks','reference_cds_blocks','relationship','peptides','mapping_ids','distinct_diagnostic_peptides','mapping_multiplicity','rna_junctions','minimum_rna_support','confidence','reasons','limitations','coding_structure_id','local_peptide_blocks','diagnostic_junctions','splice_chain_changed','whole_model_status','whole_model_review_reasons','uniqueness_scope']
 
 
 def non_nested(sequences):
@@ -95,7 +95,7 @@ def assess(args,models,store,metadata,rna_junctions):
             category=category,distinct_peptides=len(sequences),locus_discriminating_peptides=len(unique),
             non_nested_discriminating_peptides=len(non_nested(unique)),peptides=sorted(sequences),mapping_ids=sorted({h['mapping_id'] for h in placements}),
             complete_start=model.complete_start,complete_stop=model.complete_stop,issues=sorted(set(model.issues)),quality=quality(sequences),
-            reasons='no_observed_evidence_is_not_evidence_of_incorrect_annotation' if not sequences else 'global_genomic_placement_multiplicity; I/L aliases counted once'))
+            reasons='no_observed_evidence_is_not_evidence_of_incorrect_annotation' if not sequences else 'placement_multiplicity_within_searched_genome_and_splice_paths; I/L aliases counted once'))
     annotation=[m for m in models if m.source!='RNA_ORF'];candidates=[m for m in models if m.source=='RNA_ORF']
     if args.gtf:
         directory=args.output/'annotation';directory.mkdir(exist_ok=True)
@@ -157,6 +157,23 @@ def assess(args,models,store,metadata,rna_junctions):
             if getattr(args,'splice_search_capped',False):limitations.append('splice_path_search_capped_uniqueness_incomplete')
             if kind=='alternative_start':limitations.extend(['proteolytic_processing_not_excluded','initiation_site_not_experimentally_confirmed'])
             if kind=='alternative_stop':limitations.append('stop_position_inferred_from_ORF_sequence')
+            if kind=='c_terminal_extension':limitations.append('termination_site_unresolved_no_complete_stop_codon')
+            limitations.append('uniqueness_is_relative_to_searched_splice_paths_not_all_possible_splicing')
+            review_reasons=[]
+            if not candidate.complete_start:review_reasons.append('incomplete_start')
+            if not candidate.complete_stop:review_reasons.append('incomplete_stop')
+            if candidate.issues:review_reasons.append('candidate_sequence_or_phase_issues')
+            if confidence=='ambiguous':review_reasons.append('ambiguous_diagnostic_evidence')
+            if any(rna_junctions.get(k,0)<args.min_junction_support for k in rna_keys):review_reasons.append('coding_junction_without_required_RNA_support')
+            if len(non_nested(unique))<2:review_reasons.append('fewer_than_two_independent_diagnostic_peptides')
+            genes={(m.source,m.gene) for m in related if m.strand==candidate.strand and interval_overlap(candidate.cds,m.cds)}
+            if len(genes)>1:review_reasons.append('overlaps_multiple_annotation_gene_ids_review_fusion_or_isoforms')
+            if any(any(sum(max(0,min(b,d)-max(a,c)) for c,d in candidate.coding)<b-a for a,b in m.coding) for m in related if m.coding):review_reasons.append('compared_annotation_CDS_not_fully_preserved_local_support_does_not_validate_deletions')
+            changed=any(set(candidate.junctions)!=set(m.junctions) for m in related if m.coding)
+            if kind in {'alternative_stop','c_terminal_extension'} and changed:limitations.append('terminal_change_accompanied_by_splice_chain_change')
+            # This is a context model, never a whole-gene replacement inferred from local evidence.
+            status='local_evidence_only' if review_reasons else 'complete_model_for_manual_review'
+            diagnostic_junctions=sorted({(a[1],b[0]) for h in placements for a,b in zip(h['blocks'],h['blocks'][1:]) if (a[1],b[0]) in candidate.junctions and not any((a[1],b[0]) in m.junctions for m in related)})
             event_id=stable_id('E',kind,candidate.id,sorted(m.id for m in related))
             events.append(dict(event_id=event_id,event_type=kind,candidate_model_id=candidate.id,
                 reference_model_ids=sorted(m.id for m in related),annotation_sources=sorted({m.source for m in related}),chrom=candidate.chrom,
@@ -164,7 +181,7 @@ def assess(args,models,store,metadata,rna_junctions):
                 candidate_cds_blocks=sorted(candidate.coding),reference_cds_blocks={m.id:sorted(m.coding) for m in related},relationship=relation,
                 peptides=sorted(sequences),mapping_ids=sorted({h['mapping_id'] for h in placements}),distinct_diagnostic_peptides=len(sequences),
                 mapping_multiplicity={p:counts[p] for p in sorted(sequences)},rna_junctions=[dict(chrom=k[0],start=k[1],end=k[2],strand=k[3],reads=rna_junctions.get(k,0)) for k in rna_keys],
-                minimum_rna_support=minimum,confidence=confidence,reasons=extra or 'direct_peptide_compatibility_with_candidate_coding_path',limitations=limitations))
+                minimum_rna_support=minimum,confidence=confidence,coding_structure_id=stable_id('CDS',candidate.signature()),local_peptide_blocks=sorted({tuple(b) for h in placements for b in h['blocks']}),diagnostic_junctions=diagnostic_junctions,splice_chain_changed=changed,whole_model_status=status,whole_model_review_reasons=review_reasons,uniqueness_scope='searched_assembly_and_supplied_splice_paths',reasons=extra or 'direct_peptide_compatibility_with_candidate_coding_path',limitations=limitations))
         if diagnostic and relation!='new_transcript_isoform':event('novel_orf',diagnostic,refs)
         elif relation=='intergenic':event('novel_orf',all_hits,refs,'no_comparable_annotation_provided' if not annotation else 'intergenic_peptide_supported_ORF')
         same=[m for m in refs if m.coding and relationship(candidate,[m])=='new_transcript_isoform']
@@ -176,7 +193,7 @@ def assess(args,models,store,metadata,rna_junctions):
                     event('alternative_start',terminal,[ref],'diagnostic_N_terminal_peptide; ATG_start; tryptic_and_initiator_processing_context_recorded')
                 if boundary(candidate,'end')!=boundary(ref,'end'):
                     terminal=[h for h in diagnostic if beyond(h,ref,'end')]
-                    event('alternative_stop',terminal,[ref],'diagnostic_peptide_extends_beyond_annotated_coding_end')
+                    event('alternative_stop' if candidate.complete_stop else 'c_terminal_extension',terminal,[ref],'diagnostic_peptide_extends_beyond_annotated_coding_end')
             annotated_junctions={j for m in same for j in m.junctions}
             new_junctions=set(candidate.junctions)-annotated_junctions
             crossing=[h for h in diagnostic if any((a[1],b[0]) in new_junctions for a,b in zip(h['blocks'],h['blocks'][1:]))]
@@ -199,11 +216,18 @@ def assess(args,models,store,metadata,rna_junctions):
         write_models(novel_models,directory/'novel_orf_candidates.gtf');write_proteins(novel_models,directory/'novel_orf_candidates.faa')
     if args.gtf and args.bam:
         directory=args.output/'refinement';directory.mkdir(exist_ok=True)
-        for kind in ['alternative_start','alternative_stop','alternative_splice']:
+        for kind in ['alternative_start','alternative_stop','alternative_splice','c_terminal_extension']:
             selected=[e for e in events if e['event_type']==kind]
             write_table(directory/(kind+'_candidates.tsv'),EVENT_FIELDS,selected)
             write_models([by_id[i] for i in sorted({e['candidate_model_id'] for e in selected})],directory/(kind+'_candidates.gtf'))
         write_table(directory/'annotation_change_proposals.tsv',EVENT_FIELDS,events)
+        write_table(directory/'local_evidence_only.tsv',EVENT_FIELDS,(e for e in events if e['whole_model_status']=='local_evidence_only'))
+        write_table(directory/'complete_models_for_manual_review.tsv',EVENT_FIELDS,(e for e in events if e['whole_model_status']=='complete_model_for_manual_review'))
+        with (directory/'local_peptide_evidence.bed').open('w') as stream:
+            for e in events:
+                for i,(a,b) in enumerate(e['local_peptide_blocks'],1):
+                    stream.write(f"{e['chrom']}\t{a}\t{b}\t{e['event_id']}.{i}\t0\t{e['strand']}\n")
+        (directory/'README.txt').write_text('Candidate GTF files contain full RNA models for context and manual review only. They are not corrected annotations or automatic replacements. Local peptide blocks and diagnostic junctions in the event tables delimit the direct evidence. local_peptide_evidence.bed contains separate supported blocks (BED6), not reconstructed CDSs. Complete models still require independent full-structure validation. IDs are run-scoped; join with the run/crop. Coding structure IDs collapse duplicate CDS paths within an assembly; retain run identity across assemblies.\n')
     # Traceable individual protein occurrences, including N-terminal cleavage context.
     occurrence_rows=[]
     for model in models:
@@ -212,4 +236,4 @@ def assess(args,models,store,metadata,rna_junctions):
             first=model.protein[h['aa_start']:h['aa_start']+1]
             occurrence_rows.append(dict(model_id=model.id,mapping_id=h['mapping_id'],peptide=h['peptide'],aa_start=h['aa_start'],aa_end=h['aa_end'],previous_aa=previous,n_terminal_context='protein_N_terminus' if not previous else 'tryptic' if previous in 'KR' and first!='P' else 'nontryptic',initiator_methionine_processing=h['aa_start']==1 and model.protein.startswith('M') and first in 'ACGPSTV'))
     write_table(args.output/'mapping/model_peptide_occurrences.tsv',['model_id','mapping_id','peptide','aa_start','aa_end','previous_aa','n_terminal_context','initiator_methionine_processing'],occurrence_rows)
-    return dict(models=len(models),annotation_models=len(annotation),candidate_orfs=len(candidates),model_categories=dict(Counter(categories.values())),candidate_categories=dict(Counter(r['category'] for r in primary)),annotation_events=dict(Counter(e['event_type'] for e in events)),event_confidences=dict(Counter(e['confidence'] for e in events)))
+    return dict(distinct_candidate_cds_paths=len({m.signature() for m in candidates if m.coding}),whole_model_statuses=dict(Counter(e['whole_model_status'] for e in events)),models=len(models),annotation_models=len(annotation),candidate_orfs=len(candidates),model_categories=dict(Counter(categories.values())),candidate_categories=dict(Counter(r['category'] for r in primary)),annotation_events=dict(Counter(e['event_type'] for e in events)),event_confidences=dict(Counter(e['confidence'] for e in events)))

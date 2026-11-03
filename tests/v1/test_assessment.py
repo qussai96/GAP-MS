@@ -165,3 +165,31 @@ def test_alternative_frame_orf_is_not_boundary_refinement(tmp_path):
     assert len(table(tmp_path/'orfs/novel_orf_candidates.tsv'))==1
     assert table(tmp_path/'refinement/alternative_start_candidates.tsv')==[]
     assert table(tmp_path/'orfs/candidate_classification.tsv')[0]['category']=='novel_orf'
+
+
+def test_incomplete_c_terminus_is_extension_not_stop(tmp_path):
+    args=config(tmp_path)
+    ref=Model('r','A01','r','g','chr1','+',cds=[(0,60)],coding=[(0,60)],protein='M'+'Q'*19)
+    candidate=Model('c','RNA_ORF','c','g','chr1','+',cds=[(0,90)],coding=[(0,90)],protein='M'+'Q'*29,complete_start=True,complete_stop=False)
+    placements=[hit('PEPTIDE',[(63,84)],21)]
+    assess(args,[ref,candidate],MockEvidence({'c':placements},{'PEPTIDE':1}),{'PEPTIDE':dict(quality='unknown')},{})
+    assert not table(tmp_path/'refinement/alternative_stop_candidates.tsv')
+    row=table(tmp_path/'refinement/c_terminal_extension_candidates.tsv')[0]
+    assert row['whole_model_status']=='local_evidence_only'
+    assert 'incomplete_stop' in row['whole_model_review_reasons']
+    assert 'termination_site_unresolved' in row['limitations']
+    assert json.loads(row['local_peptide_blocks'])==[[63,84]]
+    assert len(table(tmp_path/'refinement/local_evidence_only.tsv'))==1
+
+
+def test_local_splice_evidence_does_not_validate_partial_whole_model(tmp_path):
+    args=config(tmp_path)
+    ref=Model('r','A01','r','g','chr1','+',cds=[(0,30),(90,150)],coding=[(0,30),(90,150)],protein='M'+'Q'*29)
+    candidate=Model('c','RNA_ORF','c','g','chr1','+',cds=[(12,33),(90,150)],coding=[(12,33),(90,150)],protein='Q'*27,complete_stop=True)
+    crossing=hit('PEPTIDE',[(21,33),(90,99)],3)
+    assess(args,[ref,candidate],MockEvidence({'c':[crossing]},{'PEPTIDE':1}),{'PEPTIDE':dict(quality='unknown')},{('chr1',33,90,'+'):10})
+    row=table(tmp_path/'refinement/alternative_splice_candidates.tsv')[0]
+    assert row['confidence']=='rna_peptide_supported'
+    assert row['whole_model_status']=='local_evidence_only'
+    assert json.loads(row['diagnostic_junctions'])==[[33,90]]
+    assert not table(tmp_path/'refinement/complete_models_for_manual_review.tsv')

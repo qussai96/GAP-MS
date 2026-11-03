@@ -324,3 +324,19 @@ Please [open an issue](https://github.com/qussai96/GAP-MS/issues)
 ## Citation
 
 If you use GAP-MS in your work, please cite the [GAP-MS preprint on bioRxiv](https://www.biorxiv.org/content/10.64898/2026.03.17.712294v3).
+
+
+### Candidate interpretation fixes in 1.0.1
+
+A C-terminal peptide supports translated sequence beyond an annotation, but it does not establish a stop codon. `alternative_stop` now requires a complete in-frame stop in the assembly-derived ORF. Otherwise the event is `c_terminal_extension`, with termination explicitly unresolved. Events also record whether the splice chain changes; a terminal-exon change should not be interpreted as an isolated termination mechanism.
+
+The full RNA models in candidate GTFs are context for manual review, not replacement annotations. Event tables now give the directly observed `local_peptide_blocks` and `diagnostic_junctions`, a run-scoped `coding_structure_id`, and `whole_model_status` with explicit review reasons. Partial models, ambiguous diagnostic evidence, missing RNA junction support, multiple overlapping annotation genes, fewer than two independent diagnostic peptides, and loss of compared annotation coding sequence keep a model in `local_evidence_only`. Even `complete_model_for_manual_review` is not a validated whole-CDS correction. The refinement directory contains separate tables for these statuses and a BED6 track of individual observed peptide blocks. These blocks are not a reconstructed CDS. Duplicate RNA IDs can represent the same coding structure; use distinct CDS paths when counting candidates, and always join IDs with the run or crop.
+
+Peptide uniqueness is relative to the searched genome and splice paths. An unsearched splice path can contain another exact location. If a second annotation is available, add its coding paths without making it a target of annotation assessment:
+
+```bash
+gapms-v1 -a assembly.fna -p peptides.tsv -g helixer.gtf -b reads.bam \
+  --search-gtf refseq.gtf -o results -t 8
+```
+
+`--search-gtf` can be repeated and accepts the same GTF/GFF syntax as `-g`. Its junctions expand the mapping graph, and its full coding paths participate in the shared, genome-verified protein projection search. These placements contribute to multiplicity before candidate assessment. Search-only models do not suppress Helixer-relative proposals and do not count as annotations being assessed. Reused transcript IDs on different contigs or strands are namespaced for this mapping-only input. Omitting this option preserves the original search inputs, with the same explicit scope limitation. Adding it changes search coverage and ambiguity, so comparisons must disclose the additional annotation. Reference-assisted ambiguity checks are not an independent validation of novelty or peptide identification.
