@@ -171,3 +171,13 @@ def test_tryptic_explanation_in_another_isoform_blocks_start(tmp_path):
     assert not [r for r in rows if r['event_type']=='alternative_start']
     stats=json.loads((out/'reports/summary.json').read_text())['annotation_guided_search']
     assert stats['start_matches_explained_by_another_isoform_cleavage']>=1
+
+
+
+def test_known_stop_at_neighboring_gene_is_not_a_new_stop(tmp_path):
+    first=dna('MQQQQQQQK');extension=dna('ACDEFGHK');neighbor=dna('MWWWWWWWK*')
+    a=90;b=a+len(first);c=b+len(extension);end=c+len(neighbor)
+    out,rows=run_case(tmp_path,'C'*90+first+extension+neighbor+'C'*90,[[(a,b)],[(c,end)]],['ACDEFGHK'])
+    assert not [r for r in rows if r['event_type']=='alternative_stop']
+    c_events=[r for r in rows if r['event_type']=='c_terminal_extension']
+    assert c_events and c_events[0]['boundary_status']=='extension_with_already_annotated_end'

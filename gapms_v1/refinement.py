@@ -11,7 +11,7 @@ import time
 import ahocorasick
 
 from gapms._peplocus.sequence import canonical, join_blocks, translate, project
-from .assessment import EVENT_FIELDS, ModelIndex, boundary, relationship
+from .assessment import EVENT_FIELDS, boundary
 from .common import LOG, stable_id, write_table
 from .mapping import locus_key
 
@@ -45,7 +45,6 @@ def refine_annotations(args, annotations, store, metadata, reference, rna_juncti
     max_peptide=max(map(len,metadata))
     max_nt=3*(max_peptide+1)
     lookup={m.id:m for m in annotations}
-    index=ModelIndex(annotations)
     known_paths=set();ordinary_n_paths=set();internal=[];model_occurrences=defaultdict(list)
     aliases=defaultdict(list)
     for p in metadata:
@@ -75,13 +74,9 @@ def refine_annotations(args, annotations, store, metadata, reference, rna_juncti
         automaton=ahocorasick.Automaton()
         for sequence in sorted(aliases):automaton.add_word(sequence,sequence)
         automaton.make_automaton()
-    comparable_cache={}
-    def comparable(model):
-        if model.id not in comparable_cache:
-            comparable_cache[model.id]=[m for m in index.overlap(model) if m.strand==model.strand and relationship(model,[m])=='new_transcript_isoform']
-        return comparable_cache[model.id]
+    known_boundaries={which:{(m.chrom,m.strand,boundary(m,which)) for m in annotations} for which in ('start','end')}
     def is_known_boundary(model, point, which):
-        return any(boundary(m,which)==point for m in comparable(model))
+        return (model.chrom,model.strand,point) in known_boundaries[which]
     def add(kind,model,peptide,blocks,context,diagnostic_edges=(),status='unresolved',feature=(),upstream=None):
         chrom,strand,encoded=locus_key(model.chrom,model.strand,blocks)
         sequence=canonical(peptide)
@@ -123,6 +118,7 @@ def refine_annotations(args, annotations, store, metadata, reference, rna_juncti
                 if not is_known_boundary(model,point,'end'):
                     event_kind='alternative_stop';status='genomic_stop_inferred';feature=list(codon)
                 else:
+                    status='extension_with_already_annotated_end'
                     stats['extensions_with_already_annotated_stop']+=1
             for peptide in aliases[sequence]:add(event_kind,model,peptide,blocks,context,status=status,feature=feature)
     # Downstream starts are a special context test, not a new sequence/path.
