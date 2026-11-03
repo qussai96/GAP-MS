@@ -159,3 +159,15 @@ def test_bam_junction_evidence_strengthens_local_splice(tmp_path):
     store.db.close()
     assert strengthened[0]['confidence']=='rna_peptide_supported'
     assert strengthened[0]['minimum_rna_support']==4
+
+
+
+def test_tryptic_explanation_in_another_isoform_blocks_start(tmp_path):
+    a=dna('MQQQQQQQQ');b=dna('MKKKKKKKK');common=dna('MAPEPTIDEK*')
+    start_a=90;start_b=start_a+len(a)+60;start_common=start_b+len(b)+60
+    sequence='C'*90+a+'N'*60+b+'N'*60+common+'C'*90
+    models=[[(start_a,start_a+len(a)),(start_common,start_common+len(common))],[(start_b,start_b+len(b)),(start_common,start_common+len(common))]]
+    out,rows=run_case(tmp_path,sequence,models,['MAPEPTIDEK'])
+    assert not [r for r in rows if r['event_type']=='alternative_start']
+    stats=json.loads((out/'reports/summary.json').read_text())['annotation_guided_search']
+    assert stats['start_matches_explained_by_another_isoform_cleavage']>=1

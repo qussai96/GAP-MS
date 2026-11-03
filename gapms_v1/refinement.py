@@ -46,7 +46,7 @@ def refine_annotations(args, annotations, store, metadata, reference, rna_juncti
     max_nt=3*(max_peptide+1)
     lookup={m.id:m for m in annotations}
     index=ModelIndex(annotations)
-    known_paths=set();internal=[];model_occurrences=defaultdict(list)
+    known_paths=set();ordinary_n_paths=set();internal=[];model_occurrences=defaultdict(list)
     aliases=defaultdict(list)
     for p in metadata:
         if len(p)>=args.min_length:aliases[canonical(p)].append(p)
@@ -56,6 +56,8 @@ def refine_annotations(args, annotations, store, metadata, reference, rna_juncti
         known_paths.add((sequence,chrom,strand,encoded))
         model_occurrences[mid].append((start,sequence))
         m=lookup[mid]
+        context=cleavage(m.protein,start,end,True,m.complete_stop)
+        if start==0 or context['tryptic_n']:ordinary_n_paths.add((sequence,chrom,strand,encoded))
         if m.issues or start<=0 or not m.protein[start:].startswith('M'):continue
         context=cleavage(m.protein,start,end,True,m.complete_stop)
         if context['n_terminus']!='nontryptic' or not context['tryptic_c']:continue
@@ -200,6 +202,8 @@ def refine_annotations(args, annotations, store, metadata, reference, rna_juncti
     grouped={}
     for p in pending:
         # Internal starts require locus specificity after all new paths were added.
+        if p['kind']=='alternative_start' and (p['sequence'],p['model'].chrom,p['model'].strand,p['encoded']) in ordinary_n_paths:
+            stats['start_matches_explained_by_another_isoform_cleavage']+=1;continue
         if p['kind']=='alternative_start' and counts[p['sequence']]!=1:
             stats['nonunique_internal_start_matches']+=1;continue
         m=p['model']
