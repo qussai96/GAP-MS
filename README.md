@@ -340,3 +340,5 @@ gapms-v1 -a assembly.fna -p peptides.tsv -g helixer.gtf -b reads.bam \
 ```
 
 `--search-gtf` can be repeated and accepts the same GTF/GFF syntax as `-g`. Its junctions expand the mapping graph, and its full coding paths participate in the shared, genome-verified protein projection search. These placements contribute to multiplicity before candidate assessment. Search-only models do not suppress Helixer-relative proposals and do not count as annotations being assessed. Reused transcript IDs on different contigs or strands are namespaced for this mapping-only input. Omitting this option preserves the original search inputs, with the same explicit scope limitation. Adding it changes search coverage and ambiguity, so comparisons must disclose the additional annotation. Reference-assisted ambiguity checks are not an independent validation of novelty or peptide identification.
+
+Orphan exon records without transcript parents in mapping-only annotations are skipped and listed in `reports/skipped_search_annotation_features.tsv`; they cannot define a coding path. Orphan CDS records and malformed assessment-target models remain errors.

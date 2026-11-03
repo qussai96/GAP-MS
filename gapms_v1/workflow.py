@@ -97,11 +97,14 @@ def run(args):
                 source=f'A{i:02d}_{path.name}'
                 models.extend(load_models(path,source,reference,lengths,args.genetic_code))
                 source_rows.append(dict(source=source,path=str(path),kind='input_annotation'))
-            search_models=[]
+            search_models=[];skipped_search_features=[]
             for i,path in enumerate(args.search_gtf,1):
                 source=f'SEARCH{i:02d}_{path.name}'
-                search_models.extend(load_models(path,source,reference,lengths,args.genetic_code,namespace_loci=True))
+                search_models.extend(load_models(path,source,reference,lengths,args.genetic_code,namespace_loci=True,skipped_features=skipped_search_features))
                 source_rows.append(dict(source=source,path=str(path),kind='mapping_only_annotation'))
+            write_table(args.output/'reports/skipped_search_annotation_features.tsv',['path','line','feature','reason'],skipped_search_features)
+            manifest['skipped_mapping_only_features']=len(skipped_search_features)
+            if skipped_search_features:LOG.warning('Skipped %s orphan noncoding exon records from mapping-only annotations; see reports/skipped_search_annotation_features.tsv',len(skipped_search_features))
             rna_path=None
             if args.bam:
                 LOG.info('Reconstructing RNA-supported transcripts and candidate ORFs')

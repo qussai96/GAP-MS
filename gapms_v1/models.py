@@ -51,7 +51,7 @@ class Model:
         return (self.chrom, self.strand, tuple(self.coding))
 
 
-def load_models(path, source, reference, lengths, genetic_code=1, allow_unstranded=False, namespace_loci=False):
+def load_models(path, source, reference, lengths, genetic_code=1, allow_unstranded=False, namespace_loci=False, skipped_features=None):
     """Preserve isoforms and GFF Parent lists; trim only the first CDS phase."""
     opener = gzip.open if str(path).endswith('.gz') else open
     models = {}
@@ -81,6 +81,9 @@ def load_models(path, source, reference, lengths, genetic_code=1, allow_unstrand
             if strand not in {'+', '-'} and not (allow_unstranded and strand=='.' and feature=='exon'):
                 raise ValueError(f'{path}:{number}: exon/CDS strand must be + or -')
             parents = annotation_parents(text)
+            if not parents and namespace_loci and feature=='exon':
+                if skipped_features is not None:skipped_features.append(dict(path=str(path),line=number,feature=feature,reason='orphan_exon_without_transcript_parent_not_a_coding_path'))
+                continue
             if not parents:
                 raise ValueError(f'{path}:{number}: missing transcript identity')
             if phase not in {'.', '0', '1', '2'}:
