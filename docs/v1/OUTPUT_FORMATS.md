@@ -49,7 +49,7 @@ modules. `reports/annotation_sources.tsv` links source identifiers to input file
 
 ## Annotation and ORFs
 
-`gene_model_evidence.tsv` and `orf_peptide_evidence.tsv` share these fields:
+`gene_model_evidence.tsv`, `orf_peptide_evidence.tsv` and `all_predicted_orf_evidence.tsv` share these fields:
 `model_id`, `source`, `original_transcript_id`, `gene_id`, `chrom`, `start`, `end`,
 `strand`, `category`, `distinct_peptides`, `locus_discriminating_peptides`,
 `non_nested_discriminating_peptides`, `peptides`, `mapping_ids`, `complete_start`,
@@ -66,11 +66,25 @@ It does not infer isoform-specific support where isoforms share placements.
 transcript FASTA is extracted from the read-only indexed assembly.
 `rnaseq_junctions.tsv` contains `chrom`, `start`, `end`, `strand`, `support`,
 `source`, `motif`; boundaries delimit the removed intron and support counts
-alignment observations. `candidate_orfs.gtf` contains projected TransDecoder
-CDS paths. `candidate_orfs.faa` contains their assembly-derived translations
-keyed by stable model ID. GTF includes original transcript identity; original
-TransDecoder outputs remain under transcripts for provenance.
-`partial_or_ambiguous_orfs.tsv` retains incomplete/uncertain models.
+alignment observations. `all_predicted_orfs.gtf` contains all projected TransDecoder CDS paths;
+`all_predicted_orfs.faa` and `all_predicted_orf_evidence.tsv` retain their
+translations and complete assessment for audit. These include unsupported ORFs.
+
+`candidate_orfs.gtf`, `candidate_orfs.faa` and `orf_peptide_evidence.tsv`
+contain only RNA-derived ORFs with at least one exact/I-L-equivalent peptide
+placement. Shared and ambiguous placements are retained and labeled, so this
+is not a uniqueness or identification-quality filter. Known annotated isoforms
+can also be peptide-supported candidates; novelty is assessed separately.
+`orfs_without_peptide_support.tsv` lists predictions without observed support.
+`partial_or_ambiguous_orfs.tsv` contains only peptide-supported partial or
+uncertain candidates. A header-only TSV and empty GTF/FASTA are valid when no
+ORF has peptide support. Original TransDecoder files remain under transcripts.
+
+In summary counts, `predicted_orfs` counts the complete RNA-derived set;
+`candidate_orfs` counts the peptide-supported subset, and
+`orfs_without_peptide_support` counts the remainder. Distinct CDS-path counts
+are provided separately for predictions and supported candidates. Historical
+versions through 1.0.3 used `candidate_orfs` filenames/counts for all predictions.
 
 ## Annotation proposals
 

@@ -29,7 +29,8 @@ def reconstruct(args, reference, lengths, commands):
     if missing:raise RuntimeError('BAM mode requires: '+', '.join(missing))
     transcripts = directory/'assembled_transcripts.gtf'
     marker = directory/'reconstruction.complete.json'
-    projected = products/'candidate_orfs.gtf'
+    raw_predictions=out/'work/rna_prediction';raw_predictions.mkdir(parents=True,exist_ok=True)
+    projected = raw_predictions/'all_predicted_orfs.gtf'
     if args.resume and marker.exists() and projected.exists():
         return projected
     run_command(['stringtie', args.bam, '-p', args.threads, '-o', transcripts], directory,

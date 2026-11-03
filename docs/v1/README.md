@@ -1,4 +1,4 @@
-# GAPMS 1.0.3
+# GAPMS 1.0.4
 
 GAPMS v1 maps mass-spectrometry peptide sequences to eukaryotic assemblies and
 organizes evidence for reviewing gene annotations. Genomic peptide locations are
@@ -98,3 +98,5 @@ See [methods](SCIENTIFIC_METHODS.md), [output schemas](OUTPUT_FORMATS.md),
 [GAPMS bioRxiv manuscript](https://www.biorxiv.org/content/10.64898/2026.03.17.712294v3).
 
 The [RefSeq follow-up evaluation](evaluation/refseq_20261102/RESULTS.md) includes the nine-crop rerun, a 900-gene annotation-removal benchmark, and ambiguity boxplots for every observed peptide length. Read its [protocol and repeatability notes](evaluation/refseq_20261102/README.md) when using these results.
+
+In v1.0.4, `orfs/candidate_orfs.gtf` and `.faa` contain only ORFs with peptide support. The complete RNA prediction set is named `all_predicted_orfs.gtf`/`.faa` for audit; `orfs_without_peptide_support.tsv` lists unsupported predictions. Shared or ambiguous peptide support remains explicitly labeled. Peptide support alone does not establish novelty or validate a complete model.

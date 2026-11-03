@@ -97,6 +97,7 @@ def assess(args,models,store,metadata,rna_junctions):
             complete_start=model.complete_start,complete_stop=model.complete_stop,issues=sorted(set(model.issues)),quality=quality(sequences),
             reasons='no_observed_evidence_is_not_evidence_of_incorrect_annotation' if not sequences else 'placement_multiplicity_within_searched_genome_and_splice_paths; I/L aliases counted once'))
     annotation=[m for m in models if m.source!='RNA_ORF'];candidates=[m for m in models if m.source=='RNA_ORF']
+    supported_candidates=[m for m in candidates if hits[m.id]]
     if args.gtf:
         directory=args.output/'annotation';directory.mkdir(exist_ok=True)
         original_rows=[r for r in records if r['source']!='RNA_ORF']
@@ -113,9 +114,16 @@ def assess(args,models,store,metadata,rna_junctions):
         write_table(directory/'gene_evidence.tsv',['source','chrom','strand','gene_id','models','distinct_peptides','locus_discriminating_peptides','category'],gene_rows)
     if args.bam:
         directory=args.output/'orfs'
-        write_table(directory/'orf_peptide_evidence.tsv',MODEL_FIELDS,(r for r in records if r['source']=='RNA_ORF'))
-        write_proteins(candidates,directory/'candidate_orfs.faa')
-        write_table(directory/'partial_or_ambiguous_orfs.tsv',MODEL_FIELDS,(r for r in records if r['source']=='RNA_ORF' and (not r['complete_start'] or not r['complete_stop'] or r['category']=='ambiguous')))
+        rna_records=[r for r in records if r['source']=='RNA_ORF']
+        write_table(directory/'all_predicted_orf_evidence.tsv',MODEL_FIELDS,rna_records)
+        write_table(directory/'orf_peptide_evidence.tsv',MODEL_FIELDS,(r for r in rna_records if r['distinct_peptides']>0))
+        write_table(directory/'orfs_without_peptide_support.tsv',MODEL_FIELDS,(r for r in rna_records if r['distinct_peptides']==0))
+        write_models(supported_candidates,directory/'candidate_orfs.gtf')
+        write_proteins(supported_candidates,directory/'candidate_orfs.faa')
+        write_models(candidates,directory/'all_predicted_orfs.gtf')
+        write_proteins(candidates,directory/'all_predicted_orfs.faa')
+        write_table(directory/'partial_or_ambiguous_orfs.tsv',MODEL_FIELDS,(r for r in rna_records if r['distinct_peptides']>0 and (not r['complete_start'] or not r['complete_stop'] or r['category']=='ambiguous')))
+        (directory/'README.txt').write_text('candidate_orfs.gtf, candidate_orfs.faa and orf_peptide_evidence.tsv contain only RNA-derived ORFs with at least one exact/I-L-equivalent peptide placement. Shared or ambiguous support is retained and labeled; peptide support does not establish identification quality, isoform specificity, novelty or full-model correctness. all_predicted_orfs.gtf, all_predicted_orfs.faa and all_predicted_orf_evidence.tsv retain the complete reconstruction for audit. orfs_without_peptide_support.tsv lists predictions without observed peptide support; absence of support does not establish that an ORF is incorrect. partial_or_ambiguous_orfs.tsv contains only peptide-supported candidates.\n')
     # Locus specificity alone does not distinguish alternative coding structures.
     sequence_models=defaultdict(set)
     for model in models:
@@ -245,4 +253,4 @@ def assess(args,models,store,metadata,rna_junctions):
             first=model.protein[h['aa_start']:h['aa_start']+1]
             occurrence_rows.append(dict(model_id=model.id,mapping_id=h['mapping_id'],peptide=h['peptide'],aa_start=h['aa_start'],aa_end=h['aa_end'],previous_aa=previous,n_terminal_context='protein_N_terminus' if not previous else 'tryptic' if previous in 'KR' and first!='P' else 'nontryptic',initiator_methionine_processing=h['aa_start']==1 and model.protein.startswith('M') and first in 'ACGPSTV'))
     write_table(args.output/'mapping/model_peptide_occurrences.tsv',['model_id','mapping_id','peptide','aa_start','aa_end','previous_aa','n_terminal_context','initiator_methionine_processing'],occurrence_rows)
-    return dict(isoform_checks=dict(Counter(row['interpretation'] for row in isoform_checks)),distinct_candidate_cds_paths=len({m.signature() for m in candidates if m.coding}),whole_model_statuses=dict(Counter(e['whole_model_status'] for e in events)),models=len(models),annotation_models=len(annotation),candidate_orfs=len(candidates),model_categories=dict(Counter(categories.values())),candidate_categories=dict(Counter(r['category'] for r in primary)),annotation_events=dict(Counter(e['event_type'] for e in events)),event_confidences=dict(Counter(e['confidence'] for e in events)))
+    return dict(isoform_checks=dict(Counter(row['interpretation'] for row in isoform_checks)),distinct_candidate_cds_paths=len({m.signature() for m in supported_candidates if m.coding}),distinct_predicted_cds_paths=len({m.signature() for m in candidates if m.coding}),whole_model_statuses=dict(Counter(e['whole_model_status'] for e in events)),models=len(models),annotation_models=len(annotation),predicted_orfs=len(candidates),candidate_orfs=len(supported_candidates),orfs_without_peptide_support=len(candidates)-len(supported_candidates),model_categories=dict(Counter(categories.values())),candidate_categories=dict(Counter(r['category'] for r in primary)),annotation_events=dict(Counter(e['event_type'] for e in events)),event_confidences=dict(Counter(e['confidence'] for e in events)))

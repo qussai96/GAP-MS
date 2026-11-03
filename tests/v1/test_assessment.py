@@ -34,7 +34,7 @@ def test_rna_and_integrated_end_to_end(tmp_path,monkeypatch,with_annotation):
     reference=tmp_path/'a.gtf';reference.write_text('chr1\tx\tCDS\t1\t30\t.\t+\t0\tParent=ref;gene_id=g\n')
     def reconstruction(args,reference,lengths,commands):
         (args.output/'orfs').mkdir(exist_ok=True);(args.output/'transcripts').mkdir(exist_ok=True)
-        path=args.output/'orfs/candidate_orfs.gtf';path.write_text(f'chr1\tx\tCDS\t131\t{len(sequence)}\t.\t+\t0\tParent=candidate;gene_id=n\n')
+        path=args.output/'work/mock_rna_orfs.gtf';path.write_text(f'chr1\tx\tCDS\t131\t{len(sequence)}\t.\t+\t0\tParent=candidate;gene_id=n\n')
         return path
     monkeypatch.setattr('gapms_v1.workflow.reconstruct',reconstruction)
     monkeypatch.setattr('gapms_v1.workflow.tool_versions',lambda bam:{'synthetic_external_reconstruction':'mocked; BAM extraction and all mapping real'})
@@ -235,3 +235,28 @@ def test_recombining_known_boundaries_and_junctions_does_not_invent_features(tmp
     row=table(tmp_path/'orfs/annotation_isoform_checks.tsv')[0]
     assert json.loads(row['new_junctions'])==[]
     assert row['exact_annotated_isoform_ids']=='[]'
+
+
+@pytest.mark.parametrize('with_support',[False,True])
+def test_candidate_exports_require_peptides_and_keep_ambiguous_support(tmp_path,with_support):
+    from Bio import SeqIO
+    args=config(tmp_path)
+    models=[Model(mid,'RNA_ORF',mid,mid,'chr1','+',cds=[(i*100,i*100+60)],coding=[(i*100,i*100+60)],protein='M'+'Q'*19,complete_start=True,complete_stop=True) for i,mid in enumerate(['unique','shared','unsupported'])]
+    hs={'unique':[hit('PEPTIDE',[(0,21)])],'shared':[hit('ACDEFGH',[(100,121)])]} if with_support else {}
+    stats=assess(args,models,MockEvidence(hs,{'PEPTIDE':1,'ACDEFGH':2}),{p:dict(quality='unknown') for p in ['PEPTIDE','ACDEFGH']},{})
+    expected={'unique','shared'} if with_support else set()
+    assert {r['model_id'] for r in table(tmp_path/'orfs/orf_peptide_evidence.tsv')}==expected
+    assert {r.id for r in SeqIO.parse(tmp_path/'orfs/candidate_orfs.faa','fasta')}==expected
+    def gtf_ids(path):
+        from gapms_v1.models import attributes
+        return {attributes(line.rstrip().split('\t')[8])['transcript_id'] for line in path.read_text().splitlines()}
+    assert gtf_ids(tmp_path/'orfs/candidate_orfs.gtf')==expected
+    assert gtf_ids(tmp_path/'orfs/all_predicted_orfs.gtf')=={'unique','shared','unsupported'}
+    assert len(table(tmp_path/'orfs/all_predicted_orf_evidence.tsv'))==3
+    assert len(table(tmp_path/'orfs/orfs_without_peptide_support.tsv'))==3-len(expected)
+    assert stats['predicted_orfs']==3 and stats['candidate_orfs']==len(expected)
+    assert stats['orfs_without_peptide_support']==3-len(expected)
+    assert stats['distinct_candidate_cds_paths']==len(expected)
+    assert all(int(r['distinct_peptides'])>0 for r in table(tmp_path/'orfs/partial_or_ambiguous_orfs.tsv'))
+    if with_support:
+        assert next(r for r in table(tmp_path/'orfs/orf_peptide_evidence.tsv') if r['model_id']=='shared')['category']=='ambiguous'

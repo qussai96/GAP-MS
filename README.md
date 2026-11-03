@@ -1,4 +1,4 @@
-> This is the isolated GAPMS 1.0.3 development branch. The new `gapms-v1`
+> This is the isolated GAPMS 1.0.4 development branch. The new `gapms-v1`
 > command and its installation are documented in [docs/v1/README.md](docs/v1/README.md).
 > The legacy GAPMS workflow below remains available through `gapms`.
 
@@ -335,3 +335,5 @@ The full RNA models in candidate GTFs are context for manual review, not replace
 Peptide uniqueness is relative to the searched assembly, the annotations being assessed (`-g`) and BAM-supported or reconstructed splice paths. Unknown splice paths can contain additional locations. Reference annotations used for evaluation are kept outside the mapping search.
 
 Version 1.0.2 removes the auxiliary search-annotation option introduced in 1.0.1. The stop-codon and local-evidence fixes remain.
+
+In v1.0.4, `orfs/candidate_orfs.gtf` and `.faa` contain only ORFs with peptide support. The complete RNA prediction set is named `all_predicted_orfs.gtf`/`.faa` for audit; `orfs_without_peptide_support.tsv` lists unsupported predictions. Shared or ambiguous peptide support remains explicitly labeled. Peptide support alone does not establish novelty or validate a complete model.
