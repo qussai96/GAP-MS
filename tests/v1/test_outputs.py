@@ -26,8 +26,20 @@ def test_public_layout_no_redundant_annotation_and_default_cleanup(tmp_path,mult
     rows={r['peptide']:r for r in table(out/'unmapped_peptides.tsv')}
     assert rows['VVVVVVV']['status']=='unmapped_in_searched_space'
     assert rows['AAA']['status']=='not_searched_below_min_length'
-    assert all(r['classifier_score']=='NA' for r in table(out/'all_proteins_scores.tsv'))
-    assert (out/'supported_genes.gtf').read_bytes()==(out/'diagnostics/annotation/supported_gene_models.gtf').read_bytes()
+    from gapms_v1.outputs import LEGACY_SCORE_FIELDS
+    rows=table(out/'all_proteins_scores.tsv')
+    with (out/'all_proteins_scores.tsv').open() as f:assert f.readline().strip().split('\t')==LEGACY_SCORE_FIELDS
+    assert len(LEGACY_SCORE_FIELDS)==29
+    assert all(r['supported'] in {'+','-'} for r in rows)
+    assert all(r['confidence'] in {'high','moderate','no-support'} for r in rows)
+    assert 'classifier_score' not in rows[0] if rows else True
+    assert (out/'diagnostics/reports/overview.svg').exists()
+    assert (out/'diagnostics/reports/overview.png').exists()
+    figure=json.loads((out/'diagnostics/reports/overview_counts.json').read_text())
+    assert figure['splice']+figure['internal']==figure['peptide_protein_pairs']
+    assert 'data:image/svg+xml;base64,' in (out/'report.html').read_text()
+
+    assert (out/'supported_genes.gtf').read_bytes()==(out/'diagnostics/classification/supported_genes.gtf').read_bytes()
     assert 'Results ready:' in (out/'report.log').read_text()
     assert (out/'peptides.bed').read_bytes()==(out/'diagnostics/mapping/mapped_peptides.bed').read_bytes()
     if multiple:assert (out/'consensus.gff3').read_bytes()==(out/'diagnostics/consensus/annotation.gff3').read_bytes()

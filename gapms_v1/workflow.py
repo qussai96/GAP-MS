@@ -175,6 +175,9 @@ def _run(args):
                     {(j.chrom,j.start,j.end,j.strand):j.support for j in rna_junctions},graph_reports,graph_seconds,matcher=protein_matcher)
             mapping_stats=store.export(args.output/'mapping',peptides,metadata)
             model_stats=assess(args,models,store,metadata,{(j.chrom,j.start,j.end,j.strand):j.support for j in rna_junctions},guided_events) if models else {}
+            if models:
+                from .classification import run as classify_models
+                classify_models(args,models,store,metadata,peptides,protein_matcher,reference,lengths)
         limits=json.loads((engine/'summary.json').read_text())
         write_json(args.output/'mapping/mapping_summary.json',dict(mapping=mapping_stats,engine=limits,
                    annotation_guided_search=refinement_stats,interpretation='Exact genomic placements, verified local annotation-guided paths and full-CDS projections; rescue is separate and excluded from model/event evidence.'))
@@ -191,7 +194,7 @@ def _run(args):
                        'Novel and boundary events are candidates for annotation review, not experimentally confirmed changes.',
                        'Partial ORFs and uncertain peptide quality do not receive high-confidence candidate status.',
                        'Full unannotated ORF reconstruction requires BAM; supplied annotations also support bounded local refinement without BAM.',
-                       'The legacy XGBoost classifier remains available through gapms and is not applied to novel ORFs.'])
+                       'Rule-seeded iterative classifier scores are not calibrated biological probabilities; seed cross-validation measures rule agreement, not independent annotation accuracy.'])
         write_json(args.output/'reports/summary.json',summary)
         after=[input_identity(p) for p in inputs]
         if identities!=after:raise RuntimeError('an input identity changed during the run')

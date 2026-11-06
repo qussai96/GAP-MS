@@ -1,4 +1,4 @@
-# GAPMS 1.2.2
+# GAPMS 1.2.3
 
 GAPMS v1 maps mass-spectrometry peptide sequences to eukaryotic assemblies and
 organizes evidence for reviewing gene annotations. Genomic peptide locations are
@@ -149,11 +149,11 @@ Start/stop files also contain explicitly labeled terminal-extension proposals.
 Local evidence stays local; unresolved boundaries are not exported as invented
 complete transcripts. Novel RNA-derived ORFs remain labeled candidate models.
 
-`all_proteins_scores.tsv` retains the model-evidence columns and adds consensus
-selection and available source-model RNA support. It includes all supplied coding
-models and selected new graph proteins. V1 does not run the legacy classifier:
-`classifier_score` is `NA`, not a fabricated probability. Definitions are in the
-report and `diagnostics/score_columns.tsv`.
+`all_proteins_scores.tsv` uses the legacy 29-column feature and confidence format.
+It describes the supplied annotation for a single GTF, or the final consensus for
+multiple GTFs. Source-specific assessments, classifier scores, seed labels and
+RNA support remain in `diagnostics/classification/`. The report embeds a simple
+two-panel summary; exportable SVG/PNG files are in `diagnostics/reports/`.
 
 `unmapped_peptides.tsv` distinguishes `unmapped_in_searched_space`, `rescue_only`
 and `not_searched_below_min_length`. Rescue-only placements remain exploratory;
@@ -168,3 +168,19 @@ publication; use `--keep-work` to retain it for debugging or mapping-database wo
 Failed runs retain work and diagnostics. `--resume` still requires identical
 inputs, parameters and implementation. Existing 1.2.1 result folders are not
 migrated or overwritten.
+
+### Supported gene models (1.2.3)
+
+Each annotation source is classified separately. Multiple-input runs also classify the final consensus, and `supported_genes.gtf` contains supported consensus transcripts. Single-input runs export supported supplied transcripts. RNA-only runs classify reconstructed ORFs. Source structures are preserved; classifier labels do not alter GeneSensus selection or peptide placement.
+
+High-confidence seeds satisfy at least one legacy rule: two protein-specific peptides; at least 80% protein coverage; both termini plus a gene-specific peptide; or every coding splice junction supported plus a gene-specific peptide. Low-confidence seeds have fewer than two peptides, no gene-specific peptide, and length outside 200–500 aa. High confidence takes precedence if rules overlap. Specificity is assessed within each annotation pool, not equated with genomic placement uniqueness. I/L-equivalent peptides count once; identification-quality failures are excluded. Repeated peptide occurrences must all support a terminal or splice interpretation to receive that feature.
+
+The legacy base and engineered features feed a 20-configuration randomized XGBoost search, with stratified cross-validation (up to five folds), random seed 42, and CPU use bounded by `-t`. Up to five self-training rounds label remaining models at scores ≥0.90 or ≤0.10 and refit. Final support includes all original high-confidence seeds and initially unlabeled models with final score ≥0.50; low-confidence seeds remain excluded. Fewer than two seeds in either class skips training: high seeds remain supported, other non-seeds unresolved.
+
+`diagnostics/classification/scores.tsv` records `seed_label`, `iterative_label` (-1 means not recruited), `classifier_score`, `confidence`, `supported`, and the feature values. `diagnostics/classification/` retains per-pool scores, trained model JSON, seed counts, search parameters and recruitment counts. These scores and seed cross-validation measure agreement with heuristic labels, not calibrated biological probabilities or independent gene-model accuracy. Lack of peptide support does not establish that a gene is false. Novel/alternative proposals retain their separate molecular evidence requirements.
+
+### Score table and report figure
+
+`all_proteins_scores.tsv` retains the 29-column legacy GAPMS schema and order, including `supported` (+/−) and `confidence` (high/moderate/no-support). A multiple-GTF run scores the final consensus here; source annotations and classifier probabilities remain in `diagnostics/classification/`. Stable protein IDs join the exported supported GTF. `isoforms` counts coding isoforms per source/gene; transcript scores come from supplied transcript/mRNA records (0 when absent), and external scores are 0 because v1 has no external-score input.
+
+The offline HTML embeds a two-panel figure, also available as SVG and PNG under `diagnostics/reports/`. Panel A shows mapped input peptide sequences and separate percentages of N-terminal, C-terminal, splice and internal peptide–protein pairs in the assessed annotation. Termini may overlap; pairs are used so shared peptides are not silently treated as isoform-specific evidence. Panel B counts distinct proposal IDs by event type, separating unresolved terminal extensions from proposed alternative boundaries. Proposals are not distinct genes or confirmed annotation corrections. Counts and denominators are recorded in `overview_counts.json`.

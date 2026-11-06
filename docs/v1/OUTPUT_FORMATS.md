@@ -1,4 +1,4 @@
-# Public result layout (1.2.2)
+# Public result layout (1.2.3)
 
 The main directory contains `report.html`, `report.log`, `peptides.bed`,
 `peptides.igv.bed` and `unmapped_peptides.tsv`. Annotation assessment also produces
@@ -190,3 +190,7 @@ are duplicated in the unresolved GFF3. Neither is part of the final annotation.
 Inputs normalized for the engine, including an identity/phase audit and the
 full eligible peptide placement universe, remain in `work/consensus_inputs/`.
 See [CONSENSUS.md](CONSENSUS.md) for the policy and its limits.
+
+## Iterative confidence classification
+
+The public `supported_genes.gtf` is now the rule-seeded classifier result, distinct from the diagnostic `annotation/supported_gene_models.gtf` locus-support subset. See the [classification rules](README.md#supported-gene-models-123). Per-pool scores, models and recruitment summaries are retained in `classification/`. Public score columns match the 29-column legacy feature table exactly, including +/− support and high/moderate/no-support confidence. Seed labels, iterative labels and model probabilities remain in diagnostic score tables. Multi-input supported models are a subset of the selected consensus.

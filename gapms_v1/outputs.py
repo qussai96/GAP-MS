@@ -107,20 +107,34 @@ def score_table(root,diag,args):
                 bb=json.loads(c['CDS_0based_halfopen']);row={k:'NA' for k in fields}
                 row.update(model_id='GS.g'+c['candidate']+'.t1',source='consensus_graph',chrom=c['contig'],strand=c['strand'],start=bb[0][0],end=bb[-1][1],category='selected_consensus_graph',locus_discriminating_peptides=c['peptides'],consensus_selection='primary',classifier_score='NA',reasons='See native GeneSensus evidence; unknown fields are not imputed')
                 rows.append(row)
-    write_table(root/'all_proteins_scores.tsv',fields,rows)
+    classification=records(diag/'classification/scores.tsv')
+    by_id={r['model_id']:r for r in rows}
+    extra=[]
+    for c in classification:
+        row=by_id.get(c['model_id'])
+        if row is None:
+            row={k:'NA' for k in fields};row.update(model_id=c['model_id'],source=c['source'],category='consensus_model',consensus_selection='primary');rows.append(row)
+        for key,value in c.items():
+            if key not in fields and key not in extra:extra.append(key)
+            row[key]=value
+    fields+=extra
+    for row in rows:
+        for key in extra:row.setdefault(key,'NA')
+    write_table(diag/'classification/model_details.tsv',fields,rows)
+    legacy_scores(root,diag,args)
+
 
 
 def publish(root,diag,args):
     summary=json.loads((diag/'reports/summary.json').read_text())
     for source,name in [('mapped_peptides.bed','peptides.bed'),('mapped_peptides.igv.bed','peptides.igv.bed')]:
         expose(diag/'mapping'/source,root/name)
-    supported=diag/'annotation/supported_gene_models.gtf'
+    supported=diag/'classification/supported_genes.gtf'
     if supported.exists():expose(supported,root/'supported_genes.gtf')
     if len(args.gtf)>1:
         expose(diag/'consensus/annotation.gff3',root/'consensus.gff3')
         expose(diag/'consensus/proteins.faa',root/'consensus_proteins.faa')
-    if not ((root/'all_proteins_scores.tsv').exists() and not (diag/'work/source_models.gtf').exists()):
-        score_table(root,diag,args)
+    score_table(root,diag,args)
     rescue={r['peptide']:r for r in records(diag/'mapping/rescue/rescue_peptides.tsv')}
     unmapped=records(diag/'mapping/unmapped_peptides.tsv')
     for row in unmapped:
@@ -155,8 +169,8 @@ def publish(root,diag,args):
         inputs.append(dict(path=str(p),sha256=h.hexdigest()))
     write_table(diag/'input_annotations.tsv',['path','sha256'],inputs)
     multi=len(args.gtf)>1;mode='Multi-annotation consensus' if multi else 'Single-annotation assessment' if args.gtf else 'RNA and peptide mapping' if args.bam else 'Peptide mapping'
-    explanations={'supported_genes.gtf':'Supplied transcripts with locus-discriminating peptide support; their original structures are preserved. Ambiguous support is recorded in the score table.',
-        'all_proteins_scores.tsv':'Assessment of supplied coding models, RNA ORFs when present, and selected new consensus graph proteins. NA means unavailable; classifier probabilities are not calculated in v1.',
+    explanations={'supported_genes.gtf':'High-confidence rule seeds plus classifier-positive initially unlabeled transcripts; consensus models in multi-annotation runs. Structures are preserved.',
+        'all_proteins_scores.tsv':'Legacy-format protein features and final confidence calls for the assessed annotation. Additional classifier and source details are in diagnostics/classification/.',
         'peptides.bed':'Standard BED12 for downstream analysis; peptide sequences remain in protein orientation.',
         'peptides.igv.bed':'IGV display track; negative-strand labels are reversed for visualization.',
         'unmapped_peptides.tsv':'Queries without an exact mapping, including separately labeled rescue-only and below-minimum-length sequences.',
@@ -174,11 +188,62 @@ def publish(root,diag,args):
     details=json.loads((diag/'mapping/mapping_summary.json').read_text())
     if details['engine'].get('search_scope',{}).get('splice_path_cap_reached') or summary.get('annotation_guided_search',{}).get('splice_contexts_capped'):
         text+='<aside>Splice search limits were reached. Placement uniqueness is conditional on the searched paths; inspect the diagnostic summary before interpreting proposals.</aside>'
+    from .report_figure import overview
+    figure=overview(root,diag,args,summary,events)
+    text+=figure
     text+='<h2>Main results</h2><table><tr><th>File</th><th>Meaning</th></tr>'+main+'</table>'
     if (root/'all_proteins_scores.tsv').exists():text+='<p>'+link('diagnostics/score_columns.tsv','Score-table column definitions')+'</p>'
     text+='<h2>Changes to review</h2><p>'+str(len(events))+' proposal rows; these are not counts of distinct genes. Start/stop files also include explicitly labeled terminal-extension proposals. Uncertain boundaries remain unresolved.</p><ul>'+review_links+'</ul>'
     text+='<h2>Supplied annotations</h2><p>'+('These inputs were merged to produce the consensus.' if multi else 'The supplied annotation was assessed, not rewritten or automatically corrected.')+'</p><table><tr><th>Input path</th><th>SHA-256</th></tr>'+inp+'</table>'
     text+='<details><summary>Methods, limitations and detailed evidence</summary><ul>'+notes+'</ul><p>'+link('diagnostics/reports/summary.json','Run summary')+' · '+link('diagnostics/run_manifest.json','Input and software provenance')+' · '+link('diagnostics/','Detailed diagnostics')+'</p><p>Temporary work '+('is retained (--keep-work).' if args.keep_work else 'is removed after successful completion. Use --keep-work to retain it; failed runs retain their work.')+'</p></details></body></html>'
     temporary=root/'report.html.partial';temporary.write_text(text);temporary.replace(root/'report.html')
-    write_table(diag/'score_columns.tsv',['column','meaning'],[dict(column='classifier_score',meaning='NA: the legacy classifier is not run by GAPMS v1; this is not a consensus probability'),dict(column='consensus_selection',meaning='Selection status of each source protein or new graph model; not an assessment of experimental truth'),dict(column='locus_discriminating_peptides',meaning='Distinct I/L-equivalent peptide sequences with one placement in the searched mapping universe'),dict(column='rna_supported_junctions',meaning='Source-model introns meeting mapping-stage RNA filters and --min-junction-support; distinct from GeneSensus consensus qualification'),dict(column='NA',meaning='Unavailable or not applicable; never an invented zero or probability')])
-    write_json(diag/'output_layout.json',dict(layout_version=1,mode=mode,public_files=sorted(p.name for p in root.iterdir() if p.is_file()),review_files=sorted(p.name for p in review.glob('*')) if review.exists() else [],classifier_score_status='not_calculated',supported_genes_policy='existing_locus_discriminating_peptide_supported_transcripts'))
+    write_table(diag/'score_columns.tsv',['column','meaning'],[dict(column='classifier_score',meaning='Rule-seeded iterative XGBoost score; NA when fewer than two high or low seeds. Not a calibrated biological or consensus probability'),dict(column='consensus_selection',meaning='Selection status of each source protein or new graph model; not an assessment of experimental truth'),dict(column='locus_discriminating_peptides',meaning='Distinct I/L-equivalent peptide sequences with one placement in the searched mapping universe'),dict(column='rna_supported_junctions',meaning='Source-model introns meeting mapping-stage RNA filters and --min-junction-support; distinct from GeneSensus consensus qualification'),dict(column='NA',meaning='Unavailable or not applicable; never an invented zero or probability')])
+    write_json(diag/'output_layout.json',dict(layout_version=1,mode=mode,public_files=sorted(p.name for p in root.iterdir() if p.is_file()),review_files=sorted(p.name for p in review.glob('*')) if review.exists() else [],classifier_score_status='rule_seeded_iterative',supported_genes_policy='high_seeds_plus_initially_unlabeled_classifier_positive'))
+
+
+LEGACY_SCORE_FIELDS = ['Protein','supported','confidence','protein_length','isoforms','splice_sites',
+    'transcript_score','sequence_coverage','mapped_peptides','N_terminal_peptides','C_terminal_peptides',
+    'protein_specific_peptides','gene_specific_peptides','splice_peptides','internal_peptides','external_score',
+    'mapped_peptides_per_aa','protein_specific_rate','gene_specific_rate','splice_rate','internal_rate',
+    'terminal_rate','isoform_specificity','junction_evidence','has_N_term','has_C_term','has_both_term',
+    'has_any_protein_specific','has_any_splice']
+
+
+def assessed_scores(diag,args):
+    rows=records(diag/'classification/scores.tsv')
+    if len(args.gtf)>1:return [r for r in rows if r['classification_pool']=='CONSENSUS']
+    if args.gtf:return [r for r in rows if r['classification_pool']!='RNA_ORF']
+    return rows
+
+
+def legacy_scores(root,diag,args):
+    rows=assessed_scores(diag,args)
+    genes={};scores={}
+    for row in rows:
+        key=(row['classification_pool'],row['chrom'],row['strand'],row['gene_id'])
+        genes.setdefault(key,set()).add(row['Protein'])
+    # Prediction scores are metadata, never invented classifier probabilities.
+    for i,path in enumerate(sorted(args.gtf,key=lambda p:str(p.resolve())),1):
+        source=f'A{i:02d}_{path.name}'
+        opener=gzip.open if str(path).endswith('.gz') else open
+        with opener(path,'rt') as f:
+            for line in f:
+                if line.startswith('##FASTA'):break
+                if line.startswith('#'):continue
+                parts=line.rstrip().split('\t')
+                if len(parts)!=9 or parts[2].lower() not in {'transcript','mrna'}:continue
+                at=attributes(parts[8]);tid=at.get('id') or at.get('transcript_id')
+                try:score=float(parts[5])
+                except ValueError:score=0.
+                scores[source,parts[0],parts[6],tid]=score
+    public=[]
+    for row in rows:
+        row=dict(row);source=row['classification_pool']
+        row['isoforms']=len(genes[source,row['chrom'],row['strand'],row['gene_id']])
+        row['transcript_score']=scores.get((source,row['chrom'],row['strand'],row['original_transcript_id']),0.)
+        row['external_score']=0
+        row['supported']='+' if row['supported']=='True' else '-'
+        row['confidence']='high' if row['seed_label']=='high' else 'moderate' if row['supported']=='+' else 'no-support'
+        public.append(row)
+    public.sort(key=lambda r:(r['supported']!='+',r['confidence'],-float(r['mapped_peptides']),r['Protein']))
+    if rows or args.gtf:write_table(root/'all_proteins_scores.tsv',LEGACY_SCORE_FIELDS,public)
