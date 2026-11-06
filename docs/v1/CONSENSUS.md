@@ -79,6 +79,9 @@ provides observed exon/junction geometry rather than proof of full transcripts.
 Defaults are beam 8, at most 2,000 nodes, 32 starts and 32 graph candidates per
 search region. The existing `--consensus-*` options control those bounds.
 Original source candidates are not pruned by the graph candidate limit.
+Original partial predictions can be retained, including models crossing assembly
+gaps. These are incomplete source hypotheses, not newly validated complete ORFs;
+inspect `complete=False` in `candidates.tsv.gz` and `decisions.tsv`.
 Search reports record bounds and skipped work; this is not exhaustive discovery.
 
 Selection uses the engine's coding/noncoding state utilities, source agreement,
@@ -140,8 +143,13 @@ against RefSeq increased from 45.61% for the independent implementation to
 still fell below Annevo in melon, tomato and barley. This is a development
 comparison, not blinded validation or a guarantee of improvement.
 
-Corrected end-to-end runs are evaluated separately because changing graph
-reconstruction can change peptide placements. Biological output equivalence
+Corrected end-to-end runs were also completed for all nine crops and reproduced
+the same 48.22% macro F1. Each matched the standalone engine
+byte for byte on identical inference inputs. Standard, IGV and splice peptide
+BEDs were byte-identical to the earlier cohort in all nine crops; selection
+changed while the reported peptide placements remained the same.
+
+Graph reconstruction can change peptide placements on other inputs. Biological output equivalence
 is checked against the standalone frozen release on identical normalized
 annotations and final peptide evidence. References enter only the independent
 evaluator, after inference is complete. CDS/protein translations, parents,
