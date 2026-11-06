@@ -7,3 +7,6 @@ recursive-include scripts *.py
 recursive-include packaging/legacy *.py *.toml *.in
 recursive-include gapms *.py
 include gapms/_peplocus/LICENSE
+
+include gapms_v1/_genesensus/LICENSE
+include gapms_v1/_genesensus/VENDORED.json

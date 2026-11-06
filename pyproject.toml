@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gapms-v1"
-version = "1.2.0"
+version = "1.2.1"
 description = "Peptide-centric genome mapping and auditable annotation refinement"
 readme = "docs/v1/README.md"
 requires-python = ">=3.10,<3.11"
@@ -21,3 +21,6 @@ include = ["gapms_v1*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 norecursedirs = ["gapms_sandbox", "dist", "build"]
+
+[tool.setuptools.package-data]
+"gapms_v1._genesensus" = ["LICENSE", "VENDORED.json"]

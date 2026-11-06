@@ -341,7 +341,7 @@ In v1.0.4, `orfs/candidate_orfs.gtf` and `.faa` contain only ORFs with peptide s
 
 With v1.1, `-a assembly.fna -p peptides.tsv -g models.gtf -o results` also produces annotation-guided local start, stop, extension and splice proposals without a BAM. Internal ATG-starting peptides with non-tryptic N-terminal context are considered even when their sequence is already contained in an annotated longer protein. Existing isoforms are checked before claiming a new feature. Uncertain boundaries remain unresolved; peptide-supported local changes do not validate a replacement transcript. Optional BAM junction evidence can strengthen a local proposal. See [technical methods](docs/v1/SCIENTIFIC_METHODS.md) for the default 3,000-nt terminal window, 30-nt splice-site window, single-exon skips and search caps. Full new ORF reconstruction continues to require BAM.
 
-### Automatic multi-annotation consensus in v1.2.0
+### Automatic multi-annotation consensus in v1.2.1
 
 Supplying multiple `-g` files now always produces a peptide-guided consensus
 coding annotation in `consensus/`, with optional RNA event support. Single-source
@@ -349,4 +349,6 @@ assessment remains available through the same inputs. No consensus toggle is
 required or provided. The [consensus guide](docs/v1/CONSENSUS.md) describes the
 bounded graph, ambiguity budget, source-model audit, supported alternatives
 and unresolved structures. This separate `gapms-v1` package does not replace
-the legacy 0.3.0 command or container.
+the legacy 0.3.0 command or container. Version 1.2.1 uses the frozen GeneSensus
+0.6.0a3 engine, included in the wheel, replacing the independent 1.2.0
+approximation. No molecular scores are assumed when only peptides are supplied.

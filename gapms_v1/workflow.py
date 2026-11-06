@@ -22,7 +22,7 @@ from .models import load_models, write_models
 from .mapping import EvidenceStore
 from .assessment import assess
 from .refinement import refine_annotations
-from . import consensus
+from . import consensus_engine as consensus
 from gapms.protein_mapper import ProteinMatcher
 from .rnaseq import reconstruct, validate_bam
 
@@ -53,6 +53,8 @@ def tool_versions(bam):
 def run(args):
     started=time.monotonic()
     args.output=args.output.resolve()
+    if len(args.gtf)>1 and args.genetic_code!=1:
+        raise ValueError('Multi-annotation GeneSensus consensus currently requires --genetic-code 1')
     if args.bam and args.genetic_code!=1:
         raise ValueError('BAM ORF prediction currently requires --genetic-code 1')
     inputs=[args.assembly,args.peptides]+args.gtf+([args.bam] if args.bam else [])
@@ -170,7 +172,7 @@ def run(args):
                 if refinement_stats.get('splice_contexts_capped'):args.splice_search_capped=True
             if len(args.gtf)>1:
                 consensus_stats=consensus.finish(args,consensus_candidates,store,metadata,reference,
-                    {(j.chrom,j.start,j.end,j.strand):j.support for j in rna_junctions},graph_reports,graph_seconds)
+                    {(j.chrom,j.start,j.end,j.strand):j.support for j in rna_junctions},graph_reports,graph_seconds,matcher=protein_matcher)
             mapping_stats=store.export(args.output/'mapping',peptides,metadata)
             model_stats=assess(args,models,store,metadata,{(j.chrom,j.start,j.end,j.strand):j.support for j in rna_junctions},guided_events) if models else {}
         limits=json.loads((engine/'summary.json').read_text())

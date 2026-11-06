@@ -1,4 +1,4 @@
-# GAPMS 1.2
+# GAPMS 1.2.1
 
 GAPMS v1 maps mass-spectrometry peptide sequences to eukaryotic assemblies and
 organizes evidence for reviewing gene annotations. Genomic peptide locations are
@@ -37,12 +37,14 @@ extraction and creates FASTA indexes inside the output, never beside inputs.
 
 ## Automatic multi-annotation consensus
 
-Version 1.2.0 always produces a consensus coding annotation when multiple
+Version 1.2.1 always produces a consensus coding annotation when multiple
 `-g` files are supplied, guided by genome-verified peptides and optional RNA
 evidence. Single-annotation runs retain assessment and local refinement.
 See [the consensus method and limitations](CONSENSUS.md) for the graph,
 selection policy, ambiguity budget, outputs and RNA requirements.
-There is no consensus enable/disable switch.
+There is no consensus enable/disable switch. Since 1.2.1, this uses the frozen
+GeneSensus 0.6.0a3 engine rather than the independent 1.2.0 approximation.
+The engine is included in the Python wheel; a separate GeneSensus install is not needed.
 
 ## Run
 

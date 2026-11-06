@@ -1,269 +1,144 @@
-"""Consensus regression tests: positive cases and scientific failure modes."""
+"""Frozen-engine integration, coordinate fidelity and evidence-universe tests."""
+import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
-import pytest
+
 import pysam
+import pytest
 from Bio.Seq import Seq
 
-from gapms_v1.cli import main,parser
-from gapms_v1.consensus import (make_candidate,merge_blocks,peptide_offset,overlap_nt,same_frame,
-    Observations,select_primary,fusion_reason,reconstruct_graph,finish,Candidate)
-from gapms_v1.consensus_rna import RNAEvidence,subtract
+from gapms_v1.cli import main, parser
+from gapms_v1.consensus_engine import prepare,finish,write_evidence,normalize_sources
 from gapms_v1.mapping import EvidenceStore
-from gapms_v1.models import Model,load_models
+from gapms_v1.models import load_models
+from gapms_v1._genesensus.peptides import read_bed
+from gapms_v1._genesensus.pipeline import run as native_run
+from gapms_v1._genesensus.annotation import read_annotation
 from test_mapping import dna,table,independently_verify
 
 
-def args(tmp_path,**kw):
- d=dict(output=tmp_path,genetic_code=1,bam=None,min_mapq=10,min_read_anchor=8,rna_library='unstranded',consensus_max_nodes=2000,consensus_max_starts=32,consensus_max_candidates=32,consensus_beam=8)
- return SimpleNamespace(**dict(d,**kw))
-
-
-def ref(tmp_path,sequence):
- path=tmp_path/'g.fa';path.write_text('>chr1\n'+sequence+'\n');pysam.faidx(str(path));return pysam.FastaFile(path)
-
-
-def source(reference,blocks,source='A',strand='+',gene='g'):
- c=make_candidate('chr1',strand,blocks,reference,1,'source');c.model.source=source;c.model.gene=gene;c.model.id=source+c.id;c.members=[c.model];c.sources=(source,);return c
-
-
-def store(tmp_path,peptides=()):
- s=EvidenceStore(tmp_path/'e.sqlite')
- for p,st,bb,matched in peptides:s.add(p,'chr1',st,bb,matched,'genome')
- s.db.commit();return s
-
-
-def metadata(peps):return {p:dict(quality='unknown',peptide_id=p) for p in peps}
+def fixture(tmp_path,strand='+',compressed=False):
+    sequence='C'*30+dna('MPEPTIDEK'+'ACDEFGHIK'*6+'*')+'C'*30
+    if strand=='-':sequence=str(Seq(sequence).reverse_complement())
+    genome=tmp_path/'genome.fa';genome.write_text('>chr1\n'+sequence+'\n');pysam.faidx(str(genome))
+    annotations=[]
+    for name in ['helixer','annevo']:
+        text=f'chr1\tx\tCDS\t31\t{len(sequence)-30}\t.\t{strand}\t0\tgene_id "g"; transcript_id "t";\n'
+        path=tmp_path/(name+'.gtf')
+        if compressed:
+            import gzip
+            path=path.with_suffix('.gtf.gz')
+            with gzip.open(path,'wt') as f:f.write(text)
+        else:path.write_text(text)
+        annotations.append(path)
+    peptides=tmp_path/'peps.txt';peptides.write_text('PEPTIDEK\nACDEFGHIK\n')
+    return genome,annotations,peptides
 
 
 @pytest.mark.parametrize('strand',['+','-'])
-@pytest.mark.parametrize('cut',[10,11,12])
-def test_exact_splice_geometry_and_phase(strand,cut):
- protein=dna('MPEPTIDEK*');blocks=[(0,cut),(50,50+len(protein)-cut)];bb=[(3,cut),(50,50+21-cut)]
- if strand=='-':
-  blocks=sorted((100-b,100-a) for a,b in blocks);bb=sorted((100-b,100-a) for a,b in bb)
- assert peptide_offset(blocks,strand,bb)==3
- bad=[(a+1,b+1) for a,b in bb]
- assert peptide_offset(blocks,strand,bad) is None
+def test_automatic_consensus_order_resume_and_native_equivalence(tmp_path,strand):
+    genome,annotations,peptides=fixture(tmp_path,strand,compressed=True)
+    out=tmp_path/'out'
+    cli=['-a',str(genome),'-p',str(peptides),'-g',str(annotations[0]),'-g',str(annotations[1]),'-o',str(out),'-t','1']
+    assert main(cli)==0
+    summary=json.loads((out/'reports/summary.json').read_text())['consensus']
+    assert summary['engine']=='GeneSensus' and summary['engine_version']=='0.6.0a3'
+    assert summary['primary_models']==1 and summary['additional_isoforms']==0 and not summary['reference_used']
+    independently_verify(genome,table(out/'mapping/mapped_peptides.tsv'))
+    mm=read_annotation(out/'consensus/annotation.gff3');assert len(mm)==1
+    native=tmp_path/'native'
+    native_run(out/'work/consensus_inputs/config.json',native,threads=1,cache=out/'work/genesensus_cache')
+    for name in ['annotation.gff3','proteins.faa','primary_annotation.gff3','additional_isoforms.gff3','graph_report.json']:
+        assert (native/name).read_bytes()==(out/'consensus'/name).read_bytes()
+    second=tmp_path/'second'
+    assert main(['-a',str(genome),'-p',str(peptides),'-g',str(annotations[1]),'-g',str(annotations[0]),'-o',str(second),'-t','1'])==0
+    assert (second/'consensus/annotation.gff3').read_bytes()==(out/'consensus/annotation.gff3').read_bytes()
+    assert main(cli+['--resume'])==0
+    assert '--consensus ' not in parser().format_help()
 
 
-def test_conserved_fractional_budget_and_nested_saturation(tmp_path):
- r=ref(tmp_path,dna('MPEPTIDEK*')+'N'*30+dna('MPEPTIDEK*'))
- c=source(r,[(0,30)]);s=store(tmp_path,[('PEPTIDEK','+',[(3,27)],'PEPTIDEK'),('PEPTIDEK','+',[(63,87)],'PEPTIDEK'),('EPTIDEK','+',[(6,27)],'EPTIDEK')]);o=Observations(s,metadata(['PEPTIDEK','EPTIDEK']));f=o.features(c)
- assert f['peptide_coding_nt']==22.5 # 3 bases at half weight plus 21 saturated bases
- assert 'PEPTLDEK' not in f['unique'] and 'EPTLDEK' not in f['unique'] # shorter than 9 aa
- s.db.close();r.close()
+def test_full_ambiguity_universe_and_failed_identifications(tmp_path):
+    store=EvidenceStore(tmp_path/'e.sqlite')
+    for a in [0,100]:store.add('MPEPTIDEK','chr1','+',[(a,a+27)],'MPEPTIDEK','source')
+    store.add('ACDEFGHIK','chr1','+',[(200,227)],'ACDEFGHIK','source')
+    store.db.commit();bed=tmp_path/'e.bed'
+    result=write_evidence(store,{'MPEPTIDEK':{'quality':'unknown'},'ACDEFGHIK':{'quality':'qvalue_fail'}},bed)
+    assert result==dict(placements=2,excluded_failed_identification_classes=1)
+    evidence,report=read_bed(bed,keep_ambiguous=True)
+    assert len(bed.read_text().splitlines())==2
+    assert 'ACDEFGHLK' not in bed.read_text()
+    assert report['ambiguous_sequences_retained']==1
+    store.db.close()
 
 
-def test_source_votes_not_isoform_count(tmp_path):
- from gapms_v1.consensus_states import StateContext
- r=ref(tmp_path,dna('MPEPTIDEK*'));c=source(r,[(0,30)]);c.features=dict(peptide_coding_nt=0,peptide_splice_nt=0)
- value=StateContext([c]).features(c,RNAEvidence())['source_coding_nt'];c.members.append(c.model);assert StateContext([c]).features(c,RNAEvidence())['source_coding_nt']==value
- d=source(r,[(0,30)],'B');assert StateContext([c,d]).features(c,RNAEvidence())['source_coding_nt']==2*value;r.close()
+def test_private_engine_matches_frozen_release_bytes():
+    import gapms_v1._genesensus as gs
+    root=Path(gs.__file__).parent;record=json.loads((root/'VENDORED.json').read_text())
+    assert record['version']=='0.6.0a3'
+    assert set(p.name for p in root.glob('*.py'))==set(record['original_sha256'])
+    for name,digest in record['original_sha256'].items():
+        content=(root/name).read_bytes()
+        if name=='rna_geometry.py':
+            content=content.replace(b'from .rna import',b'from genesensus.rna import').replace(b'from .genome import',b'from genesensus.genome import')
+        assert hashlib.sha256(content).hexdigest()==digest,name
+    # Importing RNA geometry must work without any external genesensus installation.
+    from gapms_v1._genesensus.rna_geometry import augment_geometry
+    assert callable(augment_geometry)
 
 
-def test_fusion_guard_separate_source_genes(tmp_path):
- r=ref(tmp_path,dna('MPEPTIDEK*')+'N'*30+dna('MPEPTIDEK*'))
- a=source(r,[(0,30)],gene='one');b=source(r,[(60,90)],gene='two');f=source(r,[(0,90)],'B',gene='fused')
- assert fusion_reason(f,[a,b,f])=='spans_separate_source_genes';r.close()
+def test_normalization_preserves_initial_phase_coordinates_and_gene_family(tmp_path):
+    genome,ann,peps=fixture(tmp_path)
+    with pysam.FastaFile(genome) as reference:
+        models=[]
+        for i,path in enumerate(ann):models+=load_models(path,str(i),reference,{'chr1':reference.lengths[0]})
+        # A nonzero initial phase is not silently trimmed and reset before selection.
+        m=models[0];m.phases[m.cds[0]]=1;m.issues=['inconsistent_internal_CDS_phase']
+        predictions,audit=normalize_sources(SimpleNamespace(gtf=ann),models,tmp_path)
+        normalized=read_annotation(predictions['prediction_01']['annotation'])
+        assert normalized[0].cds==tuple(m.cds) and normalized[0].phase==1
+        assert audit[0]['original_issues']==m.issues
+        assert normalized[0].identifier==m.id
 
 
-def test_small_locus_exact_selection_and_large_bound(tmp_path):
- r=ref(tmp_path,'ATG'*100)
- cc=[source(r,[(0,30)],str(i)) for i in range(20)]
- for i,c in enumerate(cc):c.id=str(i);c.features={'utility':float(i+1)}
- chosen,solver,_=select_primary(cc[:10],args(tmp_path));assert solver=='exact' and [x.id for x in chosen]==['9']
- chosen,solver,_=select_primary(cc,args(tmp_path));assert solver=='greedy_bound' and [x.id for x in chosen]==['19'];r.close()
+def test_single_annotation_keeps_previous_workflow(tmp_path):
+    genome,ann,peps=fixture(tmp_path)
+    out=tmp_path/'out'
+    assert main(['-a',str(genome),'-p',str(peps),'-g',str(ann[0]),'-o',str(out),'-t','1'])==0
+    assert not (out/'consensus').exists()
 
 
-@pytest.mark.parametrize('strand',['+','-'])
-def test_graph_combines_source_exons_preserves_strand_phase_and_complete_orf(tmp_path,strand):
- # Two choices at each of two exon edges. The cross combination is an intact ORF.
- seq=list('C'*300);seq[0:30]=dna('MPEPTIDEKA');seq[60:90]=dna('ACDEFGHIKL');seq[120:150]=dna('ACDEFGHIKL');seq[180:210]=dna('ACDEFGHIK*')
- for a,b in [(30,60),(90,180),(30,120),(150,180)]:seq[a:a+2]='GT';seq[b-2:b]='AG'
- sequence=''.join(seq);paths=[[(0,30),(60,90),(180,210)],[(0,30),(120,150),(180,210)]]
- # Both alternate branches are source paths; cross combination through contiguous edges must never create a novel jump.
- if strand=='-':sequence=str(Seq(sequence).reverse_complement());paths=[sorted((300-b,300-a) for a,b in pp) for pp in paths]
- r=ref(tmp_path,sequence);cc=[source(r,p,str(i),strand) for i,p in enumerate(paths)];s=store(tmp_path);obs=Observations(s,{})
- found,report=reconstruct_graph(cc,r,obs,args(tmp_path))
- source_jj={iv for c in cc for iv in __import__('gapms_v1.consensus',fromlist=['junctions']).junctions(c.blocks)}
- for c in found:
-  assert c.model.complete_start and c.model.complete_stop and not c.model.issues
-  assert set(__import__('gapms_v1.consensus',fromlist=['junctions']).junctions(c.blocks))<=source_jj
- _,bounded=reconstruct_graph(cc,r,obs,args(tmp_path,consensus_max_nodes=1));assert bounded['skipped']=='node_or_start_limit'
- s.db.close();r.close()
+def test_consensus_rejects_unsupported_genetic_code_before_inference(tmp_path):
+    genome,ann,peps=fixture(tmp_path)
+    out=tmp_path/'out'
+    assert main(['-a',str(genome),'-p',str(peps),'-g',str(ann[0]),'-g',str(ann[1]),'-o',str(out),'--genetic-code','2','-t','1'])==1
 
 
-@pytest.mark.parametrize('strand',['+','-'])
-def test_multigtf_automatic_outputs_and_input_order_stability(tmp_path,strand):
- seq='C'*30+dna('MPEPTIDEKACDEFGHIK*')+'C'*30
- if strand=='-':seq=str(Seq(seq).reverse_complement())
- genome=tmp_path/'genome.fa';genome.write_text('>chr1\n'+seq+'\n')
- ann=[]
- for name in ['helixer','annevo']:
-  p=tmp_path/(name+'.gtf');p.write_text(f'chr1\tx\tCDS\t31\t{len(seq)-30}\t.\t{strand}\t0\tgene_id "g"; transcript_id "t";\n');ann.append(p)
- peps=tmp_path/'peps.txt';peps.write_text('PEPTIDEK\nACDEFGHIK\n');out=tmp_path/'out'
- cli=['-a',str(genome),'-p',str(peps),'-o',str(out),'-g',str(ann[0]),'-g',str(ann[1]),'-t','1']
- assert main(cli)==0
- summary=json.loads((out/'reports/summary.json').read_text());assert summary['consensus']['primary_models']==1
- decisions=table(out/'consensus/decisions.tsv');assert len(decisions)==1 and len(json.loads(decisions[0]['sources']))==2
- independently_verify(genome,table(out/'mapping/mapped_peptides.tsv'))
- assert not any(x in parser().format_help() for x in ['--consensus ','--assess-only'])
- second=tmp_path/'second';cli[cli.index(str(out))]=str(second);cli[cli.index(str(ann[0]))]=str(ann[1]);cli[-3]=str(ann[0])
- assert main(cli)==0
- assert (out/'consensus/annotation.gff3').read_bytes()==(second/'consensus/annotation.gff3').read_bytes()
- assert main(cli+['--resume'])==0
-
-
-def test_single_annotation_no_consensus(tmp_path):
- genome=tmp_path/'g.fa';genome.write_text('>chr1\n'+dna('MPEPTIDEK*')+'\n');p=tmp_path/'p';p.write_text('PEPTIDEK\n');g=tmp_path/'a.gtf';g.write_text('chr1\tx\tCDS\t1\t30\t.\t+\t0\tgene_id "g"; transcript_id "t";\n');out=tmp_path/'out'
- assert main(['-a',str(genome),'-p',str(p),'-g',str(g),'-o',str(out),'-t','1'])==0
- assert not (out/'consensus').exists()
-
-
-def test_invalid_source_is_audited_not_emitted(tmp_path):
- r=ref(tmp_path,dna('MPEP*IDEK*'));c=source(r,[(0,30)]);s=store(tmp_path);result=finish(args(tmp_path),[c],s,{},r,{},[],0)
- assert result['selected_models']==0;assert table(tmp_path/'consensus/decisions.tsv')[0]['status']=='rejected';s.db.close();r.close()
-
-
-def test_rna_requires_new_base_coverage_and_all_junctions(tmp_path):
- r=ref(tmp_path,'ATG'*100);p=source(r,[(0,30),(120,150)]);c=source(r,[(0,60),(120,150)],'B');e=RNAEvidence()
- e.junction_templates['chr1',60,120,'.']={('','a'),('','b'),('','c')}
- assert not e.supports_change(c,p)
- e.coverage['chr1','.']=[(30,60)];assert e.supports_change(c,p)
- e.junction_templates['chr1',60,120,'.'].pop();assert not e.supports_change(c,p);r.close()
-
-
-def test_rna_intron_retention_needs_whole_spanning_templates(tmp_path):
- r=ref(tmp_path,'ATG'*100);p=source(r,[(0,30),(60,90)]);c=source(r,[(0,90)],'B');e=RNAEvidence();e.coverage['chr1','.']=[(0,90)]
- assert not e.supports_change(c,p)
- e.blocks['chr1','.']=[(0,90,('',str(i))) for i in range(3)];assert e.supports_change(c,p);r.close()
-
-
-def test_rna_bam_filters_and_mate_deduplication(tmp_path):
- path=tmp_path/'reads.bam';header={'HD':{'VN':'1.6','SO':'coordinate'},'SQ':[{'SN':'chr1','LN':300}]}
- with pysam.AlignmentFile(path,'wb',header=header) as f:
-  for i in range(8):
-   x=pysam.AlignedSegment();x.query_name='pair' if i<2 else str(i);x.query_sequence='A'*40;x.flag=0;x.reference_id=0;x.reference_start=10;x.mapping_quality=60;x.cigar=[(0,20),(3,30),(0,20)];x.set_tag('NH',1)
-   if i==3:x.flag=1024
-   if i==4:x.flag=256
-   if i==5:x.set_tag('NH',2)
-   if i==6:x.mapping_quality=255;x.set_tags([])
-   if i==7:x.mapping_quality=10
-   f.write(x)
- pysam.index(str(path));r=ref(tmp_path,'ATG'*100);c=source(r,[(0,90)])
- e=RNAEvidence.from_bam(path,[[c]]);assert e.count('chr1','+',30,60)==2
- assert e.coverage['chr1','.']==[(10,30),(60,80)];r.close()
-
-
-@pytest.mark.parametrize('strand',['+','-'])
-def test_positive_graph_recombination_and_peptide_selected_primary(tmp_path,strand):
- sequence=list('C'*240)
- for (a,b),protein in [((0,30),'MPEMIDEKAA'),((60,90),'ACDEFGHIKL'),((120,150),'QWERTYVFA*'),((180,210),'VVFGHIKLM*')]:sequence[a:b]=dna(protein)
- for a,b in [(30,60),(90,120),(90,180)]:sequence[a:a+2]='GT';sequence[b-2:b]='AG'
- sequence=''.join(sequence);paths=[[(0,30),(60,90),(120,150)],[(9,30),(60,90),(180,210)]];target=[(0,30),(60,90),(180,207)]
- pep='MPEMIDEKAAACDEFGHIKLVVFGHIKLM'
- if strand=='-':sequence=str(Seq(sequence).reverse_complement());paths=[sorted((240-b,240-a) for a,b in bb) for bb in paths];target=sorted((240-b,240-a) for a,b in target)
- r=ref(tmp_path,sequence);cc=[source(r,bb,str(i),strand) for i,bb in enumerate(paths)];s=store(tmp_path,[(pep,strand,target,pep)]);obs=Observations(s,metadata([pep]))
- graphs,report=reconstruct_graph(cc,r,obs,args(tmp_path));assert len(graphs)==2
- c=[g for g in graphs if peptide_offset(g.blocks,strand,target)==0][0]
- result=finish(args(tmp_path),cc+graphs,s,metadata([pep]),r,{},[report],0)
- assert c.status=='primary' and result['graph_selected']==1
- assert not c.reasons
- assert result['primary_models']==1
- s.db.close();r.close()
-
-
-@pytest.mark.parametrize('evidence',['shared','unique_split','ambiguous_split'])
-def test_isoform_admission_requires_distinguishing_unique_event(tmp_path,evidence):
- sequence=list('C'*240)
- for (a,b),protein in [((0,30),'MPEPTIDEKA'),((60,90),'ACDEFGHIKL'),((120,150),'VVFGHIKLMN'),((180,210),'QWERTYVFA*')]:sequence[a:b]=dna(protein)
- for a,b in [(30,60),(90,180),(30,120),(150,180)]:sequence[a:a+2]='GT';sequence[b-2:b]='AG'
- r=ref(tmp_path,''.join(sequence));a=source(r,[(0,30),(60,90),(180,210)]);b=source(r,[(0,30),(120,150),(180,210)],'B')
- # More peptides support A; B needs a distinguishing junction peptide, not shared first-exon evidence.
- pep='MPEPTIDEKA';entries=[(pep,'+',[(0,30)],pep),('PTIDEKAACDEFGHIKL','+',[(9,30),(60,90)],'PTIDEKAACDEFGHIKL')]
- split='PTIDEKAVVFGHIKLMN';bb=[(9,30),(120,150)]
- if evidence!='shared':entries.append((split,'+',bb,split))
- if evidence=='ambiguous_split':entries.append((split,'+',[(300,321),(400,430)],split))
- s=store(tmp_path,entries);mm=metadata([x[0] for x in entries]);finish(args(tmp_path),[a,b],s,mm,r,{},[],0)
- if evidence=='unique_split':assert sum(c.status=='supported_alternative' for c in [a,b])==1
- else:assert sum(c.status=='supported_alternative' for c in [a,b])==0
- s.db.close();r.close()
-
-
-def test_rna_can_admit_source_alternative_without_unique_splice_peptide(tmp_path,monkeypatch):
- sequence=list('C'*240)
- for (a,b),protein in [((0,30),'MPEPTIDEKA'),((60,90),'ACDEFGHIKL'),((120,150),'VVFGHIKLMN'),((180,210),'QWERTYVFA*')]:sequence[a:b]=dna(protein)
- for a,b in [(30,60),(90,180),(30,120),(150,180)]:sequence[a:a+2]='GT';sequence[b-2:b]='AG'
- r=ref(tmp_path,''.join(sequence));a=source(r,[(0,30),(60,90),(180,210)]);b=source(r,[(0,30),(120,150),(180,210)],'B')
- e=RNAEvidence();e.coverage['chr1','.']=[(0,30),(60,90),(120,150),(180,210)]
- for iv in [(30,60),(90,180),(30,120),(150,180)]:e.junction_templates[('chr1',*iv,'.')]={('',str(i)) for i in range(3)}
- monkeypatch.setattr(RNAEvidence,'from_bam',classmethod(lambda cls,*a,**k:e))
- s=store(tmp_path,[('MPEPTIDEKA','+',[(0,30)],'MPEPTIDEKA')]);finish(args(tmp_path),[a,b],s,metadata(['MPEPTIDEKA']),r,{},[],0)
- assert sum(c.status=='supported_alternative' for c in [a,b])==1
- s.db.close();r.close()
-
-
-def test_failed_identifications_do_not_supply_hard_support(tmp_path):
- r=ref(tmp_path,dna('MPEPTIDEKACDEFGHIK*'));c=source(r,[(0,57)]);s=store(tmp_path,[('ACDEFGHIK','+',[(27,54)],'ACDEFGHIK')]);o=Observations(s,{'ACDEFGHIK':dict(quality='qvalue_fail')});f=o.features(c)
- assert len(f['hits'])==1 and not f['unique'] and f['peptide_coding_nt']==0
- s.db.close();r.close()
-
-
-def test_source_junction_votes_require_codon_phase_not_just_coordinates(tmp_path):
- r=ref(tmp_path,'ATG'*80);a=source(r,[(0,30),(60,90)]);b=source(r,[(1,30),(60,90)],'B')
- # Incorrect source phase cannot supply a splice vote for A; only A's own source can.
- b.model.issues=[]
- from gapms_v1.consensus_states import StateContext
- a.features=dict(peptide_coding_nt=0,peptide_splice_nt=0);b.valid=True
- own=StateContext([a]).features(a,RNAEvidence());together=StateContext([a,b]).features(a,RNAEvidence())
- assert together['source_coding_nt']==own['source_coding_nt'] and together['source_splice_nt']==own['source_splice_nt']
- r.close()
-
-
-def test_structural_states_penalize_absent_predictor_span_without_missing_peptide_penalty(tmp_path):
- from gapms_v1.consensus_states import StateContext
- r=ref(tmp_path,'ATG'*150);a=source(r,[(0,90)],'A');b=source(r,[(300,390)],'B');e=RNAEvidence()
- for c in [a,b]:c.features=dict(peptide_coding_nt=0,peptide_splice_nt=0)
- ctx=StateContext([a,b]);f=ctx.features(a,e)
- assert f['source_coding_nt']==90 and f['whole_span_intergenic_nt']==90
- assert f['structurally_admitted'] and f['utility']==.0225 # fixed inherited 0.75, no peptide term
- r.close()
-
-
-def test_structural_splice_support_uses_exact_phase_and_capped_source_counts(tmp_path):
- from gapms_v1.consensus_states import StateContext
- r=ref(tmp_path,'ATG'*100);a=source(r,[(0,30),(60,90)]);a.features=dict(peptide_coding_nt=0,peptide_splice_nt=0)
- ctx=StateContext([a]);f=ctx.features(a,RNAEvidence());assert f['source_splice_nt']==30
- a.members.append(a.model);assert StateContext([a]).features(a,RNAEvidence())==f
- r.close()
-
-
-def test_novel_exon_pairing_requires_observed_role_and_frame(tmp_path):
- from gapms_v1.consensus_states import StateContext
- r=ref(tmp_path,'ATG'*100);a=source(r,[(0,30),(60,90)]);ctx=StateContext([a]);s=store(tmp_path);obs=Observations(s,{})
- g=make_candidate('chr1','+',[(0,90)],r,1);g.features=obs.features(g)
- assert not ctx.supports_exons(g,obs) # two source exon fragments cannot imply a whole new single exon
- s.db.close();r.close()
-
-
-@pytest.mark.parametrize('guard',['supported','incumbent_unique','incumbent_RNA','failed_identification'])
-def test_conservative_source_splice_repair_preserves_incumbent_evidence(tmp_path,guard):
- from gapms_v1.consensus_states import conservative_repair
- sequence=list('C'*240)
- for (a,b),protein in [((0,30),'MPEPTIDEKA'),((60,90),'ACDEFGHIKL'),((120,150),'VVFGHIKLMN'),((180,210),'QWERTYVFA*')]:sequence[a:b]=dna(protein)
- for a,b in [(30,60),(90,180),(30,120),(150,180)]:sequence[a:a+2]='GT';sequence[b-2:b]='AG'
- r=ref(tmp_path,''.join(sequence));a=source(r,[(0,30),(60,90),(180,210)]);b=source(r,[(0,30),(120,150),(180,210)],'B')
- shared='MPEPTIDEKA';split='PTIDEKAVVFGHIKLMN';entries=[(shared,'+',[(0,30)],shared),(split,'+',[(9,30),(120,150)],split)]
- if guard=='incumbent_unique':entries.append(('ACDEFGHIKL','+',[(60,90)],'ACDEFGHIKL'))
- s=store(tmp_path,entries);mm=metadata([x[0] for x in entries])
- if guard=='failed_identification':mm[split]['quality']='qvalue_fail'
- obs=Observations(s,mm)
- for c in [a,b]:c.features=obs.features(c)
- e=RNAEvidence()
- if guard=='incumbent_RNA':e.junction_templates['chr1',30,60,'.']={('',str(i)) for i in range(3)}
- chosen,events=conservative_repair([a,b],[a],obs,e)
- assert [c.id for c in chosen]==[b.id if guard=='supported' else a.id]
- assert bool(events)==(guard=='supported')
- s.db.close();r.close()
+def test_adapter_uses_real_bam_geometry_without_extra_predictor_vote(tmp_path):
+    from dataclasses import replace
+    from gapms.protein_mapper import ProteinMatcher
+    left=dna('M'+'A'*49);right=dna('A'*49+'*')
+    genome=tmp_path/'g.fa';genome.write_text('>chr1\n'+left+'GT'+'A'*16+'AG'+right+'\n');pysam.faidx(str(genome))
+    annotations=[]
+    for name in ['a','b']:
+        g=tmp_path/(name+'.gtf');g.write_text('chr1\tx\tCDS\t1\t150\t.\t+\t0\tgene_id "g"; transcript_id "t";\n'+'chr1\tx\tCDS\t171\t320\t.\t+\t0\tgene_id "g"; transcript_id "t";\n');annotations.append(g)
+    bam=tmp_path/'rna.bam'
+    with pysam.AlignmentFile(bam,'wb',header={'HD':{'VN':'1.6','SO':'coordinate'},'SQ':[{'SN':'chr1','LN':320}]}) as f:
+        for i in range(3):
+            read=pysam.AlignedSegment();read.query_name=f'r{i}';read.reference_id=0;read.reference_start=0;read.mapping_quality=60;read.cigartuples=[(0,150),(3,20),(0,150)];read.query_sequence=left+right;read.query_qualities=pysam.qualitystring_to_array('I'*300);read.set_tag('NH',1);read.set_tag('XS','+');f.write(read)
+    pysam.index(str(bam));peptides=tmp_path/'p.txt';peptides.write_text('MAAAAAAAA\n')
+    output=tmp_path/'out';(output/'work').mkdir(parents=True)
+    args=parser().parse_args(['-a',str(genome),'-p',str(peptides),'-g',str(annotations[0]),'-g',str(annotations[1]),'-b',str(bam),'-o',str(output),'-t','2'])
+    store=EvidenceStore(output/'work/evidence.sqlite');store.add('MAAAAAAAA','chr1','+',[(0,27)],'MAAAAAAAA','genome');store.db.commit()
+    metadata={'MAAAAAAAA':{'quality':'unknown'}}
+    with pysam.FastaFile(genome) as reference:
+        models=[m for i,g in enumerate(annotations) for m in load_models(g,str(i),reference,{'chr1':320})]
+        models.append(replace(models[0],source='RNA_ORF',id='rna_orf'))
+        ctx,graphs,reports,seconds=prepare(args,models,store,metadata,reference)
+        result=finish(args,ctx,store,metadata,reference,{},reports,seconds,matcher=ProteinMatcher(['MAAAAAAAA']))
+    config=json.loads(ctx['config_path'].read_text());assert config['rna']==dict(bam=str(bam),library='unstranded')
+    assert len(config['predictions'])==2
+    report=json.loads((output/'consensus/report.json').read_text());assert report['rna']['available']
+    assert result['primary_models']==1
+    assert (output/'consensus/annotation.gff3').read_bytes()==(output/'consensus/primary_annotation.gff3').read_bytes()
+    store.db.close()

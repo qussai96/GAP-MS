@@ -215,10 +215,14 @@ BAM junction counts can strengthen a peptide-supported local path when the pepti
 
 Use `--refinement-window`, `--refinement-splice-window`, `--max-refinement-paths`, and `--min-refinement-anchor` to adjust the bounds. `--no-refinement-splice` disables local splice discovery while retaining terminal refinement. Bounds are part of the run manifest and guarded resume identity.
 
-## Multi-annotation consensus in 1.2.0
+## Multi-annotation consensus in 1.2.1
 
-The automatic graph, peptide budget, source/RNA utilities and conservative
-admission rules are specified in [CONSENSUS.md](CONSENSUS.md). This is a
-GAPMS implementation inspired by GeneSensus 0.6.0a3, not an equivalence claim
-for its molecular optimizer or published accuracy. References do not enter
-consensus inference.
+The automatic graph, peptide budget and selection rules are specified in
+[CONSENSUS.md](CONSENSUS.md). Version 1.2.0 independently approximated GeneSensus
+and underperformed its frozen engine in a matched nine-crop comparison. Version
+1.2.1 replaces that approximation with GeneSensus 0.6.0a3, vendored under BSD-3-Clause.
+Only two imports are adjusted for the private namespace; algorithm bytes are
+otherwise unchanged and checked against bundled original hashes. No molecular
+scores, residue profiles or diagnostic classifications are invented. References
+remain outside inference. Identical engine inputs must reproduce the standalone
+release's biological outputs; end-to-end mapping feedback is evaluated separately.

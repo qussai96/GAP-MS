@@ -152,11 +152,26 @@ Full RNA-derived model contexts, when available, are now named `<event_type>_rna
 
 `reports/summary.json` and `mapping/mapping_summary.json` record the annotation-guided search bounds, cap counts, path counts and runtime. Assessment summaries give `annotation_guided_event_rows` and `rna_event_rows` separately. Changing search bounds can change mapping coverage and apparent uniqueness.
 
-## Automatic consensus (1.2.0)
+## Automatic consensus (1.2.1)
 
-Multiple annotation inputs additionally produce `consensus/annotation.gff3`,
-`proteins.faa`, separate primary/additional/unresolved GFF3 files,
-`decisions.tsv`, `source_model_mapping.tsv`, `graph_report.tsv`,
-`selection_report.tsv` and `summary.json`. These are coding-only structures;
-unresolved alternatives are not part of the final annotation. See
-[CONSENSUS.md](CONSENSUS.md) for policies, columns and interpretation.
+Multiple annotation inputs produce `consensus/annotation.gff3`, `proteins.faa`,
+`primary_annotation.gff3`, `additional_isoforms.gff3`, `summary.json`, and the
+native GeneSensus reports: `candidates.tsv.gz`, `decisions.jsonl.gz`,
+`graph_report.json`, `isoforms.json`, `report.json`, `configuration.json` and
+`provenance.json`. The annotation can retain original exons/UTRs where supplied;
+CDS structures and proteins carry coding evidence. GeneSensus coordinate-derived
+`GS.g...` identifiers are preserved.
+
+`source_model_mapping.tsv` links each original GAPMS source model to its engine
+candidate and selection status. `decisions.tsv` is a compact candidate/status
+index, not the full explanation; the native decision JSONL contains evidence,
+exclusions, optimization and repair events. The former custom `graph_report.tsv`,
+`selection_report.tsv` and `peptide_repairs.tsv` are superseded by native reports.
+
+Unresolved excluded originals are written by the engine to `provisional.gff3`
+when present, with an alias `unresolved_alternatives.gff3`. Other unselected
+competitors remain in native candidates and decisions; not all competitors
+are duplicated in the unresolved GFF3. Neither is part of the final annotation.
+Inputs normalized for the engine, including an identity/phase audit and the
+full eligible peptide placement universe, remain in `work/consensus_inputs/`.
+See [CONSENSUS.md](CONSENSUS.md) for the policy and its limits.
