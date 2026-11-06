@@ -18,7 +18,7 @@ def parser():
     p.add_argument('--version', action='version', version=f'GAPMS v1 {__version__}')
     p.add_argument('-a', '--assembly', type=Path, required=True)
     p.add_argument('-p', '--peptides', type=Path, required=True)
-    p.add_argument('-g', '--gtf', type=Path, action='append', default=[], help='repeat to assess independent annotation sources')
+    p.add_argument('-g', '--gtf', type=Path, action='append', default=[], help='repeat for automatic peptide-guided consensus of all supplied sources')
     p.add_argument('-b', '--bam', type=Path)
     p.add_argument('-o', '--output', type=Path, required=True)
     p.add_argument('-t', '--threads', type=positive, default=8)
@@ -39,6 +39,11 @@ def parser():
     p.add_argument('--max-refinement-paths', type=positive, default=64, help='maximum canonical phase-preserving paths per local exon pair')
     p.add_argument('--min-refinement-anchor', type=positive, default=9, help='minimum peptide nucleotides on each side of a discovered junction')
     p.add_argument('--no-refinement-splice', action='store_true', help='disable annotation-guided local splice discovery; terminal refinement remains enabled')
+    p.add_argument('--consensus-beam', type=positive, default=8, help='bounded paths per graph start and phase')
+    p.add_argument('--consensus-max-nodes', type=positive, default=2000)
+    p.add_argument('--consensus-max-starts', type=positive, default=32)
+    p.add_argument('--consensus-max-candidates', type=positive, default=32, help='new graph candidates per locus; original models are never pruned')
+    p.add_argument('--rna-library', choices=['unstranded','firststrand','secondstrand'], default='unstranded', help='RNA library protocol for consensus evidence; default: unstranded')
     p.add_argument('--resume', action='store_true', help='resume only when inputs, parameters and implementation fingerprint agree')
     return p
 

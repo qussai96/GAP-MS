@@ -214,3 +214,11 @@ A single C-backed Aho–Corasick automaton scans the local translated paths. Sha
 BAM junction counts can strengthen a peptide-supported local path when the peptide crosses the supported junction. They do not independently prove initiation or termination. Events remain local candidates and never receive the full-transcript high-confidence category from this stage. Tryptic context is recorded as supporting evidence; non-tryptic splice/extension peptide matches remain visible with explicit limitations. Identification quality is retained and failing q-value evidence is classified ambiguous. Global genomic uniqueness, isoform specificity, cleavage specificity and peptide-identification quality are separate properties.
 
 Use `--refinement-window`, `--refinement-splice-window`, `--max-refinement-paths`, and `--min-refinement-anchor` to adjust the bounds. `--no-refinement-splice` disables local splice discovery while retaining terminal refinement. Bounds are part of the run manifest and guarded resume identity.
+
+## Multi-annotation consensus in 1.2.0
+
+The automatic graph, peptide budget, source/RNA utilities and conservative
+admission rules are specified in [CONSENSUS.md](CONSENSUS.md). This is a
+GAPMS implementation inspired by GeneSensus 0.6.0a3, not an equivalence claim
+for its molecular optimizer or published accuracy. References do not enter
+consensus inference.

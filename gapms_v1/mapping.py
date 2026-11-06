@@ -49,13 +49,13 @@ class EvidenceStore:
             self.add(row['peptide'],row['chrom'],row['strand'],json.loads(row['blocks']),row['matched_sequence'],row['evidence'])
         self.db.commit()
 
-    def associate(self, models, peptides, directory, reference, genetic_code):
+    def associate(self, models, peptides, directory, reference, genetic_code, matcher=None):
         """Search the union of all proteins once; validate every projected hit."""
         proteins = directory/'all_model_proteins.faa'
         write_proteins(models, proteins)
         lookup = {m.id:m for m in models}
         if not any(m.protein for m in models):return
-        ProteinMatcher(peptides).map(proteins, directory/'protein_mapping.tsv')
+        (matcher or ProteinMatcher(peptides)).map(proteins, directory/'protein_mapping.tsv')
         for row in read_table(directory/'protein_mapping.tsv'):
             if row['protein'] == 'UNMAPPED':continue
             model = lookup[row['protein']]; peptide=row['peptide']

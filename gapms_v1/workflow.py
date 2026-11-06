@@ -22,6 +22,8 @@ from .models import load_models, write_models
 from .mapping import EvidenceStore
 from .assessment import assess
 from .refinement import refine_annotations
+from . import consensus
+from gapms.protein_mapper import ProteinMatcher
 from .rnaseq import reconstruct, validate_bam
 
 
@@ -85,6 +87,7 @@ def run(args):
     store=None
     try:
         manifest['external_tools']=tool_versions(args.bam)
+        manifest['automatic_consensus']=len(args.gtf)>1
         LOG.info('GAPMS v%s %s workflow; %s threads',__version__,manifest['mode'],args.threads)
         peptides,metadata,input_stats,normalized=load_peptides(args)
         genome,index,lengths=prepare_reference(args.assembly,args.output/'work/reference')
@@ -92,7 +95,7 @@ def run(args):
         with pysam.FastaFile(genome,filepath_index=index) as reference:
             if args.bam:validate_bam(args.bam,lengths)
             models=[];source_rows=[]
-            for i,path in enumerate(args.gtf,1):
+            for i,path in enumerate(sorted(args.gtf,key=lambda p:str(p)),1):
                 source=f'A{i:02d}_{path.name}'
                 models.extend(load_models(path,source,reference,lengths,args.genetic_code))
                 source_rows.append(dict(source=source,path=str(path),kind='input_annotation'))
@@ -145,16 +148,29 @@ def run(args):
                 Path(str(store_path)+suffix).unlink(missing_ok=True)
             store=EvidenceStore(store_path)
             store.import_genomic(engine/'mappings.tsv')
+            protein_matcher=ProteinMatcher(peptides) if models else None
             if models:
                 LOG.info('Associating peptides with %s source-aware coding models',len(models))
                 protein_dir=args.output/'work/protein_search'
                 if protein_dir.exists():shutil.rmtree(protein_dir)
                 protein_dir.mkdir()
-                store.associate(models,peptides,protein_dir,reference,args.genetic_code)
+                store.associate(models,peptides,protein_dir,reference,args.genetic_code,matcher=protein_matcher)
+            consensus_stats={}
+            if len(args.gtf)>1:
+                LOG.info('Multiple annotation inputs: automatic consensus is enabled')
+                consensus_candidates,graph_models,graph_reports,graph_seconds=consensus.prepare(args,models,store,metadata,reference)
+                if graph_models:
+                    graph_dir=args.output/'work/consensus_protein_search'
+                    if graph_dir.exists():shutil.rmtree(graph_dir)
+                    graph_dir.mkdir()
+                    store.associate([c.model for c in graph_models],peptides,graph_dir,reference,args.genetic_code,matcher=protein_matcher)
             guided_events=[];refinement_stats={}
             if args.gtf:
                 guided_events,refinement_stats=refine_annotations(args,models,store,metadata,reference,{(j.chrom,j.start,j.end,j.strand):j.support for j in rna_junctions})
                 if refinement_stats.get('splice_contexts_capped'):args.splice_search_capped=True
+            if len(args.gtf)>1:
+                consensus_stats=consensus.finish(args,consensus_candidates,store,metadata,reference,
+                    {(j.chrom,j.start,j.end,j.strand):j.support for j in rna_junctions},graph_reports,graph_seconds)
             mapping_stats=store.export(args.output/'mapping',peptides,metadata)
             model_stats=assess(args,models,store,metadata,{(j.chrom,j.start,j.end,j.strand):j.support for j in rna_junctions},guided_events) if models else {}
         limits=json.loads((engine/'summary.json').read_text())
@@ -164,7 +180,7 @@ def run(args):
             rescue=args.output/'mapping/rescue';rescue.mkdir(exist_ok=True)
             for path in engine.glob('rescue_*'):
                 if path.is_file():shutil.copyfile(path,rescue/path.name)
-        summary=dict(version=__version__,mode=manifest['mode'],input=input_stats,mapping=mapping_stats,assessment=model_stats,annotation_guided_search=refinement_stats,rna_junctions=rna_stats,
+        summary=dict(version=__version__,mode=manifest['mode'],consensus=consensus_stats,input=input_stats,mapping=mapping_stats,assessment=model_stats,annotation_guided_search=refinement_stats,rna_junctions=rna_stats,
                      seconds=round(time.monotonic()-started,3),scientific_limitations=[
                        'Mapping validates sequence compatibility, not peptide identification accuracy.',
                        'I/L-equivalent sequences are one evidence unit; reported multiplicity is within the searched genome and supported splice paths.',

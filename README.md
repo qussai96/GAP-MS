@@ -1,4 +1,4 @@
-> This is the isolated GAPMS 1.1 development branch. The new `gapms-v1`
+> This is the isolated GAPMS 1.2 development branch. The new `gapms-v1`
 > command and its installation are documented in [docs/v1/README.md](docs/v1/README.md).
 > The legacy GAPMS workflow below remains available through `gapms`.
 
@@ -340,3 +340,13 @@ In v1.0.4, `orfs/candidate_orfs.gtf` and `.faa` contain only ORFs with peptide s
 
 
 With v1.1, `-a assembly.fna -p peptides.tsv -g models.gtf -o results` also produces annotation-guided local start, stop, extension and splice proposals without a BAM. Internal ATG-starting peptides with non-tryptic N-terminal context are considered even when their sequence is already contained in an annotated longer protein. Existing isoforms are checked before claiming a new feature. Uncertain boundaries remain unresolved; peptide-supported local changes do not validate a replacement transcript. Optional BAM junction evidence can strengthen a local proposal. See [technical methods](docs/v1/SCIENTIFIC_METHODS.md) for the default 3,000-nt terminal window, 30-nt splice-site window, single-exon skips and search caps. Full new ORF reconstruction continues to require BAM.
+
+### Automatic multi-annotation consensus in v1.2.0
+
+Supplying multiple `-g` files now always produces a peptide-guided consensus
+coding annotation in `consensus/`, with optional RNA event support. Single-source
+assessment remains available through the same inputs. No consensus toggle is
+required or provided. The [consensus guide](docs/v1/CONSENSUS.md) describes the
+bounded graph, ambiguity budget, source-model audit, supported alternatives
+and unresolved structures. This separate `gapms-v1` package does not replace
+the legacy 0.3.0 command or container.

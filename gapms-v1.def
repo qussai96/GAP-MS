@@ -11,18 +11,29 @@ From: /home/students/q.abbas/Git/GAP-MS/gapms.sif
 
 %post
     set -e
+
+    # Nextflow task monitoring requires ps inside the container.
+    apt-get update
+    apt-get install -y --no-install-recommends procps
+    rm -rf /var/lib/apt/lists/*
+
     cd /opt/gapms-v1
     /opt/conda/bin/python -m pip install --no-cache-dir --no-deps .
 
 %test
     set -e
+    # Check the tools used by Nextflow's task metrics wrapper.
+    for executable in bash awk date grep ps sed tail tee; do
+        command -v "$executable" >/dev/null
+    done
+    ps -eo pid,ppid,pcpu,pmem,comm >/dev/null
     cd /tmp
-    /opt/conda/bin/python -c 'from importlib.metadata import version; assert version("gapms")=="0.3.0"; assert version("gapms-v1")=="1.0.0"'
+    /opt/conda/bin/python -c 'from importlib.metadata import version; assert version("gapms")=="0.3.0"; assert version("gapms-v1")=="1.2.0"'
     /opt/conda/bin/gapms-v1 --help >/dev/null
 
 %runscript
     exec /opt/conda/bin/gapms-v1 "$@"
 
 %labels
-    Version 1.0.0
+    Version 1.2.0
     LegacyGAPMSVersion 0.3.0

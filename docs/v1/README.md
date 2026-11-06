@@ -1,4 +1,4 @@
-# GAPMS 1.1
+# GAPMS 1.2
 
 GAPMS v1 maps mass-spectrometry peptide sequences to eukaryotic assemblies and
 organizes evidence for reviewing gene annotations. Genomic peptide locations are
@@ -35,6 +35,15 @@ Genome and annotation modes need no external mapping executable. The C-backed
 Python dependencies come through GAPMS 0.3.0. V1 uses its own Python transcript
 extraction and creates FASTA indexes inside the output, never beside inputs.
 
+## Automatic multi-annotation consensus
+
+Version 1.2.0 always produces a consensus coding annotation when multiple
+`-g` files are supplied, guided by genome-verified peptides and optional RNA
+evidence. Single-annotation runs retain assessment and local refinement.
+See [the consensus method and limitations](CONSENSUS.md) for the graph,
+selection policy, ambiguity budget, outputs and RNA requirements.
+There is no consensus enable/disable switch.
+
 ## Run
 
 ```bash
@@ -47,7 +56,7 @@ gapms-v1 -a genome.fna -p peptides.tsv -g helixer.gtf -o annotation_results
 # Reconstruct RNA-supported ORFs
 gapms-v1 -a genome.fna -p peptides.tsv -b sorted.bam -o rna_results
 
-# Unified annotation review; repeat -g for independent sources
+# Automatic consensus when two or more -g files are supplied
 gapms-v1 -a genome.fna -p peptides.tsv -b sorted.bam \
   -g helixer.gtf -g another.gff3 -t 8 -o integrated_results
 ```

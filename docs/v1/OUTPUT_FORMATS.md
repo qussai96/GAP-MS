@@ -151,3 +151,12 @@ For annotation-guided rows, `candidate_model_id`, `coding_structure_id` and `can
 Full RNA-derived model contexts, when available, are now named `<event_type>_rna_model_context.gtf`. They are distinct from local feature GTFs; annotation-only runs do not create these full-model context files. This replaces the ambiguous refinement `<event_type>_candidates.gtf` names from earlier versions. Complete novel ORF reconstruction still requires BAM, and peptide-supported candidate ORF exports retain the v1.0.4 filtering rules.
 
 `reports/summary.json` and `mapping/mapping_summary.json` record the annotation-guided search bounds, cap counts, path counts and runtime. Assessment summaries give `annotation_guided_event_rows` and `rna_event_rows` separately. Changing search bounds can change mapping coverage and apparent uniqueness.
+
+## Automatic consensus (1.2.0)
+
+Multiple annotation inputs additionally produce `consensus/annotation.gff3`,
+`proteins.faa`, separate primary/additional/unresolved GFF3 files,
+`decisions.tsv`, `source_model_mapping.tsv`, `graph_report.tsv`,
+`selection_report.tsv` and `summary.json`. These are coding-only structures;
+unresolved alternatives are not part of the final annotation. See
+[CONSENSUS.md](CONSENSUS.md) for policies, columns and interpretation.
