@@ -44,6 +44,7 @@ def parser():
     p.add_argument('--consensus-max-starts', type=positive, default=32)
     p.add_argument('--consensus-max-candidates', type=positive, default=32, help='new graph candidates per locus; original models are never pruned')
     p.add_argument('--rna-library', choices=['unstranded','firststrand','secondstrand'], default='unstranded', help='RNA library protocol for consensus evidence; default: unstranded')
+    p.add_argument('--keep-work', action='store_true', help='retain temporary search files after successful completion; failed runs always retain them')
     p.add_argument('--resume', action='store_true', help='resume only when inputs, parameters and implementation fingerprint agree')
     return p
 

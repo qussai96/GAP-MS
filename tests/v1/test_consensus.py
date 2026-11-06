@@ -8,7 +8,7 @@ import pysam
 import pytest
 from Bio.Seq import Seq
 
-from gapms_v1.cli import main, parser
+from gapms_v1.cli import main as cli_main, parser
 from gapms_v1.consensus_engine import prepare,finish,write_evidence,normalize_sources
 from gapms_v1.mapping import EvidenceStore
 from gapms_v1.models import load_models
@@ -42,18 +42,18 @@ def test_automatic_consensus_order_resume_and_native_equivalence(tmp_path,strand
     out=tmp_path/'out'
     cli=['-a',str(genome),'-p',str(peptides),'-g',str(annotations[0]),'-g',str(annotations[1]),'-o',str(out),'-t','1']
     assert main(cli)==0
-    summary=json.loads((out/'reports/summary.json').read_text())['consensus']
+    summary=json.loads((out/'diagnostics/reports/summary.json').read_text())['consensus']
     assert summary['engine']=='GeneSensus' and summary['engine_version']=='0.6.0a3'
     assert summary['primary_models']==1 and summary['additional_isoforms']==0 and not summary['reference_used']
-    independently_verify(genome,table(out/'mapping/mapped_peptides.tsv'))
-    mm=read_annotation(out/'consensus/annotation.gff3');assert len(mm)==1
+    independently_verify(genome,table(out/'diagnostics/mapping/mapped_peptides.tsv'))
+    mm=read_annotation(out/'diagnostics/consensus/annotation.gff3');assert len(mm)==1
     native=tmp_path/'native'
-    native_run(out/'work/consensus_inputs/config.json',native,threads=1,cache=out/'work/genesensus_cache')
+    native_run(out/'diagnostics/work/consensus_inputs/config.json',native,threads=1,cache=out/'diagnostics/work/genesensus_cache')
     for name in ['annotation.gff3','proteins.faa','primary_annotation.gff3','additional_isoforms.gff3','graph_report.json']:
-        assert (native/name).read_bytes()==(out/'consensus'/name).read_bytes()
+        assert (native/name).read_bytes()==(out/'diagnostics/consensus'/name).read_bytes()
     second=tmp_path/'second'
     assert main(['-a',str(genome),'-p',str(peptides),'-g',str(annotations[1]),'-g',str(annotations[0]),'-o',str(second),'-t','1'])==0
-    assert (second/'consensus/annotation.gff3').read_bytes()==(out/'consensus/annotation.gff3').read_bytes()
+    assert (second/'diagnostics/consensus/annotation.gff3').read_bytes()==(out/'diagnostics/consensus/annotation.gff3').read_bytes()
     assert main(cli+['--resume'])==0
     assert '--consensus ' not in parser().format_help()
 
@@ -105,7 +105,7 @@ def test_single_annotation_keeps_previous_workflow(tmp_path):
     genome,ann,peps=fixture(tmp_path)
     out=tmp_path/'out'
     assert main(['-a',str(genome),'-p',str(peps),'-g',str(ann[0]),'-o',str(out),'-t','1'])==0
-    assert not (out/'consensus').exists()
+    assert not (out/'diagnostics/consensus').exists()
 
 
 def test_consensus_rejects_unsupported_genetic_code_before_inference(tmp_path):
@@ -142,3 +142,8 @@ def test_adapter_uses_real_bam_geometry_without_extra_predictor_vote(tmp_path):
     assert result['primary_models']==1
     assert (output/'consensus/annotation.gff3').read_bytes()==(output/'consensus/primary_annotation.gff3').read_bytes()
     store.db.close()
+
+
+def main(argv):
+    """Scientific fixtures retain intermediates they independently inspect."""
+    return cli_main([*argv, "--keep-work"])

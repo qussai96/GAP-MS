@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from Bio.Seq import Seq
 
-from gapms_v1.cli import main
+from gapms_v1.cli import main as cli_main
 from test_mapping import dna, table, independently_verify
 
 
@@ -21,9 +21,9 @@ def run_case(tmp_path,sequence,models,peptides,strand='+',extra=()):
     annotation.write_text(''.join(lines))
     queries=tmp_path/'p.txt';queries.write_text('\n'.join(peptides)+'\n');out=tmp_path/'out'
     assert main(['-a',str(genome),'-g',str(annotation),'-p',str(queries),'-o',str(out),'-t','1',*extra])==0
-    independently_verify(genome,table(out/'mapping/mapped_peptides.tsv'))
-    assert not (out/'orfs').exists()
-    return out,table(out/'refinement/annotation_guided_events.tsv')
+    independently_verify(genome,table(out/'diagnostics/mapping/mapped_peptides.tsv'))
+    assert not (out/'diagnostics/orfs').exists()
+    return out/'diagnostics',table(out/'diagnostics/refinement/annotation_guided_events.tsv')
 
 
 @pytest.mark.parametrize('strand',['+','-'])
@@ -181,3 +181,8 @@ def test_known_stop_at_neighboring_gene_is_not_a_new_stop(tmp_path):
     assert not [r for r in rows if r['event_type']=='alternative_stop']
     c_events=[r for r in rows if r['event_type']=='c_terminal_extension']
     assert c_events and c_events[0]['boundary_status']=='extension_with_already_annotated_end'
+
+
+def main(argv):
+    """Scientific fixtures retain intermediates they independently inspect."""
+    return cli_main([*argv, "--keep-work"])

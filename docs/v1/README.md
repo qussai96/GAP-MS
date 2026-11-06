@@ -1,4 +1,4 @@
-# GAPMS 1.2.1
+# GAPMS 1.2.2
 
 GAPMS v1 maps mass-spectrometry peptide sequences to eukaryotic assemblies and
 organizes evidence for reviewing gene annotations. Genomic peptide locations are
@@ -68,7 +68,8 @@ optional. GTF/GFF3 transcript relationships, compressed annotation/assembly,
 and plain peptide lists, FASTA, CSV or TSV are supported. Table peptide columns
 are detected by common names or set with `--peptide-column`. I/L equivalence is
 always enabled. The default minimum peptide length is 7; shorter queries are
-reported in `mapping/excluded_peptides.tsv`. This threshold limits ambiguity,
+labeled in `unmapped_peptides.tsv` and recorded in
+`diagnostics/mapping/excluded_peptides.tsv`. This threshold limits ambiguity,
 not peptide identification error. Use a lower threshold explicitly for small
 peptide research. No uniqueness claim can cover unsearched splice structures.
 
@@ -83,15 +84,12 @@ Do not delete stage outputs selectively and expect resume to repair them.
 
 ## Results
 
-Start with `reports/summary.json`, `mapping/mapped_peptides.bed` and
-`mapping/mapped_peptides.tsv`. The `.igv.bed` track reverses negative-strand
-labels for display; use the standard BED for analysis.
-
-Annotation mode adds `annotation/gene_model_evidence.tsv`, supported-model GTF,
-and separate no-observed-support and ambiguous tables. RNA mode adds transcripts,
-junction observations, ORF evidence and novel ORF candidates. Integrated mode
-adds `refinement/annotation_change_proposals.tsv` and separate start, end and
-splice candidate tables and GTFs. Sources and original model IDs are retained.
+Open `report.html` first. The main directory contains the peptide BEDs,
+`unmapped_peptides.tsv`, the model assessment table and supported genes.
+Multiple annotations also produce `consensus.gff3` and `consensus_proteins.faa`.
+Nonempty proposal categories are under `review/`; technical detail is under
+`diagnostics/`. See [Finding your results](#finding-your-results) for the file list.
+Use `peptides.igv.bed` for display and `peptides.bed` for downstream analysis.
 
 Candidates need direct diagnostic evidence. Missing downstream peptides never
 justify a shorter coding sequence. A peptide elsewhere in a protein never
@@ -110,7 +108,63 @@ See [methods](SCIENTIFIC_METHODS.md), [output schemas](OUTPUT_FORMATS.md),
 
 The [RefSeq follow-up evaluation](evaluation/refseq_20261102/RESULTS.md) includes the nine-crop rerun, a 900-gene annotation-removal benchmark, and ambiguity boxplots for every observed peptide length. Read its [protocol and repeatability notes](evaluation/refseq_20261102/README.md) when using these results.
 
-In v1.0.4, `orfs/candidate_orfs.gtf` and `.faa` contain only ORFs with peptide support. The complete RNA prediction set is named `all_predicted_orfs.gtf`/`.faa` for audit; `orfs_without_peptide_support.tsv` lists unsupported predictions. Shared or ambiguous peptide support remains explicitly labeled. Peptide support alone does not establish novelty or validate a complete model.
+In the diagnostic RNA outputs, `orfs/candidate_orfs.gtf` and `.faa` contain only ORFs with peptide support. The complete RNA prediction set is named `all_predicted_orfs.gtf`/`.faa` for audit; `orfs_without_peptide_support.tsv` lists unsupported predictions. Shared or ambiguous peptide support remains explicitly labeled. Peptide support alone does not establish novelty or validate a complete model.
 
 
 With v1.1, `-a assembly.fna -p peptides.tsv -g models.gtf -o results` also produces annotation-guided local start, stop, extension and splice proposals without a BAM. Internal ATG-starting peptides with non-tryptic N-terminal context are considered even when their sequence is already contained in an annotated longer protein. Existing isoforms are checked before claiming a new feature. Uncertain boundaries remain unresolved; peptide-supported local changes do not validate a replacement transcript. Optional BAM junction evidence can strengthen a local proposal. See [technical methods](SCIENTIFIC_METHODS.md) for the default 3,000-nt terminal window, 30-nt splice-site window, single-exon skips and search caps. Full new ORF reconstruction continues to require BAM.
+
+
+## Finding your results
+
+Start with `report.html`. It links the result files and explains what the evidence
+supports. `report.log` is beside it and records progress, warnings and errors.
+
+With one annotation, the main files are:
+
+```text
+results/
+  report.html
+  report.log
+  supported_genes.gtf
+  all_proteins_scores.tsv
+  peptides.bed
+  peptides.igv.bed
+  unmapped_peptides.tsv
+  review/                  # only when proposals exist
+  diagnostics/
+```
+
+The input annotation is not duplicated. Its path and SHA-256 are recorded in the
+report. `supported_genes.gtf` preserves the supplied transcript structures with
+locus-discriminating peptide support; shared or uncertain support remains in the
+score table. Support does not establish every exon or protein boundary.
+
+With multiple annotations, `consensus.gff3` and `consensus_proteins.faa` are also
+produced. They are newly generated results. Review proposals are kept separate
+and are not automatically applied to the consensus.
+
+`review/` contains `candidates.tsv` and nonempty `alternative_start.gff3`,
+`alternative_stop.gff3`, `alternative_splice.gff3` and `novel_orfs.gff3` as relevant.
+Start/stop files also contain explicitly labeled terminal-extension proposals.
+Local evidence stays local; unresolved boundaries are not exported as invented
+complete transcripts. Novel RNA-derived ORFs remain labeled candidate models.
+
+`all_proteins_scores.tsv` retains the model-evidence columns and adds consensus
+selection and available source-model RNA support. It includes all supplied coding
+models and selected new graph proteins. V1 does not run the legacy classifier:
+`classifier_score` is `NA`, not a fabricated probability. Definitions are in the
+report and `diagnostics/score_columns.tsv`.
+
+`unmapped_peptides.tsv` distinguishes `unmapped_in_searched_space`, `rescue_only`
+and `not_searched_below_min_length`. Rescue-only placements remain exploratory;
+they are not added to the exact peptide BED or used for annotation decisions.
+
+Normalized consensus annotation/peptide inputs are retained in
+`diagnostics/consensus/inputs/`, with a relocation record for native provenance.
+Detailed tables, native GeneSensus decisions, input provenance and reconstruction
+records are under `diagnostics/`. The diagnostic subdirectory names retain their
+previous schemas. Temporary `diagnostics/work/` is removed after successful
+publication; use `--keep-work` to retain it for debugging or mapping-database work.
+Failed runs retain work and diagnostics. `--resume` still requires identical
+inputs, parameters and implementation. Existing 1.2.1 result folders are not
+migrated or overwritten.

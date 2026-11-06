@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from Bio.Seq import Seq
 
-from gapms_v1.cli import main
+from gapms_v1.cli import main as cli_main
 from gapms_v1.models import load_models, write_models
 from gapms._peplocus.io import prepare_reference
 import pysam
@@ -25,14 +25,14 @@ def test_genome_end_to_end_strands_frames_aliases_multiplicity(tmp_path):
     peptides=tmp_path/'peptides.tsv';peptides.write_text('sequence\nPEPTIDE\nPEPTLDE\nVVVVVVV\nAAA\n')
     out=tmp_path/'out'
     assert main(['-a',str(assembly),'-p',str(peptides),'-o',str(out),'-t','1'])==0
-    rows=table(out/'mapping/mapped_peptides.tsv')
+    rows=table(out/'diagnostics/mapping/mapped_peptides.tsv')
     independently_verify(assembly,rows)
     assert {r['strand'] for r in rows}=={'+','-'}
     assert {r['peptide'] for r in rows}=={'PEPTIDE','PEPTLDE'}
     assert all(int(r['loci_for_peptide'])==2 for r in rows)
-    assert [r['peptide'] for r in table(out/'mapping/excluded_peptides.tsv')]==['AAA']
-    assert [r['peptide'] for r in table(out/'mapping/unmapped_peptides.tsv')]==['VVVVVVV']
-    manifest=json.loads((out/'run_manifest.json').read_text());assert manifest['status']=='completed'
+    assert [r['peptide'] for r in table(out/'diagnostics/mapping/excluded_peptides.tsv')]==['AAA']
+    assert [r['peptide'] for r in table(out/'diagnostics/mapping/unmapped_peptides.tsv')]==['VVVVVVV']
+    manifest=json.loads((out/'diagnostics/run_manifest.json').read_text());assert manifest['status']=='completed'
     assert main(['-a',str(assembly),'-p',str(peptides),'-o',str(out),'-t','1','--resume'])==0
     assert not Path(str(assembly)+'.fai').exists()
     peptides.write_text('sequence\nPEPTIDE\n')
@@ -57,10 +57,10 @@ def test_annotation_split_codons_and_negative_strand(tmp_path,strand,cut):
     peptides=tmp_path/'peps.txt';peptides.write_text('PEPTIDE\n')
     output=tmp_path/'out'
     assert main(['-a',str(assembly),'-p',str(peptides),'-g',str(gtf),'-o',str(output),'-t','1'])==0
-    rows=table(output/'mapping/mapped_peptides.tsv')
+    rows=table(output/'diagnostics/mapping/mapped_peptides.tsv')
     independently_verify(assembly,rows)
     assert any(len(json.loads(r['blocks']))==2 and r['strand']==strand for r in rows)
-    model=table(output/'annotation/gene_model_evidence.tsv')[0]
+    model=table(output/'diagnostics/annotation/gene_model_evidence.tsv')[0]
     assert model['category']=='peptide_supported' and model['distinct_peptides']=='1'
     assert Path(str(assembly)+'.fai').exists()==False
 
@@ -72,10 +72,10 @@ def test_multiple_annotation_sources_conflicts_and_no_support(tmp_path):
     a.write_text('chr1\tx\tCDS\t1\t30\t.\t+\t0\ttranscript_id "same"; gene_id "a";\n')
     b.write_text('chr1\tx\tCDS\t61\t90\t.\t+\t0\tParent=same;gene_id=b\n')
     out=tmp_path/'out';assert main(['-a',str(assembly),'-p',str(p),'-g',str(a),'-g',str(b),'-o',str(out),'-t','1'])==0
-    rows=table(out/'annotation/gene_model_evidence.tsv')
+    rows=table(out/'diagnostics/annotation/gene_model_evidence.tsv')
     assert len({r['model_id'] for r in rows})==2
     assert {r['category'] for r in rows}=={'peptide_supported','no_observed_peptide_support'}
-    assert len(table(out/'annotation/no_peptide_support_gene_models.tsv'))==1
+    assert len(table(out/'diagnostics/annotation/no_peptide_support_gene_models.tsv'))==1
 
 
 def test_bad_inputs_fail_without_touching_inputs(tmp_path):
@@ -115,7 +115,7 @@ def test_microexon_and_full_cds_projection(tmp_path,strand):
     annotation.write_text(''.join(lines));peptides=tmp_path/'p';peptides.write_text('PEPTIDE\n')
     out=tmp_path/'out'
     assert main(['-a',str(assembly),'-p',str(peptides),'-g',str(annotation),'-o',str(out),'-t','1'])==0
-    rows=table(out/'mapping/mapped_peptides.tsv');assert any(len(json.loads(r['blocks']))==3 for r in rows)
+    rows=table(out/'diagnostics/mapping/mapped_peptides.tsv');assert any(len(json.loads(r['blocks']))==3 for r in rows)
     independently_verify(assembly,rows)
 
 
@@ -125,7 +125,7 @@ def test_nonstandard_genetic_code_and_multiple_frames(tmp_path):
     peptide=tmp_path/'p';peptide.write_text('PEPTWDE\n')
     out=tmp_path/'out'
     assert main(['-a',str(assembly),'-p',str(peptide),'-o',str(out),'-t','1','--genetic-code','4'])==0
-    rows=table(out/'mapping/mapped_peptides.tsv');assert len(rows)>=2
+    rows=table(out/'diagnostics/mapping/mapped_peptides.tsv');assert len(rows)>=2
     independently_verify(assembly,rows,4)
 
 
@@ -133,8 +133,8 @@ def test_identification_metadata_and_bad_quality(tmp_path):
     assembly=tmp_path/'g.fa';assembly.write_text('>chr1\n'+dna('MPEPTIDEK*')+'\n')
     p=tmp_path/'p.tsv';p.write_text('sequence\tq-value\tPEP\tspectra\nPEPTIDE\t0.1\t0.2\t3\n')
     out=tmp_path/'out';assert main(['-a',str(assembly),'-p',str(p),'-o',str(out),'-t','1'])==0
-    row=table(out/'mapping/mapped_peptides.tsv')[0];assert row['identification_quality']=='qvalue_fail'
-    original=json.loads(table(out/'mapping/peptide_identifications.tsv')[0]['original_record']);assert original['PEP']=='0.2' and original['spectra']=='3'
+    row=table(out/'diagnostics/mapping/mapped_peptides.tsv')[0];assert row['identification_quality']=='qvalue_fail'
+    original=json.loads(table(out/'diagnostics/mapping/peptide_identifications.tsv')[0]['original_record']);assert original['PEP']=='0.2' and original['spectra']=='3'
 
 
 def test_unstranded_rna_transcripts_are_extracted_plus_without_inventing_strand(tmp_path):
@@ -153,7 +153,12 @@ def test_single_column_casanovo_retains_duplicate_identifications_and_modificati
     peptides=tmp_path/'p.tsv';peptides.write_text('sequence\nPEPTIDE\nPEPTI[modification]DE\nPEPTIDE\n')
     output=tmp_path/'out'
     assert main(['-a',str(assembly),'-p',str(peptides),'-o',str(output),'-t','1'])==0
-    identifications=table(output/'mapping/peptide_identifications.tsv')
+    identifications=table(output/'diagnostics/mapping/peptide_identifications.tsv')
     assert len(identifications)==3 and len({r['identification_id'] for r in identifications})==3
     assert json.loads(identifications[1]['original_record'])['sequence']=='PEPTI[modification]DE'
-    assert len(table(output/'mapping/mapped_peptides.tsv'))==1
+    assert len(table(output/'diagnostics/mapping/mapped_peptides.tsv'))==1
+
+
+def main(argv):
+    """Scientific fixtures retain intermediates they independently inspect."""
+    return cli_main([*argv, "--keep-work"])

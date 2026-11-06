@@ -1,3 +1,18 @@
+# Public result layout (1.2.2)
+
+The main directory contains `report.html`, `report.log`, `peptides.bed`,
+`peptides.igv.bed` and `unmapped_peptides.tsv`. Annotation assessment also produces
+`supported_genes.gtf` and `all_proteins_scores.tsv`; multiple annotations add
+`consensus.gff3` and `consensus_proteins.faa`. Only nonempty proposal categories
+appear in `review/`. See [the user guide](README.md#finding-your-results).
+
+All native subdirectory paths described below are now **relative to
+`diagnostics/`**. For example, `mapping/mapped_peptides.tsv` is
+`diagnostics/mapping/mapped_peptides.tsv`. The workflow log used by users is
+`report.log` in the output root. Internal workflow logs remain diagnostic.
+Temporary `work/` is removed on success unless `--keep-work` is supplied.
+The frozen consensus algorithm and native scientific schemas are unchanged.
+
 # Output formats
 
 All TSV files have a header, including empty result tables. Lists, dictionaries

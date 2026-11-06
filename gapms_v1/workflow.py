@@ -50,7 +50,7 @@ def tool_versions(bam):
     return result
 
 
-def run(args):
+def _run(args):
     started=time.monotonic()
     args.output=args.output.resolve()
     if len(args.gtf)>1 and args.genetic_code!=1:
@@ -195,7 +195,7 @@ def run(args):
         write_json(args.output/'reports/summary.json',summary)
         after=[input_identity(p) for p in inputs]
         if identities!=after:raise RuntimeError('an input identity changed during the run')
-        manifest.update(status='completed',completed_utc=datetime.now(timezone.utc).isoformat(),seconds=summary['seconds'])
+        manifest.update(status='core_completed',completed_utc=datetime.now(timezone.utc).isoformat(),seconds=summary['seconds'])
         write_json(manifest_path,manifest)
         LOG.info('Completed: %s/%s peptide sequences mapped; results: %s',mapping_stats['mapped_peptides'],len(peptides),args.output)
     except BaseException as error:
@@ -206,3 +206,42 @@ def run(args):
     finally:
         if store is not None:store.db.close()
         LOG.removeHandler(handler);handler.close()
+
+
+def run(args):
+    """Keep the public directory small; execute native stages inside diagnostics."""
+    import copy
+    from .outputs import publish
+    root=args.output.resolve();diag=root/'diagnostics'
+    if root.exists() and any(root.iterdir()):
+        if not args.resume:
+            raise ValueError('output is nonempty; choose a new directory or use --resume for the same run')
+        if not (diag/'run_manifest.json').exists() and any(p.name not in {'report.log','diagnostics'} for p in root.iterdir()):
+            raise ValueError('resume requires an existing GAPMS run manifest')
+    root.mkdir(parents=True,exist_ok=True)
+    handler=logging.FileHandler(root/'report.log');handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(name)s: %(message)s'))
+    logger=logging.getLogger();level=logger.level;logger.setLevel(logging.INFO);logger.addHandler(handler)
+    internal=copy.copy(args);internal.output=diag
+    prior=diag/'run_manifest.json'
+    already_completed=prior.exists() and json.loads(prior.read_text()).get('status')=='completed'
+    try:
+        _run(internal)
+        if args.resume and already_completed and (root/'report.html').exists():
+            LOG.info('Results available: %s',root/'report.html');return
+        LOG.info('Publishing the result overview and review files')
+        publish(root,diag,args)
+        work=diag/'work'
+        if not args.keep_work and work.exists():
+            try:shutil.rmtree(work)
+            except OSError as error:LOG.warning('Temporary work could not be fully removed: %s',error)
+        manifest_path=diag/'run_manifest.json';manifest=json.loads(manifest_path.read_text())
+        manifest.update(status='completed',public_output=str(root),output_layout_version=1,work_retained=work.exists());write_json(manifest_path,manifest)
+        LOG.info('Results ready: %s',root/'report.html')
+    except BaseException as error:
+        path=diag/'run_manifest.json'
+        if path.exists():
+            manifest=json.loads(path.read_text());manifest.update(status='failed',error=str(error));write_json(path,manifest)
+        LOG.exception('Run failed; work and diagnostics retained')
+        raise
+    finally:
+        logger.removeHandler(handler);handler.close();logger.setLevel(level)

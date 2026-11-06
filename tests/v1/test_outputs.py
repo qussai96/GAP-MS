@@ -1,0 +1,68 @@
+import csv,json
+from pathlib import Path
+from urllib.parse import unquote
+import pytest
+from gapms_v1.cli import main
+from gapms_v1.outputs import review_features,publish
+from gapms_v1.assessment import EVENT_FIELDS
+from test_mapping import dna,table
+
+
+@pytest.mark.parametrize('multiple',[False,True])
+def test_public_layout_no_redundant_annotation_and_default_cleanup(tmp_path,multiple):
+    genome=tmp_path/'g.fa';genome.write_text('>c\n'+dna('MPEPTIDEK'+'ACDEFGHIK'*6+'*')+'\n')
+    peptides=tmp_path/'p.tsv';peptides.write_text('sequence\nPEPTIDEK\nVVVVVVV\nAAA\n')
+    ann=[]
+    for name in ['a','b']:
+        p=tmp_path/(name+'.gtf');p.write_text(f'c\tx\tCDS\t1\t{3*(9+9*6+1)}\t.\t+\t0\tgene_id "g"; transcript_id "t";\n');ann.append(p)
+    out=tmp_path/'out';argv=['-a',str(genome),'-p',str(peptides),'-g',str(ann[0]),'-o',str(out),'-t','1']
+    if multiple:argv+=['-g',str(ann[1])]
+    assert main(argv)==0
+    expected={'report.html','report.log','supported_genes.gtf','all_proteins_scores.tsv','peptides.bed','peptides.igv.bed','unmapped_peptides.tsv','diagnostics'}
+    if multiple:expected|={'consensus.gff3','consensus_proteins.faa'}
+    assert {p.name for p in out.iterdir()}==expected
+    assert not (out/'diagnostics/work').exists()
+    assert not (out/'annotation.gff3').exists()
+    rows={r['peptide']:r for r in table(out/'unmapped_peptides.tsv')}
+    assert rows['VVVVVVV']['status']=='unmapped_in_searched_space'
+    assert rows['AAA']['status']=='not_searched_below_min_length'
+    assert all(r['classifier_score']=='NA' for r in table(out/'all_proteins_scores.tsv'))
+    assert (out/'supported_genes.gtf').read_bytes()==(out/'diagnostics/annotation/supported_gene_models.gtf').read_bytes()
+    assert 'Results ready:' in (out/'report.log').read_text()
+    assert (out/'peptides.bed').read_bytes()==(out/'diagnostics/mapping/mapped_peptides.bed').read_bytes()
+    if multiple:assert (out/'consensus.gff3').read_bytes()==(out/'diagnostics/consensus/annotation.gff3').read_bytes()
+    html=(out/'report.html').read_text();assert ('Multi-annotation consensus' if multiple else 'Single-annotation assessment') in html
+    before=(out/'peptides.bed').read_bytes();assert main(argv+['--resume'])==0;assert (out/'peptides.bed').read_bytes()==before
+
+
+def test_failed_run_retains_work_and_parent_log(tmp_path,monkeypatch):
+    import gapms_v1.workflow as w
+    def failure(args):
+        (args.output/'work').mkdir(parents=True);(args.output/'work/proof').write_text('retain')
+        raise RuntimeError('deliberate stage failure')
+    monkeypatch.setattr(w,'_run',failure)
+    out=tmp_path/'out'
+    assert main(['-a','unused','-p','unused','-o',str(out)])==1
+    assert (out/'diagnostics/work/proof').read_text()=='retain'
+    assert 'deliberate stage failure' in (out/'report.log').read_text()
+    assert not (out/'report.html').exists()
+
+
+def test_local_proposal_gff_does_not_invent_transcript_boundaries(tmp_path):
+    row={k:'' for k in EVENT_FIELDS};row.update(event_id='event1',event_type='alternative_stop',chrom='c',strand='-',confidence='peptide_supported',boundary_status='termination_unresolved',whole_model_status='local_evidence_only',local_peptide_blocks='[[12,30],[80,92]]',diagnostic_junctions='[[30,80]]',proposed_feature_blocks='[]')
+    p=tmp_path/'proposals.gff3';review_features([row],p);lines=p.read_text().splitlines()[1:]
+    assert {l.split('\t')[2] for l in lines}=={'peptide_supported_region','splice_junction'}
+    assert not any('\tCDS\t' in l or '\tstop_codon\t' in l for l in lines)
+    assert all('proposal_requires_review=true' in l for l in lines)
+    row.update(event_type='alternative_start',proposed_feature_blocks='[[12,15]]')
+    review_features([row],p);assert '\tstart_codon\t13\t15\t' in p.read_text()
+
+
+def test_rescue_only_is_separate_from_exact_unmapped(tmp_path):
+    g=tmp_path/'g.fa';g.write_text('>c\n'+dna('MPEPTIDEKACDEFGHIK*')+'\n')
+    p=tmp_path/'p.txt';p.write_text('MAPEPTIDEKACDEFGHIK\n');out=tmp_path/'out'
+    assert main(['-a',str(g),'-p',str(p),'-o',str(out),'--rescue-one-edit','-t','1'])==0
+    rows=table(out/'unmapped_peptides.tsv');assert len(rows)==1
+    assert rows[0]['status']=='rescue_only' and int(rows[0]['rescue_loci'])>=1
+    assert not (out/'peptides.bed').read_text()
+    assert (out/'diagnostics/mapping/rescue/rescue_mappings.tsv').exists()

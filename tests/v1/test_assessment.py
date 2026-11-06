@@ -8,7 +8,7 @@ import pytest
 from Bio.Seq import Seq
 import pysam
 
-from gapms_v1.cli import main
+from gapms_v1.cli import main as cli_main
 from gapms_v1.models import Model
 from gapms_v1.assessment import assess, relationship, non_nested
 from gapms_v1.mapping import EvidenceStore
@@ -41,14 +41,14 @@ def test_rna_and_integrated_end_to_end(tmp_path,monkeypatch,with_annotation):
     output=tmp_path/'out';argv=['-a',str(assembly),'-p',str(peptides),'-b',str(bam),'-o',str(output),'-t','1']
     if with_annotation:argv+=['-g',str(reference)]
     assert main(argv)==0
-    novel=table(output/'orfs/novel_orf_candidates.tsv');assert len(novel)==1
+    novel=table(output/'diagnostics/orfs/novel_orf_candidates.tsv');assert len(novel)==1
     assert novel[0]['confidence']=='high_confidence_candidate'
     assert novel[0]['relationship']=='intergenic'
     assert novel[0]['distinct_diagnostic_peptides']=='2'
-    assert Path(output/'transcripts/rnaseq_junctions.tsv').exists()
+    assert Path(output/'diagnostics/transcripts/rnaseq_junctions.tsv').exists()
     if with_annotation:
-        assert len(table(output/'refinement/annotation_change_proposals.tsv'))==1
-        assert len(table(output/'annotation/no_peptide_support_gene_models.tsv'))==1
+        assert len(table(output/'diagnostics/refinement/annotation_change_proposals.tsv'))==1
+        assert len(table(output/'diagnostics/annotation/no_peptide_support_gene_models.tsv'))==1
     assert not Path(str(assembly)+'.fai').exists()
     assert not Path(str(bam)+'.bai').exists()
 
@@ -260,3 +260,8 @@ def test_candidate_exports_require_peptides_and_keep_ambiguous_support(tmp_path,
     assert all(int(r['distinct_peptides'])>0 for r in table(tmp_path/'orfs/partial_or_ambiguous_orfs.tsv'))
     if with_support:
         assert next(r for r in table(tmp_path/'orfs/orf_peptide_evidence.tsv') if r['model_id']=='shared')['category']=='ambiguous'
+
+
+def main(argv):
+    """Scientific fixtures retain intermediates they independently inspect."""
+    return cli_main([*argv, "--keep-work"])
