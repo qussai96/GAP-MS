@@ -8,7 +8,7 @@ from Bio.Seq import Seq
 
 from gapms_v1.cli import main,parser
 from gapms_v1.consensus import (make_candidate,merge_blocks,peptide_offset,overlap_nt,same_frame,
-    Observations,source_features,select_primary,fusion_reason,reconstruct_graph,finish,Candidate)
+    Observations,select_primary,fusion_reason,reconstruct_graph,finish,Candidate)
 from gapms_v1.consensus_rna import RNAEvidence,subtract
 from gapms_v1.mapping import EvidenceStore
 from gapms_v1.models import Model,load_models
@@ -57,8 +57,10 @@ def test_conserved_fractional_budget_and_nested_saturation(tmp_path):
 
 
 def test_source_votes_not_isoform_count(tmp_path):
- r=ref(tmp_path,dna('MPEPTIDEK*'));c=source(r,[(0,30)]);value=source_features(c,[c]);c.members.append(c.model);assert source_features(c,[c])==value
- d=source(r,[(0,30)],'B');assert source_features(c,[c,d])==2*value;r.close()
+ from gapms_v1.consensus_states import StateContext
+ r=ref(tmp_path,dna('MPEPTIDEK*'));c=source(r,[(0,30)]);c.features=dict(peptide_coding_nt=0,peptide_splice_nt=0)
+ value=StateContext([c]).features(c,RNAEvidence())['source_coding_nt'];c.members.append(c.model);assert StateContext([c]).features(c,RNAEvidence())['source_coding_nt']==value
+ d=source(r,[(0,30)],'B');assert StateContext([c,d]).features(c,RNAEvidence())['source_coding_nt']==2*value;r.close()
 
 
 def test_fusion_guard_separate_source_genes(tmp_path):
@@ -213,5 +215,55 @@ def test_source_junction_votes_require_codon_phase_not_just_coordinates(tmp_path
  r=ref(tmp_path,'ATG'*80);a=source(r,[(0,30),(60,90)]);b=source(r,[(1,30),(60,90)],'B')
  # Incorrect source phase cannot supply a splice vote for A; only A's own source can.
  b.model.issues=[]
- own=source_features(a,[a]);together=source_features(a,[a,b]);assert together==own
+ from gapms_v1.consensus_states import StateContext
+ a.features=dict(peptide_coding_nt=0,peptide_splice_nt=0);b.valid=True
+ own=StateContext([a]).features(a,RNAEvidence());together=StateContext([a,b]).features(a,RNAEvidence())
+ assert together['source_coding_nt']==own['source_coding_nt'] and together['source_splice_nt']==own['source_splice_nt']
  r.close()
+
+
+def test_structural_states_penalize_absent_predictor_span_without_missing_peptide_penalty(tmp_path):
+ from gapms_v1.consensus_states import StateContext
+ r=ref(tmp_path,'ATG'*150);a=source(r,[(0,90)],'A');b=source(r,[(300,390)],'B');e=RNAEvidence()
+ for c in [a,b]:c.features=dict(peptide_coding_nt=0,peptide_splice_nt=0)
+ ctx=StateContext([a,b]);f=ctx.features(a,e)
+ assert f['source_coding_nt']==90 and f['whole_span_intergenic_nt']==90
+ assert f['structurally_admitted'] and f['utility']==.0225 # fixed inherited 0.75, no peptide term
+ r.close()
+
+
+def test_structural_splice_support_uses_exact_phase_and_capped_source_counts(tmp_path):
+ from gapms_v1.consensus_states import StateContext
+ r=ref(tmp_path,'ATG'*100);a=source(r,[(0,30),(60,90)]);a.features=dict(peptide_coding_nt=0,peptide_splice_nt=0)
+ ctx=StateContext([a]);f=ctx.features(a,RNAEvidence());assert f['source_splice_nt']==30
+ a.members.append(a.model);assert StateContext([a]).features(a,RNAEvidence())==f
+ r.close()
+
+
+def test_novel_exon_pairing_requires_observed_role_and_frame(tmp_path):
+ from gapms_v1.consensus_states import StateContext
+ r=ref(tmp_path,'ATG'*100);a=source(r,[(0,30),(60,90)]);ctx=StateContext([a]);s=store(tmp_path);obs=Observations(s,{})
+ g=make_candidate('chr1','+',[(0,90)],r,1);g.features=obs.features(g)
+ assert not ctx.supports_exons(g,obs) # two source exon fragments cannot imply a whole new single exon
+ s.db.close();r.close()
+
+
+@pytest.mark.parametrize('guard',['supported','incumbent_unique','incumbent_RNA','failed_identification'])
+def test_conservative_source_splice_repair_preserves_incumbent_evidence(tmp_path,guard):
+ from gapms_v1.consensus_states import conservative_repair
+ sequence=list('C'*240)
+ for (a,b),protein in [((0,30),'MPEPTIDEKA'),((60,90),'ACDEFGHIKL'),((120,150),'VVFGHIKLMN'),((180,210),'QWERTYVFA*')]:sequence[a:b]=dna(protein)
+ for a,b in [(30,60),(90,180),(30,120),(150,180)]:sequence[a:a+2]='GT';sequence[b-2:b]='AG'
+ r=ref(tmp_path,''.join(sequence));a=source(r,[(0,30),(60,90),(180,210)]);b=source(r,[(0,30),(120,150),(180,210)],'B')
+ shared='MPEPTIDEKA';split='PTIDEKAVVFGHIKLMN';entries=[(shared,'+',[(0,30)],shared),(split,'+',[(9,30),(120,150)],split)]
+ if guard=='incumbent_unique':entries.append(('ACDEFGHIKL','+',[(60,90)],'ACDEFGHIKL'))
+ s=store(tmp_path,entries);mm=metadata([x[0] for x in entries])
+ if guard=='failed_identification':mm[split]['quality']='qvalue_fail'
+ obs=Observations(s,mm)
+ for c in [a,b]:c.features=obs.features(c)
+ e=RNAEvidence()
+ if guard=='incumbent_RNA':e.junction_templates['chr1',30,60,'.']={('',str(i)) for i in range(3)}
+ chosen,events=conservative_repair([a,b],[a],obs,e)
+ assert [c.id for c in chosen]==[b.id if guard=='supported' else a.id]
+ assert bool(events)==(guard=='supported')
+ s.db.close();r.close()

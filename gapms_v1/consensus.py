@@ -175,28 +175,6 @@ class Observations:
         return dict(hits=hits,hit_set=set(hits),unique=unique,peptide_coding_nt=coverage,peptide_splice_nt=splice)
 
 
-def source_features(c,locus):
-    coding=splice=0.
-    for source in {s for d in locus for s in d.sources}:
-        same=[m for d in locus for m in d.members if m.source==source and not m.issues]
-        # One vote/base/source, independent of isoform count.
-        ev=defaultdict(int)
-        for m in same:
-            for a,b in merge_blocks(m.coding):
-                for u,v in c.blocks:
-                    x,y=max(a,u),min(b,v)
-                    if x<y and offset(c.blocks,c.model.strand,x)%3==offset(merge_blocks(m.coding),m.strand,x)%3:ev[x]+=1;ev[y]-=1
-        active=0;prev=None
-        for p,d in sorted(ev.items()):
-            if prev is not None and active:coding+=p-prev
-            active+=d;prev=p
-        for a,b in junctions(c.blocks):
-            upstream=a-1 if c.model.strand=='+' else b
-            phase=offset(c.blocks,c.model.strand,upstream)
-            if any((a,b) in junctions(merge_blocks(m.coding)) and offset(merge_blocks(m.coding),m.strand,upstream)%3==phase%3 for m in same):splice+=1
-    return coding/1000.+.2*splice
-
-
 def reconstruct_graph(locus,reference,observations,args):
     """Two bounded searches: structural and unique-peptide guided, union kept."""
     report=dict(locus_id=stable_id('L',sorted(c.id for c in locus)),nodes=0,paths_pruned=0,candidates=0,skipped='',phase_rejections=0)
@@ -343,15 +321,17 @@ def finish(args,candidates,store,metadata,reference,rna,graph_reports,graph_seco
         if i%10000==0:LOG.info('Consensus evidence attached: %s/%s candidates',i,len(candidates))
         c.features=obs.features(c)
         c.features['rna_supported_junctions']=sum(rna_geometry.count(c.model.chrom,c.model.strand,a,b)>=3 for a,b in junctions(c.blocks))
+    from .consensus_states import StateContext,conservative_repair
+    state_context=StateContext(candidates);repair_events=[]
     for locus_number,locus in enumerate(locus_groups(candidates),1):
         if locus_number%5000==0:LOG.info('Consensus selection: %s regions processed',locus_number)
         for c in locus:
             guard=fusion_reason(c,locus)
             if guard:c.reasons.append(guard)
-            f=c.features;f['source_utility']=source_features(c,locus)
-            # All terms are explicitly heuristic; peptide bases do not inflate to full genes.
-            f['utility']=max(.001,f['source_utility']+(f['peptide_coding_nt']+f['peptide_splice_nt'])/1000.+.2*f['rna_supported_junctions'])
+            f=c.features;f.update(state_context.features(c,rna_geometry))
+            if not f['structurally_admitted'] or f['utility']<=0:c.reasons.append('structural_noncoding_preferred')
             if c.origin=='graph':
+                if not state_context.supports_exons(c,obs):c.reasons.append('unsupported_exon_pairing_or_source_frame')
                 # Novel combinations need local strong evidence; preserve all existing direct observations.
                 hits={k[0] for k in f['hits'] if obs.strong(k)}
                 split=any(obs.strong(k) and len(k[3])>1 and min(b-a for a,b in k[3])>=9 for k in f['hits'])
@@ -365,7 +345,9 @@ def finish(args,candidates,store,metadata,reference,rna,graph_reports,graph_seco
                 # A graph recombination without distinguishing evidence remains provisional.
                 source_competitors=[d for d in locus if d.origin!='graph' and overlap_nt(c.blocks,d.blocks)]
                 if source_competitors and not any(event_support(c,d,obs,rna,rna_geometry)[0] or event_support(c,d,obs,rna,rna_geometry)[1] for d in source_competitors):c.reasons.append('graph_no_distinguishing_splice_evidence')
-        chosen,solver,states=select_primary(locus,args);selection_reports.append(dict(locus_id=stable_id('L',sorted(c.id for c in locus)),solver=solver,states=states,candidates=len(locus)))
+        chosen,solver,states=select_primary(locus,args)
+        chosen,local_repairs=conservative_repair(locus,chosen,obs,rna_geometry);repair_events.extend(local_repairs)
+        selection_reports.append(dict(locus_id=stable_id('L',sorted(c.id for c in locus)),solver=solver,states=states,candidates=len(locus)))
         for c in chosen:c.status='primary';c.parent=stable_id('G',c.id);primaries.append(c)
         # Retain only full source-predicted alternative splice structures with event-specific support.
         for c in sorted(locus,key=lambda c:(-c.features['utility'],c.id)):
@@ -382,7 +364,7 @@ def finish(args,candidates,store,metadata,reference,rna,graph_reports,graph_seco
                     and (diagnostic or rna_ok) and sum(x.parent==p.parent for x in alternatives)<2):
                     c.status='supported_alternative';c.parent=p.parent;alternatives.append(c)
                     c.features['alternative_diagnostic_peptides']=diagnostic;c.features['alternative_RNA_support']=rna_ok
-            if c.reasons or not c.valid:c.status='rejected'
+            if c.reasons or not c.valid:c.status='unresolved' if c.valid and set(c.reasons)=={'structural_noncoding_preferred'} else 'rejected'
         for c in locus:
             competitors=[p.id for p in chosen if overlap_nt(c.blocks,p.blocks)>0 and p.id!=c.id]
             competing=[p for p in locus if p.id!=c.id and p.valid and overlap_nt(c.blocks,p.blocks)>0]
@@ -395,6 +377,8 @@ def finish(args,candidates,store,metadata,reference,rna,graph_reports,graph_seco
                 distinguishing_peptides=sorted(set(distinguishing)),peptide_coding_nt=round(c.features['peptide_coding_nt'],4),
                 peptide_splice_nt=round(c.features['peptide_splice_nt'],4),source_utility=round(c.features['source_utility'],6),
                 rna_supported_junctions=c.features['rna_supported_junctions'],utility=round(c.features['utility'],6),
+                structural_state={k:v for k,v in c.features.items() if k in ['source_coding_nt','source_splice_nt','whole_span_intergenic_nt','absent_coding_nt','intronic_contradiction_nt','opposite_intronic_nt','admission_positive_nt','equivalent_noncoding_nt','structurally_admitted','rna_coding_nt','rna_splice_nt']},
+                peptide_repair_incumbents=[e['incumbent'] for e in repair_events if e['candidate']==c.id],
                 reasons=sorted(set(c.reasons)) or ['selected_by_available_evidence_and_structural_utility' if c.status=='primary' else 'event_specific_peptide_or_RNA_support' if c.status=='supported_alternative' else 'insufficient_evidence_to_emit_additional_isoform'],
                 evidence_status='distinguishing_unique_peptide' if distinguishing else 'unique_regional_support' if c.features['unique'] else 'regional_or_structural_only',
                 quality='unknown' if any(obs.quality.get(s,set())=={'unknown'} for s in distinguishing) else 'see_peptide_identifications',
@@ -420,6 +404,8 @@ def finish(args,candidates,store,metadata,reference,rna,graph_reports,graph_seco
                  'Graph recombinations require distinguishing splice evidence; remaining paths stay in diagnostics.','Partial source models are retained as partial when selected; graph models require complete ORFs.',
                  'Secondary isoforms need a distinguishing unique splice peptide or qualified RNA support for all new junctions, >=95% new-coding-base coverage and whole-retained-intron spanning observations where applicable.',
                  'Short RNA observations do not phase full transcripts; predicted starts/stops are not experimentally established.'])
+    write_table(directory/'peptide_repairs.tsv',['candidate','incumbent','diagnostic_peptides'],repair_events)
+    stats.update(structural_policy='coding_noncoding_states',noncoding_coefficient=.75,peptide_contrast_repairs=len(repair_events))
     write_json(directory/'summary.json',stats);LOG.info('Consensus selected %s primaries and %s alternatives',len(primaries),len(alternatives))
     return stats
 

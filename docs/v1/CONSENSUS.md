@@ -80,21 +80,36 @@ weighted coding bases and its length, avoiding a full-intron bonus for a short
 junction peptide. Identification q-value failures do not supply selection
 utility or hard support. Unknown identification quality remains unknown.
 
-The transparent candidate utility is:
+Selection uses the coding-versus-noncoding state comparison documented in
+GeneSensus. Phase-compatible coding bases and exact phase-compatible introns
+receive one vote per predictor. A source intron vote is in genomic nucleotide
+units; this is distinct from the **bounded peptide** splice credit above.
 
 ```
-source_coding_nt / 1000 + 0.2 * source_junction_votes
-+ (weighted_peptide_coding_nt + bounded_peptide_splice_nt) / 1000
-+ 0.2 * qualified_RNA_supported_junction_count
+positive = source_coding_nt + source_splice_nt
+         + weighted_peptide_coding_nt + bounded_peptide_splice_nt
+         + qualified_RNA_coding_nt + qualified_RNA_splice_nt
+utility = (positive - 0.75 * whole_span_intergenic_nt) / 1000
 ```
 
-A floor of 0.001 permits an isolated valid source hypothesis to survive without
-measured peptide support. Source terms use in-frame coverage and saturate per
-predictor. Utilities are heuristic preferences, not calibrated correctness.
-There is no negative term for missing peptides. Partial originals are not
-penalized merely for lacking a start or stop; their boundaries remain flagged.
-Original issues such as internal stops, inconsistent phases or unknown coding
-bases prevent emission and remain in the rejection audit.
+Whole-span intergenic opportunity cost is the candidate span not covered by
+any gene span of each supplied predictor, summed per predictor. This is a
+structural prior from competing predictions, not experimentally observed
+noncoding sequence. Admission additionally requires positive support to reach
+0.75 times the sum of source-absent coding bases, coding bases overlapping
+source introns, opposite-strand intronic overlap and exact splice support.
+The fixed 0.75 coefficient follows the documented GeneSensus/EVM convention;
+it is not fitted to the crop references. Utilities are not probabilities.
+Neutral valid source hypotheses retain a small positive value. No new minimum
+length is imposed on existing source genes. Missing peptide observations add
+no penalty. Structurally disfavored sources remain unresolved, not assertions
+that the gene does not exist. Physical sequence/phase defects remain audited.
+
+RNA coding coverage is the union of qualified matched bases. A junction with
+N>=3 qualified templates contributes intron_length * N/(N+3), a bounded evidence
+utility rather than a transcript probability. With no BAM, both RNA terms are
+zero. A peptide can support only its observed translated bases and junction
+context; sparse support is never inflated to full-gene coverage.
 
 Same-strand coding overlap defines primary conflicts. An exact maximum-utility
 compatible set is found for up to 18 candidates per region; larger regions use
@@ -105,12 +120,24 @@ or overlapping genes sharing coding bases can remain unresolved by this rule.
 A candidate spanning two coding-disjoint, differently identified genes from
 one source is vetoed to guard against silent fusions.
 
-New graph combinations need strong local translation (two nonnested unique
+Every graph exon must retain a supplied first/internal/last/single-exon role
+and codon offset (including peptide-supported reconstructed RNA models), or
+be fully observed as an internal block of a unique peptide chain. This prevents
+freely pairing unsupported exon halves. New graph combinations need strong local translation (two nonnested unique
 sequences >=9 aa, or one unique split sequence >=9 aa with >=9 nt in each block)
 or qualified RNA-junction evidence. They must also distinguish a splice change
 from an overlapping source, keep all overlapping source unique peptides and
 qualified source RNA junctions, and satisfy the fusion/ORF guards. Other graph
 paths remain provisional/rejected, never emitted just because enumerated.
+
+After structural optimization, a conservative one-for-one splice repair may
+prefer a complete compatible candidate explaining a new unique split peptide
+or two nonnested unique sequences. Evidence must lie inside the incumbent
+locus, and the candidate must retain every incumbent unique sequence and
+qualified RNA junction. Shared coding bases must retain phase. At least one
+splice edge changes; this rule does not force a terminal extension. Changes
+are recorded in `peptide_repairs.tsv`. A strict gain of unique sequence support
+prevents repair cycles; two retained genes cannot be silently fused.
 
 ## Alternatives and RNA
 
@@ -153,7 +180,7 @@ without proving full-transcript phasing or translation initiation.
 - `decisions.tsv`: every coding candidate, utility components, support, issues,
   status, distinguishing observations, boundary status and competing primaries.
 - `source_model_mapping.tsv`: original source transcript to consensus candidate.
-- `graph_report.tsv`, `selection_report.tsv`: search and optimization limits.
+- `graph_report.tsv`, `selection_report.tsv`, `peptide_repairs.tsv`: search and optimization limits.
 - `summary.json`: counts, evidence policy and measured stage times.
 
 The GFF3 is coding-only: it does not invent UTRs, transcript ends or transcription
@@ -174,3 +201,15 @@ scores or target-reference training are introduced. GeneSensus 0.6.0a3 itself
 does not admit peptide-only secondary isoforms; the unique junction-peptide
 route above is GAPMS's explicit extension. Its thresholds are conservative
 heuristics requiring evaluation, not protein-level FDR estimates.
+
+## Development evaluation scope
+
+The initial positive-only selector (e888085) passed sequence integrity checks
+but had lower exact-CDS F1 than either predictor on the nine-crop development
+cohort. That unfavorable result is retained locally. The released policy adds
+the documented structural-state competition and conservative repair after
+that diagnostic. Each implementation is frozen before its own evaluation;
+these are retrospective development comparisons, not blind transfer tests.
+No crop-specific thresholds, target-reference features or numerical weight
+search are used. Cohort performance must be reported against both predictors
+and a matched structural-only consensus control, including losses.
