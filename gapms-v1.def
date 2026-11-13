@@ -3,6 +3,8 @@ From: /home/students/q.abbas/Git/GAP-MS/gapms.sif
 
 %files
     gapms_v1 /opt/gapms-v1/gapms_v1
+    README.md /opt/gapms-v1/README.md
+    THIRD_PARTY.md /opt/gapms-v1/THIRD_PARTY.md
     setup.py /opt/gapms-v1/setup.py
     pyproject.toml /opt/gapms-v1/pyproject.toml
     MANIFEST.in /opt/gapms-v1/MANIFEST.in
@@ -18,7 +20,7 @@ From: /home/students/q.abbas/Git/GAP-MS/gapms.sif
     rm -rf /var/lib/apt/lists/*
 
     cd /opt/gapms-v1
-    /opt/conda/bin/python -m pip install --no-cache-dir --no-deps .
+    /opt/conda/bin/python -m pip install --no-cache-dir .
 
 %test
     set -e
@@ -28,12 +30,12 @@ From: /home/students/q.abbas/Git/GAP-MS/gapms.sif
     done
     ps -eo pid,ppid,pcpu,pmem,comm >/dev/null
     cd /tmp
-    /opt/conda/bin/python -c 'from importlib.metadata import version; assert version("gapms")=="0.3.0"; assert version("gapms-v1")=="1.2.3"'
+    /opt/conda/bin/python -c 'from importlib.metadata import version; assert version("gapms")=="1.3.0"; assert version("peplocus")=="0.5.6"'
     /opt/conda/bin/gapms-v1 --help >/dev/null
 
 %runscript
     exec /opt/conda/bin/gapms-v1 "$@"
 
 %labels
-    Version 1.2.3
-    LegacyGAPMSVersion 0.3.0
+    Version 1.3.0
+    PepLocusVersion 0.5.6

@@ -125,16 +125,16 @@ def score_table(root,diag,args):
 
 
 
-def publish(root,diag,args):
+def publish(root,diag,args, *, refresh=False):
     summary=json.loads((diag/'reports/summary.json').read_text())
-    for source,name in [('mapped_peptides.bed','peptides.bed'),('mapped_peptides.igv.bed','peptides.igv.bed')]:
+    for source,name in [('mapped_peptides.bed','peptides.bed'),('mapped_peptides.igv.bed','peptides.igv.bed'),('tryptic_peptides.bed','peptides.tryptic.bed')]:
         expose(diag/'mapping'/source,root/name)
     supported=diag/'classification/supported_genes.gtf'
     if supported.exists():expose(supported,root/'supported_genes.gtf')
     if len(args.gtf)>1:
         expose(diag/'consensus/annotation.gff3',root/'consensus.gff3')
         expose(diag/'consensus/proteins.faa',root/'consensus_proteins.faa')
-    score_table(root,diag,args)
+    if not refresh:score_table(root,diag,args)
     rescue={r['peptide']:r for r in records(diag/'mapping/rescue/rescue_peptides.tsv')}
     unmapped=records(diag/'mapping/unmapped_peptides.tsv')
     for row in unmapped:
@@ -145,6 +145,9 @@ def publish(root,diag,args):
     write_table(root/'unmapped_peptides.tsv',['peptide_id','peptide','length','status','rescue_loci'],unmapped)
     events=records(diag/'refinement/annotation_change_proposals.tsv')
     events+=records(diag/'orfs/novel_orf_candidates.tsv')
+    # The annotation-change table can already contain RNA-derived novel ORFs.
+    # Export/count each event once, retaining distinct biological hypotheses.
+    events=list({row['event_id']:row for row in events}.values())
     review=root/'review'
     if review.exists():shutil.rmtree(review)
     if events:
@@ -172,6 +175,7 @@ def publish(root,diag,args):
     explanations={'supported_genes.gtf':'High-confidence rule seeds plus classifier-positive initially unlabeled transcripts; consensus models in multi-annotation runs. Structures are preserved.',
         'all_proteins_scores.tsv':'Legacy-format protein features and final confidence calls for the assessed annotation. Additional classifier and source details are in diagnostics/classification/.',
         'peptides.bed':'Standard BED12 for downstream analysis; peptide sequences remain in protein orientation.',
+        'peptides.tryptic.bed':'Tryptic-compatible exact placements; multiplicity and BED scores are counted independently within this subset.',
         'peptides.igv.bed':'IGV display track; negative-strand labels are reversed for visualization.',
         'unmapped_peptides.tsv':'Queries without an exact mapping, including separately labeled rescue-only and below-minimum-length sequences.',
         'consensus.gff3':'New consensus from all supplied predictions. Review proposals have not been automatically applied.',
@@ -247,3 +251,29 @@ def legacy_scores(root,diag,args):
         public.append(row)
     public.sort(key=lambda r:(r['supported']!='+',r['confidence'],-float(r['mapped_peptides']),r['Protein']))
     if rows or args.gtf:write_table(root/'all_proteins_scores.tsv',LEGACY_SCORE_FIELDS,public)
+
+
+def refresh_report(output):
+    """Rebuild presentation from completed diagnostics without rerunning science.
+
+    Core implementation provenance and cached score/RNA evidence are preserved.
+    Publication code identity is recorded separately after a successful refresh.
+    """
+    from types import SimpleNamespace
+    from datetime import datetime, timezone
+    from . import __version__
+    root=Path(output).resolve();diag=root/'diagnostics';path=diag/'run_manifest.json'
+    manifest=json.loads(path.read_text())
+    if manifest.get('status')!='completed':raise ValueError('report refresh requires a completed run')
+    params=dict(manifest['parameters']);params['output']=root
+    for key in ['assembly','peptides','bam']:
+        if params.get(key) is not None:params[key]=Path(params[key])
+    params['gtf']=[Path(p) for p in params.get('gtf',[])]
+    params['keep_work']=bool(manifest.get('work_retained',False))
+    publish(root,diag,SimpleNamespace(**params),refresh=True)
+    manifest['publication']=dict(version=__version__,refreshed_utc=datetime.now(timezone.utc).isoformat(),
+        implementation_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        preserved_core_implementation_sha256=manifest['implementation_sha256'],
+        note='Report/event deduplication refresh only; mapping, model assessment, classifier scores and RNA evidence were preserved.')
+    write_json(path,manifest)
+    return manifest['publication']

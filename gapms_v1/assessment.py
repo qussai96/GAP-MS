@@ -2,7 +2,7 @@
 from collections import Counter, defaultdict
 import json
 
-from gapms._peplocus.sequence import canonical
+from peplocus.sequence import canonical
 from .common import stable_id, write_table
 from .models import write_models, write_proteins
 

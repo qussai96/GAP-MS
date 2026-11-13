@@ -1,26 +1,36 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77.0.3", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "gapms-v1"
-version = "1.2.3"
-description = "Peptide-centric genome mapping and auditable annotation refinement"
-readme = "docs/v1/README.md"
-requires-python = ">=3.10,<3.11"
+name = "gapms"
+version = "1.3.0"
+description = "Gene model assessment and peptide-guided annotation refinement"
+readme = "README.md"
+requires-python = ">=3.10"
 authors = [{name = "Qussai Abbas", email = "qussai.abbas@tum.de"}]
-license = {text = "MIT"}
-dependencies = ["gapms==0.3.0"]
+license = "MIT"
+license-files = ["LICENSE", "THIRD_PARTY.md"]
+dependencies = [
+  "peplocus==0.5.6", "pandas>=1.5", "scipy>=1.10",
+  "scikit-learn>=1.2", "matplotlib>=3.6",
+  "xgboost-cpu>=2.1.4,<4; platform_system == 'Linux'",
+  "xgboost>=2.1.4,<4; platform_system != 'Linux'",
+]
 
 [project.scripts]
+gapms = "gapms_v1.cli:main"
 gapms-v1 = "gapms_v1.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/qussai96/GAP-MS"
 
 [tool.setuptools.packages.find]
 include = ["gapms_v1*"]
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-norecursedirs = ["gapms_sandbox", "dist", "build"]
-
 [tool.setuptools.package-data]
 "gapms_v1._genesensus" = ["LICENSE", "VENDORED.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/v1"]
+norecursedirs = ["gapms_sandbox", "dist", "build"]

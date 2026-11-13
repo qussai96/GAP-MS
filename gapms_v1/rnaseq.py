@@ -3,7 +3,7 @@ from pathlib import Path
 import shutil
 
 import pysam
-from gapms._peplocus.sequence import join_blocks
+from peplocus.sequence import join_blocks
 from .common import run_command
 from .models import load_models
 
@@ -50,7 +50,7 @@ def reconstruct(args, reference, lengths, commands):
                 out/'logs/transdecoder_longorfs.log', commands)
     run_command(['TransDecoder.Predict', '-t', fasta, '--cpu', args.threads], directory,
                 out/'logs/transdecoder_predict.log', commands)
-    from gapms.bam_search import convert_transdecoder_to_genome_gtf
+    from .orf_projection import convert_transdecoder_to_genome_gtf
     convert_transdecoder_to_genome_gtf(str(fasta)+'.transdecoder.gff3', transcripts, projected)
     from .common import write_json
     write_json(marker, {'completed':True,'projected_gtf':str(projected)})

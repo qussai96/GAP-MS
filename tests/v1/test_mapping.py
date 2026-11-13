@@ -7,7 +7,7 @@ from Bio.Seq import Seq
 
 from gapms_v1.cli import main as cli_main
 from gapms_v1.models import load_models, write_models
-from gapms._peplocus.io import prepare_reference
+from peplocus.io import prepare_reference
 import pysam
 
 

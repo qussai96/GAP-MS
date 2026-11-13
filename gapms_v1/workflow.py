@@ -11,10 +11,10 @@ import subprocess
 import time
 
 import pysam
-from gapms._peplocus.io import prepare_reference
-from gapms._peplocus.junctions import Junction, extract_bam, write_junctions
-from gapms._peplocus.annotation import read_annotation
-from gapms._peplocus.cli import main as peplocus_main
+from peplocus.io import prepare_reference
+from peplocus.junctions import Junction, extract_bam, write_junctions
+from peplocus.annotation import read_annotation
+from peplocus import map_peptides, __version__ as peplocus_version
 from . import __version__
 from .common import LOG, input_identity, stable_id, write_json, write_table
 from .peptides import load_peptides
@@ -23,21 +23,22 @@ from .mapping import EvidenceStore
 from .assessment import assess
 from .refinement import refine_annotations
 from . import consensus_engine as consensus
-from gapms.protein_mapper import ProteinMatcher
+from .protein_mapper import ProteinMatcher
 from .rnaseq import reconstruct, validate_bam
 
 
 def fingerprint():
     digest=hashlib.sha256()
-    import gapms
-    for root in [Path(__file__).parent,Path(gapms.__file__).parent]:
+    import peplocus
+    digest.update(peplocus_version.encode())
+    for root in [Path(__file__).parent,Path(peplocus.__file__).parent]:
         for path in sorted(root.rglob('*.py')):
             digest.update(str(path.relative_to(root)).encode());digest.update(path.read_bytes())
     return digest.hexdigest()
 
 
 def tool_versions(bam):
-    result={'pysam':pysam.__version__}
+    result={'pysam':pysam.__version__,'peplocus':peplocus_version}
     if bam:
         for name,flags in [('stringtie',['--version']),('TransDecoder.LongOrfs',['--version']),('TransDecoder.Predict',['--version'])]:
             executable=shutil.which(name)
@@ -111,7 +112,7 @@ def _run(args):
             rna_junctions=[];rna_stats={}
             rna_file=args.output/'transcripts/rnaseq_junctions.tsv'
             if args.bam:
-                from gapms._peplocus.junctions import read_junctions
+                from peplocus.junctions import read_junctions
                 cache=args.output/'work/rna_junction_stats.json'
                 if args.resume and rna_file.exists() and cache.exists():
                     rna_junctions=read_junctions(rna_file,reference,lengths,min_support=args.min_junction_support)
@@ -133,16 +134,17 @@ def _run(args):
             engine=args.output/'work/peplocus'
             if not(args.resume and (engine/'summary.json').exists()):
                 if engine.exists():shutil.rmtree(engine)
-                argv=['map','--genome',str(args.assembly),'--peptides',str(normalized),'--out',str(engine),'--threads',str(args.threads),
-                      '--genetic-code',str(args.genetic_code),'--min-length',str(args.min_length),'--igv-display-bed',
-                      '--max-junctions',str(args.max_junctions),'--max-paths-per-junction',str(args.max_paths_per_junction)]
-                if junctions:argv+=['--junctions',str(junction_file)]
-                if args.rescue_one_edit:argv+=['--rescue-one-edit','--rescue-min-length',str(args.rescue_min_length)]
-                manifest['commands'].append({'component':'bundled_peplocus','argv':argv})
+                options=dict(threads=args.threads,genetic_code=args.genetic_code,min_length=args.min_length,
+                    igv_display_bed=True,max_junctions=args.max_junctions,max_paths_per_junction=args.max_paths_per_junction)
+                if models:options['gtf']=str(combined)
+                if rna_junctions:options['junctions']=str(rna_file)
+                options['min_junction_support']=args.min_junction_support
+                if args.rescue_one_edit:options.update(rescue_one_edit=True,min_rescue_length=args.rescue_min_length)
+                manifest['commands'].append({'component':'peplocus','version':peplocus_version,
+                    'api':'peplocus.map_peptides','assembly':str(args.assembly),'peptides':str(normalized),'out':str(engine),'options':options})
                 write_json(manifest_path,manifest)
-                LOG.info('Mapping peptides against the assembly and unified splice paths')
-                result=peplocus_main(argv)
-                if result:raise RuntimeError(f'PepLocus failed with exit {result}')
+                LOG.info('Mapping peptides with PepLocus %s against the assembly and unified splice paths',peplocus_version)
+                map_peptides(args.assembly,normalized,engine,**options)
             engine_summary=json.loads((engine/'summary.json').read_text())
             args.splice_search_capped=engine_summary.get('search_scope',{}).get('splice_path_cap_reached',False)
             store_path=args.output/'work/evidence.sqlite'
@@ -183,8 +185,10 @@ def _run(args):
                    annotation_guided_search=refinement_stats,interpretation='Exact genomic placements, verified local annotation-guided paths and full-CDS projections; rescue is separate and excluded from model/event evidence.'))
         if args.rescue_one_edit:
             rescue=args.output/'mapping/rescue';rescue.mkdir(exist_ok=True)
-            for path in engine.glob('rescue_*'):
-                if path.is_file():shutil.copyfile(path,rescue/path.name)
+            shutil.copyfile(engine/'peptides.tsv',rescue/'rescue_peptides.tsv')
+            for name in ['mappings.tsv','peptides.tsv','all_mappings.bed','tryptic_mappings.bed']:
+                path=engine/'rescue'/name
+                if path.is_file():shutil.copyfile(path,rescue/('rescue_'+name if name in {'mappings.tsv','peptides.tsv'} else name))
         summary=dict(version=__version__,mode=manifest['mode'],consensus=consensus_stats,input=input_stats,mapping=mapping_stats,assessment=model_stats,annotation_guided_search=refinement_stats,rna_junctions=rna_stats,
                      seconds=round(time.monotonic()-started,3),scientific_limitations=[
                        'Mapping validates sequence compatibility, not peptide identification accuracy.',

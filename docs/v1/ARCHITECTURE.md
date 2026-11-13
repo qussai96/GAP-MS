@@ -1,3 +1,29 @@
+# Current architecture (1.3.0)
+
+The pip distribution is `gapms`, with the `gapms` console command and a
+`gapms-v1` compatibility alias. The package contains only `gapms_v1` and the
+frozen GeneSensus engine. It depends explicitly on PepLocus 0.5.6; it neither
+vendors an older mapper nor needs a GAPMS 0.3.0 wheel.
+
+The reusable protein matcher, confidence features/seed rules and TransDecoder
+coordinate projection are included directly in v1. All peptide mapping uses the
+standalone PepLocus API. Annotation junctions and thresholded RNA junctions are
+supplied separately; RNA alignments are scanned once. One protein automaton is
+reused across source/ORF/consensus associations. All exact placements remain in
+the union evidence store, with a separately counted tryptic-compatible subset.
+Approximate rescue stays outside model and annotation-change evidence.
+
+The public help lists biological inputs and threads. `--help-all` exposes
+technical controls. Pip installs CPU-only XGBoost on Linux; StringTie and
+TransDecoder remain explicit external requirements for RNA reconstruction.
+
+Public report generation deduplicates identical event IDs. `outputs.refresh_report`
+can rebuild completed reports without rerunning mapping or classification;
+scientific tables and core provenance are preserved and publication provenance
+is recorded separately.
+
+## Historical development notes
+
 # Architecture and baseline
 
 The baseline is GAPMS 0.3.0, commit `40cabc4`. Its 105 tests passed before

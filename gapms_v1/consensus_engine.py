@@ -12,7 +12,7 @@ from pathlib import Path
 import shutil
 import time
 
-from gapms._peplocus.sequence import canonical, join_blocks, translate
+from peplocus.sequence import canonical, join_blocks, translate
 from .common import LOG, stable_id, write_json, write_table
 from .models import Model
 from ._genesensus.config import load_config, input_paths

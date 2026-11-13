@@ -1,12 +1,10 @@
-include LICENSE
-include THIRD_PARTY.md
-include xgb_protein_classifier.pkl
-recursive-include docs/v1 *.md *.json *.tsv *.png *.pdf *.py
-recursive-include tests/v1 *.py
-recursive-include scripts *.py
-recursive-include packaging/legacy *.py *.toml *.in
-recursive-include gapms *.py
-include gapms/_peplocus/LICENSE
-
+include LICENSE THIRD_PARTY.md README.md
+recursive-include docs/v1 *.md
 include gapms_v1/_genesensus/LICENSE
 include gapms_v1/_genesensus/VENDORED.json
+prune docs/v1/evaluation
+prune gapms
+prune packaging
+prune tests
+prune build
+prune dist

@@ -1,7 +1,7 @@
-# Public result layout (1.2.3)
+# Public result layout (1.3.0)
 
 The main directory contains `report.html`, `report.log`, `peptides.bed`,
-`peptides.igv.bed` and `unmapped_peptides.tsv`. Annotation assessment also produces
+`peptides.igv.bed`, `peptides.tryptic.bed` and `unmapped_peptides.tsv`. Annotation assessment also produces
 `supported_genes.gtf` and `all_proteins_scores.tsv`; multiple annotations add
 `consensus.gff3` and `consensus_proteins.faa`. Only nonempty proposal categories
 appear in `review/`. See [the user guide](README.md#finding-your-results).
@@ -35,8 +35,9 @@ SHA256; larger files get a clearly labeled first/last-1-MiB sample hash, size an
 mtime, not a falsely claimed full checksum. A source-code fingerprint guards
 resume. External versions/paths, logged command arguments, Slurm job, host,
 status and timestamps support audit. Failed runs retain their error and logs.
-The source fingerprint also covers the installed legacy dependency's Python
-modules. `reports/annotation_sources.tsv` links source identifiers to input files.
+The source fingerprint also covers the installed PepLocus dependency's Python
+modules and version. A report-only refresh preserves this original core identity
+and records its publication implementation separately. `reports/annotation_sources.tsv` links source identifiers to input files.
 
 ## Mapping
 
@@ -44,9 +45,15 @@ modules. `reports/annotation_sources.tsv` links source identifiers to input file
   original peptide. Score is 1,000 for one placement and zero for multiple.
 - `mapped_peptides.igv.bed`: visualization BED12; minus-strand labels reversed.
 - `splice_peptides.bed`: standard BED12 subset with more than one block.
+- `tryptic_peptides.bed`: tryptic-compatible exact subset, exposed as
+  `peptides.tryptic.bed`; locus counts and scores are computed independently
+  within this subset. I/L aliases share a genomic evidence class.
 - `mapped_peptides.tsv`: `mapping_id`, `peptide_id`, `peptide`, `chrom`, `start`,
   `end`, `strand`, `blocks`, `matched_sequence`, `match_type`, `mapping_type`,
-  `evidence`, `loci_for_peptide`, `identification_quality`.
+  `evidence`, `loci_for_peptide`, `identification_quality`, `tryptic_compatible`,
+  `tryptic_loci_for_peptide`. Native PepLocus context is retained through genomic
+  import; verified protein projections and local paths can add compatible
+  contexts at the same genomic placement.
 - `peptide_locus_summary.tsv`: peptide, length, locus count and unique/multiple/
   unmapped status. I/L aliases share multiplicity but retain separate labels.
 - `unmapped_peptides.tsv`: peptide ID, sequence, length and
@@ -194,3 +201,5 @@ See [CONSENSUS.md](CONSENSUS.md) for the policy and its limits.
 ## Iterative confidence classification
 
 The public `supported_genes.gtf` is now the rule-seeded classifier result, distinct from the diagnostic `annotation/supported_gene_models.gtf` locus-support subset. See the [classification rules](README.md#supported-gene-models-123). Per-pool scores, models and recruitment summaries are retained in `classification/`. Public score columns match the 29-column legacy feature table exactly, including +/− support and high/moderate/no-support confidence. Seed labels, iterative labels and model probabilities remain in diagnostic score tables. Multi-input supported models are a subset of the selected consensus.
+
+Public review events are deduplicated by event ID before tables, GFF3s and figures are written. Distinct candidate models and component changes remain separate hypotheses; proposal rows are not counts of independent genes.

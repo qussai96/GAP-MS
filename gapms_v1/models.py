@@ -6,8 +6,8 @@ from pathlib import Path
 import re
 from urllib.parse import unquote
 
-from gapms._peplocus.annotation import _ATTRIBUTE, annotation_parents
-from gapms._peplocus.sequence import join_blocks, translate, project
+from peplocus.annotation import _ATTRIBUTE, annotation_parents
+from peplocus.sequence import join_blocks, translate, project
 from .common import stable_id
 
 

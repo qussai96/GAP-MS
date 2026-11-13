@@ -116,7 +116,7 @@ def test_consensus_rejects_unsupported_genetic_code_before_inference(tmp_path):
 
 def test_adapter_uses_real_bam_geometry_without_extra_predictor_vote(tmp_path):
     from dataclasses import replace
-    from gapms.protein_mapper import ProteinMatcher
+    from gapms_v1.protein_mapper import ProteinMatcher
     left=dna('M'+'A'*49);right=dna('A'*49+'*')
     genome=tmp_path/'g.fa';genome.write_text('>chr1\n'+left+'GT'+'A'*16+'AG'+right+'\n');pysam.faidx(str(genome))
     annotations=[]

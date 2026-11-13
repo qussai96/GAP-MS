@@ -1,6 +1,7 @@
 """Four biological input types; all other options control technical policy."""
 import argparse
 import logging
+import sys
 from pathlib import Path
 
 from . import __version__
@@ -13,12 +14,13 @@ def positive(text):
     return value
 
 
-def parser():
-    p = argparse.ArgumentParser(description='GAPMS v1: peptide-driven genome mapping and annotation evidence')
+def parser(advanced=False):
+    p = argparse.ArgumentParser(prog='gapms',description='GAPMS v1: peptide-driven genome mapping and annotation evidence')
+    p.add_argument('--help-all', action='store_true', help='show all controls and exit')
     p.add_argument('--version', action='version', version=f'GAPMS v1 {__version__}')
     p.add_argument('-a', '--assembly', type=Path, required=True)
     p.add_argument('-p', '--peptides', type=Path, required=True)
-    p.add_argument('-g', '--gtf', type=Path, action='append', default=[], help='repeat for automatic peptide-guided consensus of all supplied sources')
+    p.add_argument('-g', '--gtf', '--gff', type=Path, action='append', default=[], help='repeat for automatic peptide-guided consensus of all supplied sources')
     p.add_argument('-b', '--bam', type=Path)
     p.add_argument('-o', '--output', type=Path, required=True)
     p.add_argument('-t', '--threads', type=positive, default=8)
@@ -26,7 +28,7 @@ def parser():
     p.add_argument('--min-length', type=positive, default=7, help='minimum exact-match peptide length (default: 7); excluded queries are reported')
     p.add_argument('--genetic-code', type=positive, default=1)
     p.add_argument('--rescue-one-edit', action='store_true', help='separate exploratory rescue; never used as exact model/event evidence')
-    p.add_argument('--rescue-min-length', type=positive, default=12)
+    p.add_argument('--min-rescue-length', '--rescue-min-length', dest='rescue_min_length', type=positive, default=9)
     p.add_argument('--min-junction-support', type=positive, default=2)
     p.add_argument('--min-mapq', type=int, default=10)
     p.add_argument('--min-read-anchor', type=positive, default=8)
@@ -46,11 +48,19 @@ def parser():
     p.add_argument('--rna-library', choices=['unstranded','firststrand','secondstrand'], default='unstranded', help='RNA library protocol for consensus evidence; default: unstranded')
     p.add_argument('--keep-work', action='store_true', help='retain temporary search files after successful completion; failed runs always retain them')
     p.add_argument('--resume', action='store_true', help='resume only when inputs, parameters and implementation fingerprint agree')
+    if not advanced:
+        essential={'help','help_all','version','assembly','peptides','gtf','bam','output','threads'}
+        for action in p._actions:
+            if action.dest not in essential:action.help=argparse.SUPPRESS
     return p
 
 
 def main(argv=None):
+    argv=sys.argv[1:] if argv is None else list(argv)
+    if '--help-all' in argv:
+        parser(advanced=True).print_help();return 0
     args = parser().parse_args(argv)
+    del args.help_all
     if args.refinement_splice_window < 0:parser().error('refinement splice window must be nonnegative')
     if args.min_mapq < 0 or args.max_paths_per_junction < 0 or not 0 <= args.max_peptide_qvalue <= 1:
         parser().error('MAPQ/path cap must be nonnegative and q-value must be in [0,1]')

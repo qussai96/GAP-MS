@@ -1,4 +1,4 @@
-# GAPMS 1.2.3
+# GAPMS 1.3.0
 
 GAPMS v1 maps mass-spectrometry peptide sequences to eukaryotic assemblies and
 organizes evidence for reviewing gene annotations. Genomic peptide locations are
@@ -6,24 +6,20 @@ the common basis for annotation support, RNA-derived ORFs and proposed changes.
 The software reports candidates and uncertainty; sequence compatibility alone
 does not validate a peptide identification or a biological annotation change.
 
-V1 is a separate Python distribution and command. The existing GAPMS 0.3.0
-workflow remains available as `gapms`, including its original classifier.
+Version 1.3.0 is a self-contained pip distribution named `gapms`. Both `gapms`
+and `gapms-v1` run this workflow. PepLocus 0.5.6 is an explicit dependency;
+the old bundled mapper and GAPMS 0.3.0 wheel are not runtime dependencies.
 
 ## Installation
 
-Python 3.10 is required. From the separate development checkout:
+Python 3.10 or newer is required. Install the release wheel or this checkout:
 
 ```bash
-# Build the pinned dependency from the preserved legacy source in this branch.
-python -m pip install setuptools wheel
-python scripts/build_legacy_wheel.py --out dist
-python -m pip install dist/gapms-0.3.0-py3-none-any.whl .
-gapms-v1 --version
+python -m pip install gapms-1.3.0-py3-none-any.whl
+# From the source checkout:
+python -m pip install .
+gapms --version
 ```
-
-The dependency wheel can also be reused from an existing GAPMS 0.3.0 release.
-The build helper copies only source and model files to a temporary directory;
-it does not alter or replace the legacy command.
 
 BAM reconstruction additionally needs StringTie and TransDecoder on PATH:
 
@@ -31,8 +27,7 @@ BAM reconstruction additionally needs StringTie and TransDecoder on PATH:
 conda install -c conda-forge -c bioconda stringtie transdecoder=5.5.0
 ```
 
-Genome and annotation modes need no external mapping executable. The C-backed
-Python dependencies come through GAPMS 0.3.0. V1 uses its own Python transcript
+Genome and annotation modes need no external mapping executable. The C-backed Python dependencies are installed automatically with PepLocus. V1 uses its own Python transcript
 extraction and creates FASTA indexes inside the output, never beside inputs.
 
 ## Automatic multi-annotation consensus
@@ -63,6 +58,8 @@ gapms-v1 -a genome.fna -p peptides.tsv -b sorted.bam \
   -g helixer.gtf -g another.gff3 -t 8 -o integrated_results
 ```
 
+`gapms --help` shows common inputs; `gapms --help-all` shows technical controls.
+
 Assembly and peptides are required. Annotation and coordinate-sorted BAM are
 optional. GTF/GFF3 transcript relationships, compressed annotation/assembly,
 and plain peptide lists, FASTA, CSV or TSV are supported. Table peptide columns
@@ -73,7 +70,7 @@ labeled in `unmapped_peptides.tsv` and recorded in
 not peptide identification error. Use a lower threshold explicitly for small
 peptide research. No uniqueness claim can cover unsearched splice structures.
 
-Optional `--rescue-one-edit` searches engine-stage exact-unmapped peptides of at least 12 aa
+Optional `--rescue-one-edit` searches engine-stage exact-unmapped peptides of at least 9 aa
 by default. Rescue outputs are separate and do not contribute to exact model
 support or annotation proposals. All exact placements are retained.
 
@@ -129,6 +126,7 @@ results/
   all_proteins_scores.tsv
   peptides.bed
   peptides.igv.bed
+  peptides.tryptic.bed
   unmapped_peptides.tsv
   review/                  # only when proposals exist
   diagnostics/

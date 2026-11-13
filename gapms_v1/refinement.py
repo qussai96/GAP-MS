@@ -10,7 +10,7 @@ import time
 
 import ahocorasick
 
-from gapms._peplocus.sequence import canonical, join_blocks, translate, project
+from peplocus.sequence import canonical, join_blocks, translate, project
 from .assessment import EVENT_FIELDS, boundary
 from .common import LOG, stable_id, write_table
 from .mapping import locus_key
@@ -83,7 +83,7 @@ def refine_annotations(args, annotations, store, metadata, reference, rna_juncti
         if kind!='alternative_start' and (sequence,chrom,strand,encoded) in known_paths:return
         matched=translate(join_blocks(reference,chrom,strand,json.loads(encoded)),args.genetic_code)
         if canonical(matched)!=sequence:raise RuntimeError('annotation-guided projection verification failed')
-        store.add(peptide,chrom,strand,json.loads(encoded),matched,'annotation_guided')
+        store.add(peptide,chrom,strand,json.loads(encoded),matched,'annotation_guided',tryptic=bool(context.get('tryptic_n') and context.get('tryptic_c')))
         pending.append(dict(kind=kind,model=model,peptide=peptide,sequence=sequence,blocks=json.loads(encoded),encoded=encoded,context=context,edges=tuple(diagnostic_edges),status=status,feature=list(feature),upstream=upstream))
     def scan(model, segments, kind, old_offset, terminal_stop=False):
         if automaton is None:return

@@ -18,7 +18,7 @@ def test_public_layout_no_redundant_annotation_and_default_cleanup(tmp_path,mult
     out=tmp_path/'out';argv=['-a',str(genome),'-p',str(peptides),'-g',str(ann[0]),'-o',str(out),'-t','1']
     if multiple:argv+=['-g',str(ann[1])]
     assert main(argv)==0
-    expected={'report.html','report.log','supported_genes.gtf','all_proteins_scores.tsv','peptides.bed','peptides.igv.bed','unmapped_peptides.tsv','diagnostics'}
+    expected={'report.html','report.log','supported_genes.gtf','all_proteins_scores.tsv','peptides.bed','peptides.igv.bed','peptides.tryptic.bed','unmapped_peptides.tsv','diagnostics'}
     if multiple:expected|={'consensus.gff3','consensus_proteins.faa'}
     assert {p.name for p in out.iterdir()}==expected
     assert not (out/'diagnostics/work').exists()
@@ -78,3 +78,25 @@ def test_rescue_only_is_separate_from_exact_unmapped(tmp_path):
     assert rows[0]['status']=='rescue_only' and int(rows[0]['rescue_loci'])>=1
     assert not (out/'peptides.bed').read_text()
     assert (out/'diagnostics/mapping/rescue/rescue_mappings.tsv').exists()
+
+
+def test_refresh_preserves_scores_and_deduplicates_novel_proposals(tmp_path):
+    from gapms_v1.outputs import refresh_report
+    genome=tmp_path/'g.fa';genome.write_text('>c\n'+dna('MPEPTIDEKACDEFGHIK*')+'\n')
+    peptides=tmp_path/'p';peptides.write_text('PEPTIDEK\n')
+    out=tmp_path/'out'
+    assert main(['-a',str(genome),'-p',str(peptides),'-o',str(out),'-t','1'])==0
+    diag=out/'diagnostics'
+    row={k:'' for k in EVENT_FIELDS};row.update(event_id='same_event',event_type='novel_orf',chrom='c',start=0,end=27,strand='+',confidence='ambiguous',local_peptide_blocks='[[3,27]]',diagnostic_junctions='[]',candidate_cds_blocks='[]',peptides='["PEPTIDEK"]')
+    import csv
+    for relative in ['refinement/annotation_change_proposals.tsv','orfs/novel_orf_candidates.tsv']:
+        target=diag/relative;target.parent.mkdir(exist_ok=True)
+        with target.open('w') as f:
+            w=csv.DictWriter(f,delimiter='\t',fieldnames=EVENT_FIELDS);w.writeheader();w.writerow(row)
+    bed=(out/'peptides.bed').read_bytes()
+    provenance=refresh_report(out)
+    assert len(table(out/'review/candidates.tsv'))==1
+    assert (out/'peptides.bed').read_bytes()==bed
+    assert '1 proposal rows' in (out/'report.html').read_text()
+    assert json.loads((diag/'reports/overview_counts.json').read_text())['events']['novel_orf']==1
+    assert provenance['preserved_core_implementation_sha256']

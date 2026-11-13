@@ -7,8 +7,8 @@ import pandas as pd
 from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold
 from sklearn.base import clone
 from xgboost import XGBClassifier
-from gapms.extract import engineer_features
-from gapms.model_utils import get_high_confident_proteins, get_low_confident_proteins, ITERATIVE_FEATURE_COLS
+from .confidence_features import engineer_features
+from .confidence_features import get_high_confident_proteins, get_low_confident_proteins, ITERATIVE_FEATURE_COLS
 from .common import LOG, write_json
 from .models import load_models, write_models
 

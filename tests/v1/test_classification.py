@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 import pandas as pd
 from gapms_v1.classification import classify,features
-from gapms.extract import engineer_features
+from gapms_v1.confidence_features import engineer_features
 
 
 def frame():
@@ -51,7 +51,8 @@ def test_il_dedup_repeated_motif_and_quality():
 
 def test_features_match_legacy_extractor(tmp_path,monkeypatch):
     import pysam
-    import gapms.extract as legacy
+    import pytest
+    legacy=pytest.importorskip("gapms.extract",reason="optional development-only legacy equivalence fixture")
     from gapms_v1.models import load_models,write_models,write_proteins
     from test_mapping import dna
     genome=tmp_path/'g.fa';genome.write_text('>c\n'+dna('MPEPTIDEKACDEFGHIK*')+'\n')
@@ -67,7 +68,7 @@ def test_features_match_legacy_extractor(tmp_path,monkeypatch):
     expected=pd.read_csv(tmp_path/'all_proteins_scores.tsv',sep='\t').iloc[0]
     hits={m.id:[dict(peptide=p,canonical=p.replace('I','L'),aa_start=a,aa_end=b) for p,a,b in peptides]}
     actual=features(models,hits,{p:dict(quality='unknown') for p,a,b in peptides}).iloc[0]
-    from gapms.model_utils import ITERATIVE_FEATURE_COLS
+    from gapms_v1.confidence_features import ITERATIVE_FEATURE_COLS
     for column in ITERATIVE_FEATURE_COLS+['splice_sites','supported_splice_sites']:
         assert actual[column]==expected[column],column
 

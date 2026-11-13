@@ -4,7 +4,7 @@ import gzip
 import json
 from pathlib import Path
 
-from gapms._peplocus.io import read_peptides, normalize_peptide, HEADERS
+from peplocus.io import read_peptides, normalize_peptide, HEADERS
 from .common import stable_id, write_table
 
 
