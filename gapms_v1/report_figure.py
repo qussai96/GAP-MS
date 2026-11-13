@@ -17,7 +17,10 @@ def overview(root,diag,args,summary,events):
     splice=sum(int(r['splice_peptides']) for r in rows)
     internal=sum(int(r['internal_peptides']) for r in rows)
     # Each review proposal is counted once; a proposal is not a distinct gene.
-    counts=Counter(e['event_type'] for e in {e['event_id']:e for e in events}.values())
+    unique_events=list({e['event_id']:e for e in events}.values())
+    counts=Counter(e['event_type'] for e in unique_events)
+    ambiguous=Counter(e['event_type'] for e in unique_events if e['confidence']=='ambiguous')
+    specific=counts-ambiguous
     categories=[('novel_orf','Novel ORF'),('alternative_start','Alternative start'),('n_terminal_extension','N-terminal extension'),
                 ('alternative_stop','Alternative stop'),('c_terminal_extension','C-terminal extension'),('alternative_splice','Alternative splice')]
     plt.rcParams.update({'font.family':'DejaVu Sans','font.size':11,'svg.fonttype':'none'})
@@ -38,7 +41,11 @@ def overview(root,diag,args,summary,events):
     from matplotlib.patches import Patch
     left.legend(handles=[Patch(color=teal,label='Mapped'),Patch(color=blue,label='Terminal'),Patch(color=orange,label='Splice'),Patch(color='#8a74a6',label='Internal'),Patch(color=gray,label='Remaining')],loc='upper left',bbox_to_anchor=(-.03,-.18),ncol=3,frameon=False,fontsize=10)
     values=[counts[k] for k,label in categories]
-    right.barh(range(len(values)),values,color=[teal,blue,blue,orange,orange,'#8a74a6'],height=.58)
+    specific_values=[specific[k] for k,label in categories]
+    ambiguous_values=[ambiguous[k] for k,label in categories]
+    right.barh(range(len(values)),specific_values,color=teal,height=.58,label='Specific support')
+    right.barh(range(len(values)),ambiguous_values,left=specific_values,color='#b8bfc5',height=.58,label='Ambiguous support')
+    right.legend(loc='upper left',bbox_to_anchor=(-.03,-.18),frameon=False,fontsize=10)
     right.set(yticks=range(len(values)),yticklabels=[label for k,label in categories],xlabel='Proposals')
     right.invert_yaxis();right.set_title('B  Changes to review',loc='left',fontweight='bold',pad=18)
     maximum=max(values,default=0);right.set_xlim(0,max(1,maximum)*1.25)
@@ -50,6 +57,6 @@ def overview(root,diag,args,summary,events):
     fig.subplots_adjust(left=.15,right=.97,top=.85,bottom=.24,wspace=.85)
     directory=diag/'reports';svg=directory/'overview.svg';png=directory/'overview.png'
     fig.savefig(svg);fig.savefig(png,dpi=180);plt.close(fig)
-    write_json(directory/'overview_counts.json',dict(peptides=total,mapped=mapped,peptide_protein_pairs=pairs,N_terminal=n,C_terminal=c,splice=splice,internal=internal,events=dict(counts),annotation='consensus' if len(args.gtf)>1 else 'supplied' if args.gtf else 'RNA_ORFs'))
+    write_json(directory/'overview_counts.json',dict(peptides=total,mapped=mapped,peptide_protein_pairs=pairs,N_terminal=n,C_terminal=c,splice=splice,internal=internal,events=dict(counts),events_specific=dict(specific),events_ambiguous=dict(ambiguous),annotation='consensus' if len(args.gtf)>1 else 'supplied' if args.gtf else 'RNA_ORFs'))
     data=base64.b64encode(svg.read_bytes()).decode('ascii')
     return '<h2>Overview</h2><img style="width:100%;height:auto" alt="Peptide mapping, terminal and splice support, and review proposal counts" src="data:image/svg+xml;base64,'+data+'"><p><a href="diagnostics/reports/overview.svg">SVG</a> · <a href="diagnostics/reports/overview.png">PNG</a></p>'

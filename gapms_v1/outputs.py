@@ -197,7 +197,8 @@ def publish(root,diag,args, *, refresh=False):
     text+=figure
     text+='<h2>Main results</h2><table><tr><th>File</th><th>Meaning</th></tr>'+main+'</table>'
     if (root/'all_proteins_scores.tsv').exists():text+='<p>'+link('diagnostics/score_columns.tsv','Score-table column definitions')+'</p>'
-    text+='<h2>Changes to review</h2><p>'+str(len(events))+' proposal rows; these are not counts of distinct genes. Start/stop files also include explicitly labeled terminal-extension proposals. Uncertain boundaries remain unresolved.</p><ul>'+review_links+'</ul>'
+    specific_events=sum(e['confidence']!='ambiguous' for e in events)
+    text+='<h2>Changes to review</h2><p>'+str(len(events))+' proposal rows ('+str(specific_events)+' with specific support; '+str(len(events)-specific_events)+' with ambiguous support); these are not counts of distinct genes. Start/stop files also include explicitly labeled terminal-extension proposals. Uncertain boundaries remain unresolved.</p><ul>'+review_links+'</ul>'
     text+='<h2>Supplied annotations</h2><p>'+('These inputs were merged to produce the consensus.' if multi else 'The supplied annotation was assessed, not rewritten or automatically corrected.')+'</p><table><tr><th>Input path</th><th>SHA-256</th></tr>'+inp+'</table>'
     text+='<details><summary>Methods, limitations and detailed evidence</summary><ul>'+notes+'</ul><p>'+link('diagnostics/reports/summary.json','Run summary')+' · '+link('diagnostics/run_manifest.json','Input and software provenance')+' · '+link('diagnostics/','Detailed diagnostics')+'</p><p>Temporary work '+('is retained (--keep-work).' if args.keep_work else 'is removed after successful completion. Use --keep-work to retain it; failed runs retain their work.')+'</p></details></body></html>'
     temporary=root/'report.html.partial';temporary.write_text(text);temporary.replace(root/'report.html')
@@ -272,7 +273,7 @@ def refresh_report(output):
     params['keep_work']=bool(manifest.get('work_retained',False))
     publish(root,diag,SimpleNamespace(**params),refresh=True)
     manifest['publication']=dict(version=__version__,refreshed_utc=datetime.now(timezone.utc).isoformat(),
-        implementation_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        implementation_sha256=hashlib.sha256(Path(__file__).read_bytes()+Path(__file__).with_name('report_figure.py').read_bytes()).hexdigest(),
         preserved_core_implementation_sha256=manifest['implementation_sha256'],
         note='Report/event deduplication refresh only; mapping, model assessment, classifier scores and RNA evidence were preserved.')
     write_json(path,manifest)

@@ -98,5 +98,9 @@ def test_refresh_preserves_scores_and_deduplicates_novel_proposals(tmp_path):
     assert len(table(out/'review/candidates.tsv'))==1
     assert (out/'peptides.bed').read_bytes()==bed
     assert '1 proposal rows' in (out/'report.html').read_text()
-    assert json.loads((diag/'reports/overview_counts.json').read_text())['events']['novel_orf']==1
+    counts=json.loads((diag/'reports/overview_counts.json').read_text())
+    assert counts['events']['novel_orf']==1
+    assert counts['events_ambiguous']['novel_orf']==1
+    assert counts['events_specific'].get('novel_orf',0)==0
+    assert '0 with specific support; 1 with ambiguous support' in (out/'report.html').read_text()
     assert provenance['preserved_core_implementation_sha256']
