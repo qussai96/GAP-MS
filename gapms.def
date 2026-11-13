@@ -9,7 +9,6 @@ From: mambaorg/micromamba:1.5.8
     pyproject.toml /opt/gapms-v1/pyproject.toml
     MANIFEST.in /opt/gapms-v1/MANIFEST.in
     LICENSE /opt/gapms-v1/LICENSE
-    docs/v1 /opt/gapms-v1/docs/v1
 
 %post
     set -e

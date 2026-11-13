@@ -24,7 +24,7 @@ apptainer pull gapms.sif oras://docker.io/qussaiab96/gapms:latest
 apptainer run gapms.sif -a assembly.fa -p peptides.tsv -g genes.gtf
 ```
 
-See [container instructions](packaging/CONTAINERS.md) for Docker Hub.
+See [container instructions](docs/CONTAINERS.md) for Docker Hub.
 
 ## Run
 

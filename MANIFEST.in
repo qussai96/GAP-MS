@@ -1,10 +1,7 @@
 include LICENSE THIRD_PARTY.md README.md
-recursive-include docs/v1 *.md
+recursive-include docs *.md
 include gapms_v1/_genesensus/LICENSE
 include gapms_v1/_genesensus/VENDORED.json
-prune docs/v1/evaluation
-prune gapms
-prune packaging
 prune tests
 prune build
 prune dist

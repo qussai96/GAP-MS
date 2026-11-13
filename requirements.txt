@@ -1,2 +1,0 @@
-# Install the local package using the dependency versions in pyproject.toml.
-.

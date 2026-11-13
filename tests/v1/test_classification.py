@@ -49,28 +49,6 @@ def test_il_dedup_repeated_motif_and_quality():
     assert row.C_terminal_peptides==0
 
 
-def test_features_match_legacy_extractor(tmp_path,monkeypatch):
-    import pysam
-    import pytest
-    legacy=pytest.importorskip("gapms.extract",reason="optional development-only legacy equivalence fixture")
-    from gapms_v1.models import load_models,write_models,write_proteins
-    from test_mapping import dna
-    genome=tmp_path/'g.fa';genome.write_text('>c\n'+dna('MPEPTIDEKACDEFGHIK*')+'\n')
-    pysam.faidx(str(genome))
-    ann=tmp_path/'a.gtf'
-    ann.write_text('c\tx\tCDS\t1\t54\t.\t+\t0\tgene_id "g"; transcript_id "t";\n')
-    with pysam.FastaFile(str(genome)) as ref:models=load_models(ann,'a',ref,{'c':54})
-    m=models[0];write_models(models,ann);faa=tmp_path/'p.fa';write_proteins(models,faa)
-    peptides=[(p,m.protein.index(p),m.protein.index(p)+len(p)) for p in ['PEPTIDEK','ACDEFGHIK']]
-    mapping=tmp_path/'mapping.tsv';mapping.write_text('peptide\tprotein\tlocation\n'+''.join(f'{p}\t{m.id}\t{a+1}\n' for p,a,b in peptides))
-    monkeypatch.setattr(legacy,'plot_mapped_percentage_bars',lambda *a,**k:None)
-    legacy.extract_features(ann,faa,mapping,tmp_path)
-    expected=pd.read_csv(tmp_path/'all_proteins_scores.tsv',sep='\t').iloc[0]
-    hits={m.id:[dict(peptide=p,canonical=p.replace('I','L'),aa_start=a,aa_end=b) for p,a,b in peptides]}
-    actual=features(models,hits,{p:dict(quality='unknown') for p,a,b in peptides}).iloc[0]
-    from gapms_v1.confidence_features import ITERATIVE_FEATURE_COLS
-    for column in ITERATIVE_FEATURE_COLS+['splice_sites','supported_splice_sites']:
-        assert actual[column]==expected[column],column
 
 
 def test_minus_strand_coding_is_already_in_translation_order():

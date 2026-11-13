@@ -1,55 +1,16 @@
-# Ignore container images
+# Local release artifacts and containers
 *.sif
 *.simg
 *.img
-
-# Python
+gapms_sandbox/
+gapms-*_sandbox/
+dist/
+build/
+*.egg-info/
+# Python and editor caches
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# IDE
+.pytest_cache/
+.venv/
 .vscode/
 .idea/
-*.swp
-*.swo
-*~
-
-# Local docs and exploratory content not for GitHub
-ANNOTATION_COMPARISON_QUICK_REF.md
-ANNOTATION_COMPARISON_README.md
-APPTAINER_GUIDE.md
-Web-portal/
-testing/
-gapms_sandbox/
-tests/test_pipeline_output/
-tests/gapms_full_*.out
-tests/gapms_full_*.err
-tests/test_braker_carrot/
-evaluation/peplocus_integration/
-.pytest_cache/
-
-evaluation/feature_speed/
-
-evaluation/model_metadata/
-
-tests/tutorial_image_output_*/
-container-build-*.log
-container-sandbox-*.log
