@@ -8,7 +8,7 @@ annotations and identify peptide-supported changes for review.
 Python 3.10 or newer:
 
 ```bash
-pip install gapms==1.3.2
+pip install gapms
 ```
 
 For runs with a BAM file, also install the RNA reconstruction tools:
@@ -24,7 +24,6 @@ apptainer build --fakeroot gapms-1.3.2.sif gapms.def
 apptainer run gapms-1.3.2.sif -a assembly.fa -p peptides.tsv -g genes.gtf
 ```
 
-Version 1.3.2 must be uploaded to PyPI before the pip command above is available.
 See [container instructions](packaging/CONTAINERS.md) for Docker Hub.
 
 ## Run
