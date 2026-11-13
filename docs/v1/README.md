@@ -21,6 +21,10 @@ python -m pip install .
 gapms --version
 ```
 
+If you installed the earlier `gapms-v1` development distribution, uninstall it
+first with `python -m pip uninstall gapms-v1`. It pins legacy GAPMS and shares the
+Python namespace with this release. A fresh environment does not need this step.
+
 BAM reconstruction additionally needs StringTie and TransDecoder on PATH:
 
 ```bash

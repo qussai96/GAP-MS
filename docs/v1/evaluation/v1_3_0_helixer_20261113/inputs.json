@@ -1,0 +1,92 @@
+[
+  {
+    "id": "GCF_001625215.2_Daucus_carota",
+    "species": "Daucus carota",
+    "assembly": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_001625215.2_Daucus_carota/inputs/genomic/GCF_001625215.2_DH1_v3.0_genomic.fna",
+    "gtf": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_001625215.2_Daucus_carota/inputs/helixer/GCF_001625215.2_Daucus_carota.helixer.gtf",
+    "bam": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_001625215.2_Daucus_carota/inputs/varus/sorted_VARUS.bam",
+    "refseq": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_001625215.2_Daucus_carota/inputs/reference/GCF_001625215.2_Daucus_carota.ref.gtf",
+    "peptides": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_001625215.2_Daucus_carota/outputs/fragpipe/helixer/combined_peptide.peptides.tsv",
+    "output": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_001625215.2_Daucus_carota/outputs/gapms/GAPMS_V1_3_0_helixer_fragpipe"
+  },
+  {
+    "id": "GCF_020520425.1_Spinacia_oleracea",
+    "species": "Spinacia oleracea",
+    "assembly": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_020520425.1_Spinacia_oleracea/inputs/genomic/GCF_020520425.1_BTI_SOV_V1_genomic.fna",
+    "gtf": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_020520425.1_Spinacia_oleracea/inputs/helixer/GCF_020520425.1_Spinacia_oleracea.helixer.gtf",
+    "bam": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_020520425.1_Spinacia_oleracea/inputs/varus/sorted_VARUS.bam",
+    "refseq": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_020520425.1_Spinacia_oleracea/inputs/reference/GCF_020520425.1_Spinacia_oleracea.ref.gtf",
+    "peptides": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_020520425.1_Spinacia_oleracea/outputs/fragpipe/helixer/combined_peptide.peptides.tsv",
+    "output": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_020520425.1_Spinacia_oleracea/outputs/gapms/GAPMS_V1_3_0_helixer_fragpipe"
+  },
+  {
+    "id": "GCF_022201045.2_Citrus_sinensis",
+    "species": "Citrus sinensis",
+    "assembly": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_022201045.2_Citrus_sinensis/inputs/genomic/GCF_022201045.2_DVS_A1.0_genomic.fna",
+    "gtf": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_022201045.2_Citrus_sinensis/inputs/helixer/GCF_022201045.2_Citrus_sinensis.helixer.gtf",
+    "bam": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_022201045.2_Citrus_sinensis/inputs/varus/sorted_VARUS.bam",
+    "refseq": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_022201045.2_Citrus_sinensis/inputs/reference/GCF_022201045.2_Citrus_sinensis.ref.gtf",
+    "peptides": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_022201045.2_Citrus_sinensis/outputs/fragpipe/helixer/combined_peptide.peptides.tsv",
+    "output": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_022201045.2_Citrus_sinensis/outputs/gapms/GAPMS_V1_3_0_helixer_fragpipe"
+  },
+  {
+    "id": "GCF_025177605.1_Cucumis_melo",
+    "species": "Cucumis melo",
+    "assembly": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_025177605.1_Cucumis_melo/inputs/genomic/GCF_025177605.1_USDA_Cmelo_AY_1.0_genomic.fna",
+    "gtf": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_025177605.1_Cucumis_melo/inputs/helixer/GCF_025177605.1_Cucumis_melo.helixer.gtf",
+    "bam": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_025177605.1_Cucumis_melo/inputs/varus/sorted_VARUS.bam",
+    "refseq": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_025177605.1_Cucumis_melo/inputs/reference/GCF_025177605.1.ref.gtf",
+    "peptides": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_025177605.1_Cucumis_melo/outputs/fragpipe/helixer/combined_peptide.peptides.tsv",
+    "output": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_025177605.1_Cucumis_melo/outputs/gapms/GAPMS_V1_3_0_helixer_fragpipe"
+  },
+  {
+    "id": "GCF_036512215.1_Solanum_lycopersicum",
+    "species": "Solanum lycopersicum",
+    "assembly": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_036512215.1_Solanum_lycopersicum/inputs/genomic/GCF_036512215.1_SLM_r2.1_genomic.fna",
+    "gtf": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_036512215.1_Solanum_lycopersicum/inputs/helixer/GCF_036512215.1_Solanum_lycopersicum.helixer.gtf",
+    "bam": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_036512215.1_Solanum_lycopersicum/inputs/varus/sorted_VARUS.bam",
+    "refseq": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_036512215.1_Solanum_lycopersicum/inputs/reference/GCF_036512215.1_Solanum_lycopersicum.ref.gtf",
+    "peptides": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_036512215.1_Solanum_lycopersicum/outputs/fragpipe/helixer/combined_peptide.peptides.tsv",
+    "output": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_036512215.1_Solanum_lycopersicum/outputs/gapms/GAPMS_V1_3_0_helixer_fragpipe"
+  },
+  {
+    "id": "GCF_042453785.1_Malus_domestica",
+    "species": "Malus domestica",
+    "assembly": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_042453785.1_Malus_domestica/inputs/genomic/GCF_042453785.1_GDT2T_hap1_genomic.fna",
+    "gtf": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_042453785.1_Malus_domestica/inputs/helixer/GCF_042453785.1_Malus_domestica.helixer.gtf",
+    "bam": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_042453785.1_Malus_domestica/inputs/varus/sorted_VARUS.bam",
+    "refseq": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_042453785.1_Malus_domestica/inputs/reference/GCF_042453785.1_Malus_domestica.ref.gtf",
+    "peptides": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_042453785.1_Malus_domestica/outputs/fragpipe/helixer/combined_peptide.peptides.tsv",
+    "output": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_042453785.1_Malus_domestica/outputs/gapms/GAPMS_V1_3_0_helixer_fragpipe"
+  },
+  {
+    "id": "GCF_902167145.1_Zea_mays",
+    "species": "Zea mays",
+    "assembly": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_902167145.1_Zea_mays/inputs/genomic/GCF_902167145.1_Zm-B73-REFERENCE-NAM-5.0_genomic.fna",
+    "gtf": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_902167145.1_Zea_mays/inputs/helixer/GCF_902167145.1_Zea_mays.helixer.gtf",
+    "bam": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_902167145.1_Zea_mays/inputs/varus/sorted_VARUS.bam",
+    "refseq": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_902167145.1_Zea_mays/inputs/reference/GCF_902167145.1_Zea_mays.ref.gtf",
+    "peptides": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_902167145.1_Zea_mays/outputs/fragpipe/helixer/combined_peptide.peptides.tsv",
+    "output": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_902167145.1_Zea_mays/outputs/gapms/GAPMS_V1_3_0_helixer_fragpipe"
+  },
+  {
+    "id": "GCF_904849725.1_Hordeum_vulgare",
+    "species": "Hordeum vulgare",
+    "assembly": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_904849725.1_Hordeum_vulgare/inputs/genomic/GCF_904849725.1_MorexV3_pseudomolecules_assembly_genomic.fna",
+    "gtf": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_904849725.1_Hordeum_vulgare/inputs/helixer/GCF_904849725.1_Hordeum_vulgare.helixer.gtf",
+    "bam": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_904849725.1_Hordeum_vulgare/inputs/varus/sorted_VARUS.bam",
+    "refseq": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_904849725.1_Hordeum_vulgare/inputs/reference/GCF_904849725.1_Hordeum_vulgare.ref.gtf",
+    "peptides": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_904849725.1_Hordeum_vulgare/outputs/fragpipe/helixer/combined_peptide.peptides.tsv",
+    "output": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_904849725.1_Hordeum_vulgare/outputs/gapms/GAPMS_V1_3_0_helixer_fragpipe"
+  },
+  {
+    "id": "GCF_963169125.1_Humulus_lupulus",
+    "species": "Humulus lupulus",
+    "assembly": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_963169125.1_Humulus_lupulus/inputs/genomic/GCF_963169125.1_drHumLupu1.1_genomic.fna",
+    "gtf": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_963169125.1_Humulus_lupulus/inputs/helixer/GCF_963169125.1_Humulus_lupulus.helixer.gtf",
+    "bam": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_963169125.1_Humulus_lupulus/inputs/varus/sorted_VARUS.bam",
+    "refseq": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_963169125.1_Humulus_lupulus/inputs/reference/GCF_963169125.1_Humulus_lupulus.ref.gtf",
+    "peptides": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_963169125.1_Humulus_lupulus/outputs/fragpipe/helixer/combined_peptide.peptides.tsv",
+    "output": "/home/students/q.abbas/GAPMS/0-raw_files/GCF_963169125.1_Humulus_lupulus/outputs/gapms/GAPMS_V1_3_0_helixer_fragpipe"
+  }
+]

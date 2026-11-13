@@ -73,6 +73,11 @@ measure peptide identification error.
 See the [technical guide](docs/v1/README.md), [methods](docs/v1/SCIENTIFIC_METHODS.md)
 and [output schemas](docs/v1/OUTPUT_FORMATS.md).
 
+## Validation
+
+The release passed 84 regression tests and a nine-crop evaluation with independent
+coordinate and translation checks. See the [validation report](docs/v1/evaluation/v1_3_0_helixer_20261113/VALIDATION.md).
+
 ## Cite
 
 [GAPMS manuscript on bioRxiv](https://www.biorxiv.org/content/10.64898/2026.03.17.712294v3).
