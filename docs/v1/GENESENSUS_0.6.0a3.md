@@ -192,7 +192,7 @@ thresholds and source evidence must be chosen before reference evaluation.
   release. Do not precreate the output directory.
 
 The generic input formats, existing score logic, caches and advanced selection
-modes are documented in [the package guide](README.md) and
+modes are documented in [the package guide](../../README.md) and
 [the inherited molecular guide](MOLECULAR_STRATEGY.md). The shared-parent
 isoform grouping also applies to full/consensus annotations when the associated
 primary is present. A subset lacking that primary keeps a valid standalone gene

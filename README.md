@@ -28,15 +28,20 @@ See [container instructions](packaging/CONTAINERS.md) for Docker Hub.
 
 ## Run
 
-- **Assembly + peptides:** map peptides to the six-frame genome translation.
+- **Assembly + peptides:**
+map peptides to the six-frame genome translation.
   `gapms -a assembly.fa -p peptides.tsv`
-- **Add BAM:** include RNA-supported splice paths and reconstruct peptide-supported ORF candidates.
+- **Add BAM:**
+include RNA-supported splice paths and reconstruct peptide-supported ORF candidates.
   `gapms -a assembly.fa -p peptides.tsv -b sorted.bam`
-- **Add annotation:** map across annotated exons, score gene models and propose supported changes.
+- **Add annotation:**
+map across annotated exons, score gene models and propose supported changes.
   `gapms -a assembly.fa -p peptides.tsv -g genes.gtf`
-- **Annotation + BAM:** combine gene-model assessment with RNA-supported reconstruction.
+- **Annotation + BAM:**
+combine gene-model assessment with RNA-supported reconstruction.
   `gapms -a assembly.fa -p peptides.tsv -g genes.gtf -b sorted.bam`
-- **Multiple annotations:** automatically build a peptide-guided consensus. BAM is optional here too.
+- **Multiple annotations:**
+automatically build a peptide-guided consensus. BAM is optional here too.
   `gapms -a assembly.fa -p peptides.tsv -g helixer.gtf -g another.gff3`
 
 GTF and GFF3 are accepted. BAM files must be coordinate-sorted and use the
@@ -63,9 +68,6 @@ are considered before proposing changes. Without an input annotation, RNA-derive
 ORFs are candidates whose novelty cannot be assessed. Peptide support does not
 validate every boundary of a gene model.
 
-[Technical guide](docs/v1/README.md) ·
-[Five-mode validation of 1.3.2](docs/v1/evaluation/five_modes_hop_20261113/REPORT.md)
-
 ## Cite
 
-[GAP-MS manuscript on bioRxiv](https://www.biorxiv.org/content/10.64898/2026.03.17.712294v3)
+[GAP-MS manuscript](https://www.biorxiv.org/content/10.64898/2026.03.17.712294v3)
