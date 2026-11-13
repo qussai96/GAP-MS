@@ -1,26 +1,31 @@
-# Containers
+# Apptainer
 
-Build from the release checkout, not an older source directory.
+The published image is a SIF stored on Docker Hub using ORAS:
+
+```bash
+apptainer pull gapms.sif oras://docker.io/qussaiab96/gapms:latest
+apptainer run --bind /path/to/data:/data gapms.sif -a /data/assembly.fa -p /data/peptides.tsv -g /data/genes.gtf -o /data/results
+```
+
+Use the `oras://` address to pull this image. The `latest` tag currently contains
+GAPMS 1.3.2. Check the downloaded version with `apptainer run gapms.sif --version`.
+
+The image includes StringTie, TransDecoder 5.5.0 and procps (`ps`) for Nextflow task
+metrics. Runs use CPUs; no GPU option is needed.
+
+## Build from source
+
+From the release checkout:
 
 ```bash
 apptainer build --fakeroot gapms-1.3.2.sif gapms.def
-apptainer run --bind /path/to/data:/data gapms-1.3.2.sif -a /data/assembly.fa -p /data/peptides.tsv -g /data/genes.gtf -o /data/results
 ```
 
-Docker Hub accepts Docker/OCI images, not a SIF as a Docker image. To publish:
+Maintainers can publish the SIF with:
 
 ```bash
-docker build -t qussai96/gapms:1.3.2 .
-docker run --rm qussai96/gapms:1.3.2 --version
-docker login
-docker push qussai96/gapms:1.3.2
+apptainer push gapms-1.3.2.sif oras://docker.io/qussaiab96/gapms:latest
 ```
 
-After publication, Apptainer users can also pull the Docker image:
-
-```bash
-apptainer pull gapms-1.3.2.sif docker://qussai96/gapms:1.3.2
-```
-
-The image includes StringTie, TransDecoder 5.5.0 and procps (`ps`), including
-support for Nextflow task metrics. No GPU or `--nv` option is needed.
+A Dockerfile is also provided for users who want to build a Docker/OCI image.
+The published ORAS artifact is intended for Apptainer.

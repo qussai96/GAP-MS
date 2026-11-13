@@ -17,11 +17,11 @@ For runs with a BAM file, also install the RNA reconstruction tools:
 conda install -c conda-forge -c bioconda stringtie transdecoder=5.5.0
 ```
 
-Alternatively, build an Apptainer image from this checkout. It includes these tools:
+Or use the Apptainer image, which includes the RNA reconstruction tools:
 
 ```bash
-apptainer build --fakeroot gapms-1.3.2.sif gapms.def
-apptainer run gapms-1.3.2.sif -a assembly.fa -p peptides.tsv -g genes.gtf
+apptainer pull gapms.sif oras://docker.io/qussaiab96/gapms:latest
+apptainer run gapms.sif -a assembly.fa -p peptides.tsv -g genes.gtf
 ```
 
 See [container instructions](packaging/CONTAINERS.md) for Docker Hub.
