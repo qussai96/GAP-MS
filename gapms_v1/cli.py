@@ -22,8 +22,9 @@ def parser(advanced=False):
     p.add_argument('-p', '--peptides', type=Path, required=True)
     p.add_argument('-g', '--gtf', '--gff', type=Path, action='append', default=[], help='repeat for automatic peptide-guided consensus of all supplied sources')
     p.add_argument('-b', '--bam', type=Path)
-    p.add_argument('-o', '--output', type=Path, required=True)
+    p.add_argument('-o', '--output', type=Path, default=Path('GAPMS_output'), help='output directory (default: ./GAPMS_output)')
     p.add_argument('-t', '--threads', type=positive, default=8)
+    p.add_argument('--non-tryptic', action='store_true', help='use all exact placements as evidence instead of only trypsin-compatible placements')
     p.add_argument('--peptide-column')
     p.add_argument('--min-length', type=positive, default=7, help='minimum exact-match peptide length (default: 7); excluded queries are reported')
     p.add_argument('--genetic-code', type=positive, default=1)
@@ -49,7 +50,7 @@ def parser(advanced=False):
     p.add_argument('--keep-work', action='store_true', help='retain temporary search files after successful completion; failed runs always retain them')
     p.add_argument('--resume', action='store_true', help='resume only when inputs, parameters and implementation fingerprint agree')
     if not advanced:
-        essential={'help','help_all','version','assembly','peptides','gtf','bam','output','threads'}
+        essential={'help','help_all','version','assembly','peptides','gtf','bam','output','threads','non_tryptic'}
         for action in p._actions:
             if action.dest not in essential:action.help=argparse.SUPPRESS
     return p

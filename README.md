@@ -10,7 +10,7 @@ Multiple annotations are combined automatically using the included GeneSensus en
 Requires Python 3.10 or newer. Install the release wheel with pip:
 
 ```bash
-python -m pip install gapms-1.3.0-py3-none-any.whl
+python -m pip install gapms-1.3.2-py3-none-any.whl
 ```
 
 Or install this checkout:
@@ -21,7 +21,7 @@ python -m pip install .
 
 The package installs the `gapms` command and PepLocus 0.5.6 automatically. It does
 not require a separate legacy GAPMS installation. `gapms-v1` remains an alias.
-The 1.3.0 artifacts must be published before `pip install gapms==1.3.0` can be
+The 1.3.2 artifacts must be published before `pip install gapms==1.3.2` can be
 used from PyPI.
 
 RNA reconstruction also needs StringTie and TransDecoder on PATH:
@@ -42,8 +42,16 @@ gapms -a assembly.fna -p peptides.tsv -g helixer.gtf -b sorted.bam -o results
 gapms -a assembly.fna -p peptides.tsv -g helixer.gtf -g another.gff3 -o results
 ```
 
-Assembly, peptides and an output directory are required; GTF/GFF and BAM are
-optional. Eight worker processes are used by default. Use `-t` to change this.
+Assembly and peptides are required; GTF/GFF and BAM are optional. If `-o` /
+`--output` is omitted, results are saved to `GAPMS_output` in the directory where
+you run the command. Use `-o` to choose another output directory. Eight worker processes are used by default. Use `-t` to change this.
+Gene scoring, classification, consensus and candidate discovery use
+trypsin-compatible exact placements by default. Add `--non-tryptic` to use all
+exact placements for these analyses (for example, with another digestion enzyme).
+Both mapping BED tracks are always written. Ambiguity for analysis is counted
+within the selected evidence set; the all-mapping track retains all-locus counts.
+Compatibility includes possible methionine starts and initiator-methionine removal;
+these exceptions do not establish a biological translation start.
 Isoleucine and leucine are always equivalent. Peptides shorter than seven
 residues are excluded by default and reported separately.
 
@@ -81,3 +89,16 @@ coordinate and translation checks. See the [validation report](docs/v1/evaluatio
 ## Cite
 
 [GAPMS manuscript on bioRxiv](https://www.biorxiv.org/content/10.64898/2026.03.17.712294v3).
+
+Version 1.3.1 changes the default analysis evidence to the tryptic-compatible subset.
+The linked nine-crop validation describes version 1.3.0 with all exact evidence;
+use `--non-tryptic` to retain that evidence policy.
+
+Version 1.3.2 reuses pre-extracted splice junctions and bounded protein-sequence
+search results across consensus/classification passes. Without an input annotation,
+RNA-derived ORFs remain peptide-supported candidates; novelty is not assessed.
+
+RNA reconstruction assigns stable transcript IDs from genomic structures and gene
+groups, retains the original StringTie IDs, and fixes Perl hash ordering for
+TransDecoder. Identical RNA inputs were verified to produce identical ORF structures
+and protein sequences in separate BAM-only and GTF+BAM runs.

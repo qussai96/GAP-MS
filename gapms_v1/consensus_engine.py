@@ -32,14 +32,14 @@ class GraphModel:
 
 
 def write_evidence(store, metadata, path):
-    """Keep all placements, including off-model ones, of each eligible I/L class."""
+    """Keep policy-eligible placements, including off-model ones, of each eligible I/L class."""
     quality = defaultdict(set)
     for peptide, row in metadata.items():
         quality[canonical(peptide)].add(row['quality'])
     excluded = {p for p, qq in quality.items() if qq == {'qvalue_fail'}}
     rows = 0
     with path.open('w') as f:
-        query = 'SELECT DISTINCT canonical,chrom,strand,blocks FROM hits ORDER BY chrom,strand,canonical,blocks'
+        query = 'SELECT DISTINCT canonical,chrom,strand,blocks FROM active_hits ORDER BY chrom,strand,canonical,blocks'
         for peptide, chrom, strand, encoded in store.db.execute(query):
             if peptide in excluded:
                 continue
@@ -161,14 +161,14 @@ def finish(args, context, store, metadata, reference, rna, graph_reports, graph_
                     exons=bb,cds=bb,protein=aa,coding=bb if row['strand']=='+' else list(reversed(bb)),
                     complete_start=True,complete_stop=True)
                 additional_graphs.append(model);context['graph_ids'].add(identifier)
-        before=store.db.execute('SELECT COUNT(*) FROM hits').fetchone()[0]
+        before=store.db.execute('SELECT COUNT(*) FROM active_hits').fetchone()[0]
         if additional_graphs:
             search=args.output/'work'/f'consensus_feedback_{iteration+1}'
             if search.exists():shutil.rmtree(search)
             search.mkdir()
             queries=sorted(metadata)
             store.associate(additional_graphs,queries,search,reference,1,matcher=matcher)
-        after=store.db.execute('SELECT COUNT(*) FROM hits').fetchone()[0]
+        after=store.db.execute('SELECT COUNT(*) FROM active_hits').fetchone()[0]
         feedback.append(dict(pass_number=iteration+1,new_graph_proteins=len(additional_graphs),new_mapping_rows=after-before))
         if after==before:break
         LOG.info('Consensus mapping feedback: %s new placements; reselecting with updated ambiguity',after-before)

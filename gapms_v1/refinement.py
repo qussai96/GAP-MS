@@ -10,6 +10,7 @@ import time
 
 import ahocorasick
 
+from peplocus.digestion import cleavage_context, protein_context
 from peplocus.sequence import canonical, join_blocks, translate, project
 from .assessment import EVENT_FIELDS, boundary
 from .common import LOG, stable_id, write_table
@@ -53,8 +54,9 @@ def refine_annotations(args, annotations, store, metadata, reference, rna_juncti
     for mid,peptide,sequence,chrom,strand,encoded,start,end in store.db.execute('SELECT * FROM associations'):
         if mid not in lookup:continue
         known_paths.add((sequence,chrom,strand,encoded))
-        model_occurrences[mid].append((start,sequence))
         m=lookup[mid]
+        if not store.require_tryptic or protein_context(m.protein+('*' if m.complete_stop else ''),start,end,peptide)['query_tryptic']:
+            model_occurrences[mid].append((start,sequence))
         context=cleavage(m.protein,start,end,True,m.complete_stop)
         if start==0 or context['tryptic_n']:ordinary_n_paths.add((sequence,chrom,strand,encoded))
         if m.issues or start<=0 or not m.protein[start:].startswith('M'):continue
@@ -66,7 +68,7 @@ def refine_annotations(args, annotations, store, metadata, reference, rna_juncti
     eligible=set(aliases)
     explained_sequences={key[0] for key in known_paths}
     eligible-=explained_sequences
-    for sequence,chrom,strand,encoded in store.db.execute('SELECT canonical,chrom,strand,blocks FROM hits'):
+    for sequence,chrom,strand,encoded in store.db.execute('SELECT canonical,chrom,strand,blocks FROM active_hits'):
         if (sequence,chrom,strand,encoded) not in known_paths:eligible.add(sequence)
     stats['unexplained_query_sequences']=len(eligible)
     automaton=None
@@ -83,7 +85,13 @@ def refine_annotations(args, annotations, store, metadata, reference, rna_juncti
         if kind!='alternative_start' and (sequence,chrom,strand,encoded) in known_paths:return
         matched=translate(join_blocks(reference,chrom,strand,json.loads(encoded)),args.genetic_code)
         if canonical(matched)!=sequence:raise RuntimeError('annotation-guided projection verification failed')
-        store.add(peptide,chrom,strand,json.loads(encoded),matched,'annotation_guided',tryptic=bool(context.get('tryptic_n') and context.get('tryptic_c')))
+        # Evaluate the proposed path, preserving possible starts and initiator-M
+        # removal. These are plausibility checks, not proof of initiation.
+        compatible=cleavage_context(peptide,context.get('previous_aa',''),context.get('following_aa',''))['enzyme_compatible']
+        store.add(peptide,chrom,strand,json.loads(encoded),matched,'annotation_guided',tryptic=compatible)
+        if store.require_tryptic and not compatible:
+            stats['nontryptic_local_matches_excluded']+=1
+            return
         pending.append(dict(kind=kind,model=model,peptide=peptide,sequence=sequence,blocks=json.loads(encoded),encoded=encoded,context=context,edges=tuple(diagnostic_edges),status=status,feature=list(feature),upstream=upstream))
     def scan(model, segments, kind, old_offset, terminal_stop=False):
         if automaton is None:return

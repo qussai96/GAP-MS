@@ -174,7 +174,7 @@ def publish(root,diag,args, *, refresh=False):
     multi=len(args.gtf)>1;mode='Multi-annotation consensus' if multi else 'Single-annotation assessment' if args.gtf else 'RNA and peptide mapping' if args.bam else 'Peptide mapping'
     explanations={'supported_genes.gtf':'High-confidence rule seeds plus classifier-positive initially unlabeled transcripts; consensus models in multi-annotation runs. Structures are preserved.',
         'all_proteins_scores.tsv':'Legacy-format protein features and final confidence calls for the assessed annotation. Additional classifier and source details are in diagnostics/classification/.',
-        'peptides.bed':'Standard BED12 for downstream analysis; peptide sequences remain in protein orientation.',
+        'peptides.bed':'All exact placements in standard BED12; includes placements excluded by the selected analysis policy.',
         'peptides.tryptic.bed':'Tryptic-compatible exact placements; multiplicity and BED scores are counted independently within this subset.',
         'peptides.igv.bed':'IGV display track; negative-strand labels are reversed for visualization.',
         'unmapped_peptides.tsv':'Queries without an exact mapping, including separately labeled rescue-only and below-minimum-length sequences.',
@@ -185,6 +185,13 @@ def publish(root,diag,args, *, refresh=False):
     review_links=''.join('<li>'+link(str(p.relative_to(root)))+'</li>' for p in sorted(review.glob('*'))) if review.exists() else '<li>No supported proposals were reported.</li>'
     inp=''.join('<tr><td><a href="'+html.escape(Path(r['path']).as_uri(),quote=True)+'">'+html.escape(r['path'])+'</a></td><td><code>'+r['sha256']+'</code></td></tr>' for r in inputs)
     m=summary['mapping'];cards=f"<p><strong>{m['mapped_peptides']:,} / {m['peptides']:,}</strong> searched peptide sequences mapped; <strong>{m['unique_peptides']:,}</strong> have one placement and <strong>{m['multiple_peptides']:,}</strong> have multiple placements.</p>"
+    policy=summary.get('analysis_evidence','all_exact')
+    cards+=f"<p><strong>Analysis evidence: {'trypsin-compatible exact placements' if policy=='tryptic' else 'all exact placements (--non-tryptic)'}</strong>. Both mapping tracks are retained. Gene scores and proposals use this selected evidence set."
+    if 'analysis_mapped_peptides' in m:
+        cards+=f" {m['analysis_mapped_peptides']:,} peptides qualify; {m['analysis_unique_peptides']:,} have one eligible placement and {m['analysis_multiple_peptides']:,} have multiple eligible placements."
+    cards+='</p>'
+    if args.bam and not args.gtf:
+        cards+='<p>RNA-derived ORFs are peptide-supported candidates. Novelty is not assessed because no annotation was supplied.</p>'
     notes=''.join('<li>'+html.escape(x)+'</li>' for x in summary['scientific_limitations'])
     text='<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>GAPMS results</title><style>body{font:16px system-ui,sans-serif;max-width:1080px;margin:40px auto;padding:0 24px;color:#24313b;line-height:1.6}h1,h2{color:#136b5b}table{border-collapse:collapse;width:100%}td,th{padding:10px;text-align:left;border-bottom:1px solid #d8e1e7;overflow-wrap:anywhere}a{color:#0867a5}code{font-size:12px}aside{padding:12px 18px;background:#eff7f4;border-left:4px solid #198870}</style><body>'
     text+='<h1>GAPMS '+html.escape(summary['version'])+'</h1><h2>'+mode+'</h2>'+cards

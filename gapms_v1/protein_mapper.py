@@ -3,7 +3,7 @@
 Build one C-backed peptide automaton and scan independent protein FASTAs.
 Return all overlapping occurrences with one-based protein coordinates.
 """
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 import json
 from pathlib import Path
 import tempfile
@@ -33,6 +33,13 @@ class ProteinMatcher:
         self.automaton = automaton
         self.build_seconds = time.monotonic() - started
         self.searches = 0
+        # Reuse sequence searches across identical source/consensus proteins.
+        # Bound both sequence storage and highly repetitive hit lists.
+        self._sequence_hits = OrderedDict()
+        self._cached_residues = 0
+        self._cached_hits = 0
+        self._max_cached_residues = 32_000_000
+        self._max_cached_hits = 1_000_000
 
     @classmethod
     def from_file(cls, path, column=None):
@@ -49,6 +56,7 @@ class ProteinMatcher:
         hits = defaultdict(list)
         seen = set()
         residues = 0
+        scanned = reused = 0
         for record in SeqIO.parse(proteins, "fasta"):
             if record.id in seen:
                 raise ValueError(f"duplicate protein FASTA identifier: {record.id}")
@@ -56,7 +64,22 @@ class ProteinMatcher:
             # Preserve stops/unknown residues as barriers and retain coordinates.
             sequence = str(record.seq).upper().replace("I", "L")
             residues += len(sequence)
-            for end, (length, indices) in self.automaton.iter(sequence):
+            matches = self._sequence_hits.get(sequence)
+            if matches is None:
+                scanned += 1
+                matches = tuple(self.automaton.iter(sequence))
+                if len(sequence) <= self._max_cached_residues and len(matches) <= self._max_cached_hits:
+                    while self._sequence_hits and (self._cached_residues + len(sequence) > self._max_cached_residues or self._cached_hits + len(matches) > self._max_cached_hits):
+                        old_sequence, old_matches = self._sequence_hits.popitem(last=False)
+                        self._cached_residues -= len(old_sequence)
+                        self._cached_hits -= len(old_matches)
+                    self._sequence_hits[sequence] = matches
+                    self._cached_residues += len(sequence)
+                    self._cached_hits += len(matches)
+            else:
+                reused += 1
+                self._sequence_hits.move_to_end(sequence)
+            for end, (length, indices) in matches:
                 for index in indices:
                     hits[index].append((record.id, end - length + 2))
         if not seen:
@@ -89,6 +112,9 @@ class ProteinMatcher:
             backend="aho-corasick", il_equivalent=True,
             peptides=len(self.peptides), proteins=len(seen),
             protein_residues=residues, mapped_peptides=len(hits),
+            protein_sequences_scanned=scanned, protein_sequences_reused=reused,
+            cached_protein_sequences=len(self._sequence_hits),
+            cached_protein_residues=self._cached_residues, cached_pattern_hits=self._cached_hits,
             unmapped_peptides=len(self.peptides) - len(hits),
             mapping_rows=sum(map(len, hits.values())), automaton_builds=1,
             automaton_searches=self.searches, build_seconds=self.build_seconds,

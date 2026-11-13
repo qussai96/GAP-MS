@@ -136,8 +136,9 @@ def _run(args):
                 if engine.exists():shutil.rmtree(engine)
                 options=dict(threads=args.threads,genetic_code=args.genetic_code,min_length=args.min_length,
                     igv_display_bed=True,max_junctions=args.max_junctions,max_paths_per_junction=args.max_paths_per_junction)
-                if models:options['gtf']=str(combined)
-                if rna_junctions:options['junctions']=str(rna_file)
+                # Reuse the already extracted, source-aware junction union.
+                # Annotation edges with zero reads remain eligible via their source label.
+                if models or rna_junctions:options['junctions']=str(junction_file)
                 options['min_junction_support']=args.min_junction_support
                 if args.rescue_one_edit:options.update(rescue_one_edit=True,min_rescue_length=args.rescue_min_length)
                 manifest['commands'].append({'component':'peplocus','version':peplocus_version,
@@ -150,7 +151,8 @@ def _run(args):
             store_path=args.output/'work/evidence.sqlite'
             for suffix in ['', '-wal','-shm']:
                 Path(str(store_path)+suffix).unlink(missing_ok=True)
-            store=EvidenceStore(store_path)
+            store=EvidenceStore(store_path, require_tryptic=not getattr(args,'non_tryptic',False))
+            LOG.info('Analysis evidence: %s; both mapping tracks are retained', 'trypsin-compatible exact placements' if store.require_tryptic else 'all exact placements')
             store.import_genomic(engine/'mappings.tsv')
             protein_matcher=ProteinMatcher(peptides) if models else None
             if models:
@@ -189,7 +191,7 @@ def _run(args):
             for name in ['mappings.tsv','peptides.tsv','all_mappings.bed','tryptic_mappings.bed']:
                 path=engine/'rescue'/name
                 if path.is_file():shutil.copyfile(path,rescue/('rescue_'+name if name in {'mappings.tsv','peptides.tsv'} else name))
-        summary=dict(version=__version__,mode=manifest['mode'],consensus=consensus_stats,input=input_stats,mapping=mapping_stats,assessment=model_stats,annotation_guided_search=refinement_stats,rna_junctions=rna_stats,
+        summary=dict(version=__version__,analysis_evidence='all_exact' if getattr(args,'non_tryptic',False) else 'tryptic',mode=manifest['mode'],consensus=consensus_stats,input=input_stats,mapping=mapping_stats,assessment=model_stats,annotation_guided_search=refinement_stats,rna_junctions=rna_stats,
                      seconds=round(time.monotonic()-started,3),scientific_limitations=[
                        'Mapping validates sequence compatibility, not peptide identification accuracy.',
                        'I/L-equivalent sequences are one evidence unit; reported multiplicity is within the searched genome and supported splice paths.',

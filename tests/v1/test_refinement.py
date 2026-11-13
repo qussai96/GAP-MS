@@ -152,7 +152,7 @@ def test_bam_junction_evidence_strengthens_local_splice(tmp_path):
     assert rows[0]['confidence']=='peptide_supported'
     args=parser().parse_args(['-a',str(tmp_path/'g.fa'),'-g',str(tmp_path/'a.gtf'),'-p',str(tmp_path/'p.txt'),'-o',str(out)])
     index=next((out/'work/reference').glob('*.fai'))
-    store=object.__new__(EvidenceStore);store.db=sqlite3.connect(out/'work/evidence.sqlite')
+    store=object.__new__(EvidenceStore);store.require_tryptic=False;store.db=sqlite3.connect(out/'work/evidence.sqlite')
     with pysam.FastaFile(str(tmp_path/'g.fa'),filepath_index=str(index)) as ref:
         models=load_models(tmp_path/'a.gtf','A01_a.gtf',ref,dict(zip(ref.references,ref.lengths)))
         strengthened,_=refine_annotations(args,models,store,{'PEPTVIDEK':dict(quality='unknown')},ref,{('chr1',b+3,c,'+'):4})
@@ -185,4 +185,4 @@ def test_known_stop_at_neighboring_gene_is_not_a_new_stop(tmp_path):
 
 def main(argv):
     """Scientific fixtures retain intermediates they independently inspect."""
-    return cli_main([*argv, "--keep-work"])
+    return cli_main([*argv, "--keep-work", "--non-tryptic"])

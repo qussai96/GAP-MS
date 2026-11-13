@@ -146,4 +146,4 @@ def test_adapter_uses_real_bam_geometry_without_extra_predictor_vote(tmp_path):
 
 def main(argv):
     """Scientific fixtures retain intermediates they independently inspect."""
-    return cli_main([*argv, "--keep-work"])
+    return cli_main([*argv, "--keep-work", "--non-tryptic"])

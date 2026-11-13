@@ -161,4 +161,4 @@ def test_single_column_casanovo_retains_duplicate_identifications_and_modificati
 
 def main(argv):
     """Scientific fixtures retain intermediates they independently inspect."""
-    return cli_main([*argv, "--keep-work"])
+    return cli_main([*argv, "--keep-work", "--non-tryptic"])

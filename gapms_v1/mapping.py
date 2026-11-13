@@ -24,7 +24,8 @@ def locus_key(chrom, strand, blocks):
 
 
 class EvidenceStore:
-    def __init__(self, path):
+    def __init__(self, path, require_tryptic=False):
+        self.require_tryptic = require_tryptic
         self.db = sqlite3.connect(path)
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('PRAGMA synchronous=NORMAL')
@@ -36,9 +37,16 @@ class EvidenceStore:
           CREATE TABLE associations (model TEXT, peptide TEXT, canonical TEXT, chrom TEXT, strand TEXT,
             blocks TEXT, aa_start INTEGER, aa_end INTEGER,
             PRIMARY KEY(model,peptide,blocks,aa_start)) WITHOUT ROWID;
+          CREATE TABLE tryptic_associations (model TEXT, peptide TEXT, blocks TEXT, aa_start INTEGER,
+            PRIMARY KEY(model,peptide,blocks,aa_start)) WITHOUT ROWID;
           CREATE INDEX hits_canonical ON hits(canonical);
           CREATE INDEX associations_canonical ON associations(canonical);
         ''')
+
+        condition = 'WHERE EXISTS (SELECT 1 FROM tryptic_hits t WHERE t.canonical=h.canonical AND t.chrom=h.chrom AND t.strand=h.strand AND t.blocks=h.blocks)' if require_tryptic else ''
+        self.db.execute('CREATE VIEW active_hits AS SELECT h.* FROM hits h '+condition)
+        condition = 'WHERE EXISTS (SELECT 1 FROM tryptic_associations t WHERE t.model=a.model AND t.peptide=a.peptide AND t.blocks=a.blocks AND t.aa_start=a.aa_start)' if require_tryptic else ''
+        self.db.execute('CREATE VIEW active_associations AS SELECT a.* FROM associations a '+condition)
 
     def add(self, peptide, chrom, strand, blocks, matched, evidence, tryptic=False):
         chrom, strand, blocks = locus_key(chrom,strand,blocks)
@@ -73,20 +81,26 @@ class EvidenceStore:
             chrom,strand,encoded=locus_key(model.chrom,model.strand,blocks)
             self.db.execute('INSERT OR IGNORE INTO associations VALUES (?,?,?,?,?,?,?,?)',
                             (model.id,peptide,canonical(peptide),chrom,strand,encoded,start,end))
+            if context['query_tryptic']:
+                self.db.execute('INSERT OR IGNORE INTO tryptic_associations VALUES (?,?,?,?)', (model.id,peptide,encoded,start))
         self.db.commit()
 
-    def counts(self):
+    def counts(self, all_mappings=False):
         # I/L-equivalent observed sequences constitute one evidence sequence.
-        return dict(self.db.execute('SELECT canonical,count(*) FROM (SELECT DISTINCT canonical,chrom,strand,blocks FROM hits) GROUP BY canonical'))
+        table='hits' if all_mappings else 'active_hits'
+        return dict(self.db.execute(f'SELECT canonical,count(*) FROM (SELECT DISTINCT canonical,chrom,strand,blocks FROM {table}) GROUP BY canonical'))
 
-    def model_hits(self):
+    def model_hits(self, all_mappings=False, model_ids=None):
         result=defaultdict(list)
-        for model,peptide,sequence,chrom,strand,encoded,start,end in self.db.execute('SELECT * FROM associations ORDER BY model,canonical,aa_start'):
+        table='associations' if all_mappings else 'active_associations'
+        for model,peptide,sequence,chrom,strand,encoded,start,end in self.db.execute(f'SELECT * FROM {table} ORDER BY model,canonical,aa_start'):
+            if model_ids is not None and model not in model_ids:continue
             result[model].append(dict(peptide=peptide,canonical=sequence,chrom=chrom,strand=strand,blocks=json.loads(encoded),aa_start=start,aa_end=end,mapping_id=stable_id('L',sequence,chrom,strand,encoded)))
         return result
 
     def export(self, directory, peptides, metadata):
-        counts=self.counts()
+        counts=self.counts(all_mappings=True)
+        analysis_counts=self.counts()
         tryptic_counts=dict(self.db.execute('SELECT canonical,count(*) FROM tryptic_hits GROUP BY canonical'))
         fields=['mapping_id','peptide_id','peptide','chrom','start','end','strand','blocks','matched_sequence','match_type','mapping_type','evidence','loci_for_peptide','identification_quality','tryptic_compatible','tryptic_loci_for_peptide']
         mapped=set();stats=Counter()
@@ -122,4 +136,9 @@ class EvidenceStore:
                           tryptic_multiple_peptides=sum(tryptic_counts.get(canonical(p),0)>1 for p in peptides)))
         write_table(directory/'peptide_locus_summary.tsv',['peptide','length','loci','status'],
                     (dict(peptide=p,length=len(p),loci=counts.get(canonical(p),0),status='unique' if counts.get(canonical(p))==1 else 'multiple' if counts.get(canonical(p),0)>1 else 'unmapped') for p in peptides))
+        stats=dict(stats)
+        stats.update(analysis_evidence='tryptic' if self.require_tryptic else 'all_exact',
+                     analysis_mapped_peptides=sum(analysis_counts.get(canonical(p),0)>0 for p in peptides),
+                     analysis_unique_peptides=sum(analysis_counts.get(canonical(p),0)==1 for p in peptides),
+                     analysis_multiple_peptides=sum(analysis_counts.get(canonical(p),0)>1 for p in peptides))
         return dict(stats)

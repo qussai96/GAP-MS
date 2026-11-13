@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "transcript_identity_policy": "genomic-structure and gene-group IDs; original StringTie IDs retained",
+  "transcript_models": 43140,
+  "orf_models": 35495,
+  "distinct_orf_cds": 30545,
+  "orf_structure_symmetric_difference": 0,
+  "protein_sha256": {
+    "bam": "79967a2ace8dbcf576110c4861a20af3f358e02e05166db8954da51c0638d02d",
+    "gtf_bam": "79967a2ace8dbcf576110c4861a20af3f358e02e05166db8954da51c0638d02d"
+  },
+  "controls": {
+    "PERL_HASH_SEED": "0",
+    "PERL_PERTURB_KEYS": "0"
+  },
+  "scope": "separate end-to-end BAM-only and GTF+BAM invocations, same input assembly/BAM, default 8 threads"
+}

@@ -130,8 +130,11 @@ def assess(args,models,store,metadata,rna_junctions,guided_events=None):
         for hit in hits[model.id]:sequence_models[hit['canonical']].add(model.id)
     reference_index=ModelIndex(annotation)
     reference_loci=defaultdict(set)
+    # Enzyme filtering controls positive support, not whether an existing
+    # annotated isoform already explains the observed genomic placement.
+    annotation_hits=store.model_hits(all_mappings=True,model_ids={m.id for m in annotation}) if annotation and candidates else {}
     for m in annotation:
-        for hit in hits[m.id]:reference_loci[hit['canonical']].add((m.chrom,m.strand,tuple(tuple(b) for b in hit['blocks'])))
+        for hit in annotation_hits.get(m.id,[]):reference_loci[hit['canonical']].add((m.chrom,m.strand,tuple(tuple(b) for b in hit['blocks'])))
     events=[];isoform_checks=[]
     annotated_paths=defaultdict(list)
     annotated_junctions_by_locus=defaultdict(set)
@@ -142,7 +145,9 @@ def assess(args,models,store,metadata,rna_junctions,guided_events=None):
     for model in annotation:
         if model.coding:annotated_paths[model.signature()].append(model.id)
     for candidate in candidates:
-        if not hits[candidate.id]:continue
+        # Without a supplied annotation, sequence support cannot establish novelty.
+        # Keep peptide-supported RNA ORFs in candidate_orfs and their evidence table.
+        if not hits[candidate.id] or not annotation:continue
         refs=reference_index.overlap(candidate)
         relation=relationship(candidate,refs)
         all_hits=hits[candidate.id]
@@ -266,4 +271,4 @@ def assess(args,models,store,metadata,rna_junctions,guided_events=None):
             first=model.protein[h['aa_start']:h['aa_start']+1]
             occurrence_rows.append(dict(model_id=model.id,mapping_id=h['mapping_id'],peptide=h['peptide'],aa_start=h['aa_start'],aa_end=h['aa_end'],previous_aa=previous,n_terminal_context='protein_N_terminus' if not previous else 'tryptic' if previous in 'KR' and first!='P' else 'nontryptic',initiator_methionine_processing=h['aa_start']==1 and model.protein.startswith('M') and first in 'ACGPSTV'))
     write_table(args.output/'mapping/model_peptide_occurrences.tsv',['model_id','mapping_id','peptide','aa_start','aa_end','previous_aa','n_terminal_context','initiator_methionine_processing'],occurrence_rows)
-    return dict(rna_event_rows=rna_event_count,annotation_guided_event_rows=len(guided_events or []),isoform_checks=dict(Counter(row['interpretation'] for row in isoform_checks)),distinct_candidate_cds_paths=len({m.signature() for m in supported_candidates if m.coding}),distinct_predicted_cds_paths=len({m.signature() for m in candidates if m.coding}),whole_model_statuses=dict(Counter(e['whole_model_status'] for e in events)),models=len(models),annotation_models=len(annotation),predicted_orfs=len(candidates),candidate_orfs=len(supported_candidates),orfs_without_peptide_support=len(candidates)-len(supported_candidates),model_categories=dict(Counter(categories.values())),candidate_categories=dict(Counter(r['category'] for r in primary)),annotation_events=dict(Counter(e['event_type'] for e in events)),event_confidences=dict(Counter(e['confidence'] for e in events)))
+    return dict(novelty_assessed=bool(annotation),rna_event_rows=rna_event_count,annotation_guided_event_rows=len(guided_events or []),isoform_checks=dict(Counter(row['interpretation'] for row in isoform_checks)),distinct_candidate_cds_paths=len({m.signature() for m in supported_candidates if m.coding}),distinct_predicted_cds_paths=len({m.signature() for m in candidates if m.coding}),whole_model_statuses=dict(Counter(e['whole_model_status'] for e in events)),models=len(models),annotation_models=len(annotation),predicted_orfs=len(candidates),candidate_orfs=len(supported_candidates),orfs_without_peptide_support=len(candidates)-len(supported_candidates),model_categories=dict(Counter(categories.values())),candidate_categories=dict(Counter(r['category'] for r in primary)),annotation_events=dict(Counter(e['event_type'] for e in events)),event_confidences=dict(Counter(e['confidence'] for e in events)))

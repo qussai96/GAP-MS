@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "version": "1.3.2",
+  "modules_identical": 60,
+  "tests_passed": 119,
+  "pipeline_implementation_sha256": "9f82956d0eb25d34a7329c15b74f153e35902365450b47820016dd64a8319bba",
+  "default_threads": 8,
+  "default_output": "GAPMS_output",
+  "default_evidence": "tryptic",
+  "artifacts": {
+    "gapms-1.3.2.tar.gz": "a0037572c2a6f45ec5fb5a87b1d9efc0bacb467993f712a85efa1896c32bb869",
+    "gapms-1.3.2-py3-none-any.whl": "1179a2e2085ec7205f874134d868be03e2acce7436a8d52de0e4c1ece18de81b"
+  }
+}

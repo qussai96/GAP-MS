@@ -41,10 +41,18 @@ def test_rna_and_integrated_end_to_end(tmp_path,monkeypatch,with_annotation):
     output=tmp_path/'out';argv=['-a',str(assembly),'-p',str(peptides),'-b',str(bam),'-o',str(output),'-t','1']
     if with_annotation:argv+=['-g',str(reference)]
     assert main(argv)==0
-    novel=table(output/'diagnostics/orfs/novel_orf_candidates.tsv');assert len(novel)==1
-    assert novel[0]['confidence']=='high_confidence_candidate'
-    assert novel[0]['relationship']=='intergenic'
-    assert novel[0]['distinct_diagnostic_peptides']=='2'
+    novel=table(output/'diagnostics/orfs/novel_orf_candidates.tsv')
+    if with_annotation:
+        assert len(novel)==1
+        assert novel[0]['confidence']=='high_confidence_candidate'
+        assert novel[0]['relationship']=='intergenic'
+        assert novel[0]['distinct_diagnostic_peptides']=='2'
+    else:
+        assert novel==[]
+        assert not (output/'review/novel_orfs.gff3').exists()
+        assert len(table(output/'diagnostics/orfs/orf_peptide_evidence.tsv'))==1
+        report=json.loads((output/'diagnostics/reports/summary.json').read_text())
+        assert not report['assessment']['novelty_assessed']
     assert Path(output/'diagnostics/transcripts/rnaseq_junctions.tsv').exists()
     if with_annotation:
         assert len(table(output/'diagnostics/refinement/annotation_change_proposals.tsv'))==1
@@ -64,7 +72,7 @@ def test_model_relationships_and_non_nested_evidence():
 
 class MockEvidence:
     def __init__(self,hits,counts):self.hits=hits;self.multiplicity=counts
-    def model_hits(self):return defaultdict(list,self.hits)
+    def model_hits(self, **kwargs):return defaultdict(list,self.hits)
     def counts(self):return self.multiplicity
 
 
@@ -118,7 +126,7 @@ def test_single_peptide_and_multimapping_never_high_confidence(tmp_path):
     args=config(tmp_path)
     candidate=Model('c','RNA_ORF','c','g','chr1','+',cds=[(0,60)],coding=[(0,60)],protein='M'+'Q'*19,complete_start=True,complete_stop=True)
     placements=[hit('PEPTIDE',[(0,21)])]
-    assess(args,[candidate],MockEvidence({'c':placements},{'PEPTIDE':2}),{'PEPTIDE':dict(quality='qvalue_pass')},{})
+    assess(args,[candidate,Model('unrelated','A01','unrelated','unrelated','chr1','+',cds=[(300,360)],coding=[(300,360)],protein='M'+'Q'*19)],MockEvidence({'c':placements},{'PEPTIDE':2}),{'PEPTIDE':dict(quality='qvalue_pass')},{})
     row=table(tmp_path/'orfs/novel_orf_candidates.tsv')[0]
     assert row['confidence']=='ambiguous'
     assert 'non_discriminating' in row['limitations']
@@ -130,7 +138,7 @@ def test_competing_orf_structures_prevent_high_confidence(tmp_path):
     other=Model('other','RNA_ORF','o','g','chr1','+',cds=[(0,60),(90,120)],coding=[(0,60),(90,120)],protein='M'+'Q'*29,complete_start=True,complete_stop=True)
     placements=[hit('PEPTIDE',[(0,21)]),hit('ACDEFGH',[(30,51)],10)]
     evidence=MockEvidence({'c':placements,'other':placements},{'PEPTIDE':1,'ACDEFGH':1})
-    assess(args,[candidate,other],evidence,{p:dict(quality='qvalue_pass') for p in ['PEPTIDE','ACDEFGH']},{})
+    assess(args,[candidate,other,Model('unrelated','A01','unrelated','unrelated','chr1','+',cds=[(300,360)],coding=[(300,360)],protein='M'+'Q'*19)],evidence,{p:dict(quality='qvalue_pass') for p in ['PEPTIDE','ACDEFGH']},{})
     rows=table(tmp_path/'orfs/novel_orf_candidates.tsv')
     assert rows and all(r['confidence']=='ambiguous' for r in rows)
     assert all('equally_compatible_coding_models' in r['limitations'] for r in rows)
@@ -150,7 +158,7 @@ def test_unresolved_orf_residues_preclude_high_confidence(tmp_path):
     args=config(tmp_path)
     candidate=Model('c','RNA_ORF','c','g','chr1','+',cds=[(0,90)],coding=[(0,90)],protein='MPEPTIDEKACDEFGHKX',complete_start=True,complete_stop=True)
     placements=[hit('PEPTIDE',[(3,24)],1),hit('ACDEFGH',[(27,48)],9)]
-    assess(args,[candidate],MockEvidence({'c':placements},{'PEPTIDE':1,'ACDEFGH':1}),{p:dict(quality='qvalue_pass') for p in ['PEPTIDE','ACDEFGH']},{})
+    assess(args,[candidate,Model('unrelated','A01','unrelated','unrelated','chr1','+',cds=[(300,360)],coding=[(300,360)],protein='M'+'Q'*19)],MockEvidence({'c':placements},{'PEPTIDE':1,'ACDEFGH':1}),{p:dict(quality='qvalue_pass') for p in ['PEPTIDE','ACDEFGH']},{})
     row=table(tmp_path/'orfs/novel_orf_candidates.tsv')[0]
     assert row['confidence']!='high_confidence_candidate'
     assert 'unresolved_amino_acids_in_candidate_ORF' in row['limitations']
@@ -264,7 +272,7 @@ def test_candidate_exports_require_peptides_and_keep_ambiguous_support(tmp_path,
 
 def main(argv):
     """Scientific fixtures retain intermediates they independently inspect."""
-    return cli_main([*argv, "--keep-work"])
+    return cli_main([*argv, "--keep-work", "--non-tryptic"])
 
 
 @pytest.mark.parametrize('strand',['+','-'])
@@ -290,3 +298,18 @@ def test_known_junction_in_other_frame_or_gene_is_not_a_new_splice(tmp_path,stra
     assert not table(tmp_path/'refinement/alternative_splice_candidates.tsv')
     row=table(tmp_path/'orfs/annotation_isoform_checks.tsv')[0]
     assert json.loads(row['new_junctions'])==[]
+
+
+def test_nontryptic_annotation_placement_still_excludes_false_novelty(tmp_path):
+    args=config(tmp_path)
+    ref=Model('ref','A01','ref','g','chr1','+',cds=[(0,90)],coding=[(0,90)],protein='M'+'Q'*29)
+    candidate=Model('c','RNA_ORF','c','g','chr1','+',cds=[(0,60),(90,120)],coding=[(0,60),(90,120)],protein='M'+'Q'*29)
+    placement=hit('PEPTIDE',[(3,24)],1)
+    class DigestionEvidence(MockEvidence):
+        def model_hits(self,all_mappings=False,model_ids=None):
+            return defaultdict(list,{'c':[placement],**({'ref':[placement]} if all_mappings else {})})
+    stats=assess(args,[ref,candidate],DigestionEvidence({}, {'PEPTIDE':1}),{'PEPTIDE':dict(quality='unknown')},{})
+    assert table(tmp_path/'orfs/novel_orf_candidates.tsv')==[]
+    checks=table(tmp_path/'orfs/annotation_isoform_checks.tsv')
+    assert checks[0]['interpretation']=='existing_isoforms_explain_all_observed_peptides'
+    assert stats['candidate_orfs']==1

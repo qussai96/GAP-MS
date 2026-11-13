@@ -37,13 +37,15 @@ def write_json(path, value):
     tmp.replace(path)
 
 
-def run_command(command, cwd, log, commands):
+def run_command(command, cwd, log, commands, env=None):
     command = [str(v) for v in command]
     entry = dict(command=command, cwd=str(cwd), started=time.time())
+    if env is not None:
+        entry['environment']={k:env[k] for k in ('PERL_HASH_SEED','PERL_PERTURB_KEYS') if k in env}
     commands.append(entry)
     LOG.info('Running %s', ' '.join(command))
     with Path(log).open('w') as stream:
-        result = subprocess.run(command, cwd=cwd, stdout=stream, stderr=subprocess.STDOUT)
+        result = subprocess.run(command, cwd=cwd, stdout=stream, stderr=subprocess.STDOUT, env=env)
     entry.update(returncode=result.returncode, seconds=time.time() - entry['started'])
     if result.returncode:
         raise RuntimeError(f'{command[0]} failed ({result.returncode}); see {log}')
