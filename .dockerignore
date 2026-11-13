@@ -1,0 +1,12 @@
+*
+!Dockerfile
+!pyproject.toml
+!setup.py
+!MANIFEST.in
+!README.md
+!LICENSE
+!THIRD_PARTY.md
+!gapms_v1/
+!gapms_v1/**
+**/__pycache__
+**/*.pyc

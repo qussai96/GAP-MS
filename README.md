@@ -1,104 +1,72 @@
 # GAP-MS
 
-GAP-MS assesses gene predictions using mass-spectrometry peptides and optional
-RNA-seq evidence. It maps peptides to the assembly with PepLocus, measures
-support for supplied gene models, and reports specific annotation changes for review.
-Multiple annotations are combined automatically using the included GeneSensus engine.
+GAP-MS uses mass-spectrometry peptides to assess gene predictions, combine
+annotations and identify peptide-supported changes for review.
 
 ## Install
 
-Requires Python 3.10 or newer. Install the release wheel with pip:
+Python 3.10 or newer:
 
 ```bash
-python -m pip install gapms-1.3.2-py3-none-any.whl
+pip install gapms==1.3.2
 ```
 
-Or install this checkout:
-
-```bash
-python -m pip install .
-```
-
-The package installs the `gapms` command and PepLocus 0.5.6 automatically. It does
-not require a separate legacy GAPMS installation. `gapms-v1` remains an alias.
-The 1.3.2 artifacts must be published before `pip install gapms==1.3.2` can be
-used from PyPI.
-
-RNA reconstruction also needs StringTie and TransDecoder on PATH:
+For runs with a BAM file, also install the RNA reconstruction tools:
 
 ```bash
 conda install -c conda-forge -c bioconda stringtie transdecoder=5.5.0
 ```
 
-## Run
+Alternatively, build an Apptainer image from this checkout. It includes these tools:
 
 ```bash
-gapms -a assembly.fna -p peptides.tsv -g helixer.gtf -o results
-
-# Include RNA-seq evidence
-gapms -a assembly.fna -p peptides.tsv -g helixer.gtf -b sorted.bam -o results
-
-# Multiple predictions: consensus is automatic
-gapms -a assembly.fna -p peptides.tsv -g helixer.gtf -g another.gff3 -o results
+apptainer build --fakeroot gapms-1.3.2.sif gapms.def
+apptainer run gapms-1.3.2.sif -a assembly.fa -p peptides.tsv -g genes.gtf
 ```
 
-Assembly and peptides are required; GTF/GFF and BAM are optional. If `-o` /
-`--output` is omitted, results are saved to `GAPMS_output` in the directory where
-you run the command. Use `-o` to choose another output directory. Eight worker processes are used by default. Use `-t` to change this.
-Gene scoring, classification, consensus and candidate discovery use
-trypsin-compatible exact placements by default. Add `--non-tryptic` to use all
-exact placements for these analyses (for example, with another digestion enzyme).
-Both mapping BED tracks are always written. Ambiguity for analysis is counted
-within the selected evidence set; the all-mapping track retains all-locus counts.
-Compatibility includes possible methionine starts and initiator-methionine removal;
-these exceptions do not establish a biological translation start.
-Isoleucine and leucine are always equivalent. Peptides shorter than seven
-residues are excluded by default and reported separately.
+Version 1.3.2 must be uploaded to PyPI before the pip command above is available.
+See [container instructions](packaging/CONTAINERS.md) for Docker Hub.
 
-`gapms --help` shows the common inputs. `gapms --help-all` lists detailed controls,
-including optional one-edit rescue, with a nine-residue default minimum. Rescue
-candidates are kept separate from exact evidence and do not support gene calls.
+## Run
+
+- **Assembly + peptides:** map peptides to the six-frame genome translation.
+  `gapms -a assembly.fa -p peptides.tsv`
+- **Add BAM:** include RNA-supported splice paths and reconstruct peptide-supported ORF candidates.
+  `gapms -a assembly.fa -p peptides.tsv -b sorted.bam`
+- **Add annotation:** map across annotated exons, score gene models and propose supported changes.
+  `gapms -a assembly.fa -p peptides.tsv -g genes.gtf`
+- **Annotation + BAM:** combine gene-model assessment with RNA-supported reconstruction.
+  `gapms -a assembly.fa -p peptides.tsv -g genes.gtf -b sorted.bam`
+- **Multiple annotations:** automatically build a peptide-guided consensus. BAM is optional here too.
+  `gapms -a assembly.fa -p peptides.tsv -g helixer.gtf -g another.gff3`
+
+GTF and GFF3 are accepted. BAM files must be coordinate-sorted and use the
+assembly's sequence names. FragPipe, Casanovo and plain peptide lists are supported.
+Use `-o results` to choose an output directory (default: `./GAPMS_output`) and
+`-t 16` to change the default of **8 threads**.
+
+Analysis uses **trypsin-compatible exact matches** by default; add `--non-tryptic`
+for other enzymes. Isoleucine and leucine are treated as equivalent. All-match and
+tryptic-match BED tracks are always retained. Optional one-edit rescue is separate
+from the exact evidence used to support gene models. See `gapms --help-all`.
 
 ## Results
 
-Open `results/report.html` first. `report.log` records progress and errors.
+Start with **report.html**; **report.log** records the run. Main outputs include
+`peptides.bed`, `peptides.tryptic.bed`, `peptides.igv.bed`,
+`unmapped_peptides.tsv`, and, when gene models are available,
+`all_proteins_scores.tsv` and `supported_genes.gtf`. Multiple annotations also
+produce `consensus.gff3` and `consensus_proteins.faa`.
 
-- `peptides.bed`: all exact/I/L-equivalent placements in standard BED12.
-- `peptides.tryptic.bed`: tryptic-compatible subset, with its own multiplicity scores.
-- `peptides.igv.bed`: display track, with reverse-strand labels arranged for IGV.
-- `unmapped_peptides.tsv`: unmapped, rescue-only and excluded short queries.
-- `all_proteins_scores.tsv`: original GAPMS feature/confidence table format.
-- `supported_genes.gtf`: high-confidence seeds and classifier-supported unlabeled models.
-- `review/`: nonempty novel-ORF and alternative start, stop or splice proposals.
-- `diagnostics/`: detailed evidence, classification, provenance and reconstruction records.
+`review/` contains supported novel/alternative proposals when available.
+They require review and are not automatically applied. Existing annotated isoforms
+are considered before proposing changes. Without an input annotation, RNA-derived
+ORFs are candidates whose novelty cannot be assessed. Peptide support does not
+validate every boundary of a gene model.
 
-Multiple input annotations also produce `consensus.gff3` and `consensus_proteins.faa`.
-Review proposals are not automatically applied to the annotation. Shared peptides
-and existing isoforms are considered before proposing a change. A peptide match
-establishes sequence compatibility; it does not validate an entire gene model or
-measure peptide identification error.
-
-See the [technical guide](docs/v1/README.md), [methods](docs/v1/SCIENTIFIC_METHODS.md)
-and [output schemas](docs/v1/OUTPUT_FORMATS.md).
-
-## Validation
-
-The release passed 84 regression tests and a nine-crop evaluation with independent
-coordinate and translation checks. See the [validation report](docs/v1/evaluation/v1_3_0_helixer_20261113/VALIDATION.md).
+[Technical guide](docs/v1/README.md) ·
+[Five-mode validation of 1.3.2](docs/v1/evaluation/five_modes_hop_20261113/REPORT.md)
 
 ## Cite
 
-[GAPMS manuscript on bioRxiv](https://www.biorxiv.org/content/10.64898/2026.03.17.712294v3).
-
-Version 1.3.1 changes the default analysis evidence to the tryptic-compatible subset.
-The linked nine-crop validation describes version 1.3.0 with all exact evidence;
-use `--non-tryptic` to retain that evidence policy.
-
-Version 1.3.2 reuses pre-extracted splice junctions and bounded protein-sequence
-search results across consensus/classification passes. Without an input annotation,
-RNA-derived ORFs remain peptide-supported candidates; novelty is not assessed.
-
-RNA reconstruction assigns stable transcript IDs from genomic structures and gene
-groups, retains the original StringTie IDs, and fixes Perl hash ordering for
-TransDecoder. Identical RNA inputs were verified to produce identical ORF structures
-and protein sequences in separate BAM-only and GTF+BAM runs.
+[GAP-MS manuscript on bioRxiv](https://www.biorxiv.org/content/10.64898/2026.03.17.712294v3)

@@ -1,5 +1,5 @@
-Bootstrap: localimage
-From: /home/students/q.abbas/Git/GAP-MS/gapms.sif
+Bootstrap: docker
+From: mambaorg/micromamba:1.5.8
 
 %files
     gapms_v1 /opt/gapms-v1/gapms_v1
@@ -19,6 +19,8 @@ From: /home/students/q.abbas/Git/GAP-MS/gapms.sif
     apt-get install -y --no-install-recommends procps
     rm -rf /var/lib/apt/lists/*
 
+    micromamba install -y -n base -c conda-forge -c bioconda --override-channels --strict-channel-priority python=3.10 pip perl stringtie transdecoder=5.5.0 samtools gffread gffcompare
+    micromamba clean --all --yes
     cd /opt/gapms-v1
     /opt/conda/bin/python -m pip install --no-cache-dir .
 
@@ -29,13 +31,21 @@ From: /home/students/q.abbas/Git/GAP-MS/gapms.sif
         command -v "$executable" >/dev/null
     done
     ps -eo pid,ppid,pcpu,pmem,comm >/dev/null
+    for executable in stringtie TransDecoder.LongOrfs TransDecoder.Predict; do
+        test -x /opt/conda/bin/$executable
+    done
     cd /tmp
-    /opt/conda/bin/python -c 'from importlib.metadata import version; assert version("gapms")=="1.3.0"; assert version("peplocus")=="0.5.6"'
+    /opt/conda/bin/python -c 'from importlib.metadata import version; assert version("gapms")=="1.3.2"; assert version("peplocus")=="0.5.6"'
     /opt/conda/bin/gapms-v1 --help >/dev/null
 
 %runscript
     exec /opt/conda/bin/gapms-v1 "$@"
 
 %labels
-    Version 1.3.0
+    Version 1.3.2
     PepLocusVersion 0.5.6
+
+%environment
+    export PATH=/opt/conda/bin:$PATH
+    export LC_ALL=C.UTF-8
+    export LANG=C.UTF-8
