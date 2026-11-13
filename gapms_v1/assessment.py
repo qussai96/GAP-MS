@@ -134,6 +134,11 @@ def assess(args,models,store,metadata,rna_junctions,guided_events=None):
         for hit in hits[m.id]:reference_loci[hit['canonical']].add((m.chrom,m.strand,tuple(tuple(b) for b in hit['blocks'])))
     events=[];isoform_checks=[]
     annotated_paths=defaultdict(list)
+    annotated_junctions_by_locus=defaultdict(set)
+    for model in annotation:
+        annotated_junctions_by_locus[model.chrom,model.strand].update(model.junctions)
+        annotated_junctions_by_locus[model.chrom,model.strand].update(
+            (a[1],b[0]) for a,b in zip(model.exons,model.exons[1:]) if a[1]<b[0])
     for model in annotation:
         if model.coding:annotated_paths[model.signature()].append(model.id)
     for candidate in candidates:
@@ -145,7 +150,9 @@ def assess(args,models,store,metadata,rna_junctions,guided_events=None):
         same=[m for m in refs if m.coding and relationship(candidate,[m])=='new_transcript_isoform']
         known_starts=[m.id for m in same if boundary(m,'start')==boundary(candidate,'start')]
         known_ends=[m.id for m in same if boundary(m,'end')==boundary(candidate,'end')]
-        annotated_junctions={j for m in same for j in m.junctions}
+        # A known splice boundary is not new merely because its annotation
+        # has a different reading frame, gene ID or comparison-model subset.
+        annotated_junctions=annotated_junctions_by_locus[candidate.chrom,candidate.strand]
         new_junctions=set(candidate.junctions)-annotated_junctions
         exact=sorted(annotated_paths.get(candidate.signature(),[]))
         isoform_checks.append(dict(candidate_model_id=candidate.id,chrom=candidate.chrom,strand=candidate.strand,coding_structure_id=stable_id('CDS',candidate.signature()),exact_annotated_isoform_ids=exact,comparable_annotated_isoform_ids=sorted(m.id for m in same),known_start_isoform_ids=sorted(known_starts),known_end_isoform_ids=sorted(known_ends),new_junctions=sorted(new_junctions),observed_peptide_sequences=len({h['canonical'] for h in all_hits}),diagnostic_peptide_sequences=len({h['canonical'] for h in diagnostic}),interpretation='exact_annotated_isoform' if exact else 'existing_isoforms_explain_all_observed_peptides' if not diagnostic else 'diagnostic_evidence_requires_feature_specific_review'))
@@ -191,7 +198,7 @@ def assess(args,models,store,metadata,rna_junctions,guided_events=None):
             if kind in {'alternative_stop','c_terminal_extension'} and changed:limitations.append('terminal_change_accompanied_by_splice_chain_change')
             # This is a context model, never a whole-gene replacement inferred from local evidence.
             status='local_evidence_only' if review_reasons else 'complete_model_for_manual_review'
-            diagnostic_junctions=sorted({(a[1],b[0]) for h in placements for a,b in zip(h['blocks'],h['blocks'][1:]) if (a[1],b[0]) in candidate.junctions and not any((a[1],b[0]) in m.junctions for m in related)})
+            diagnostic_junctions=sorted({(a[1],b[0]) for h in placements for a,b in zip(h['blocks'],h['blocks'][1:]) if (a[1],b[0]) in new_junctions})
             event_id=stable_id('E',kind,candidate.id,sorted(m.id for m in related))
             events.append(dict(event_id=event_id,event_type=kind,candidate_model_id=candidate.id,
                 reference_model_ids=sorted(m.id for m in related),annotation_sources=sorted({m.source for m in related}),chrom=candidate.chrom,
@@ -240,7 +247,9 @@ def assess(args,models,store,metadata,rna_junctions,guided_events=None):
             selected=[e for e in events if e['event_type']==kind]
             write_table(directory/(kind+'_candidates.tsv'),EVENT_FIELDS,selected)
             context_models=[by_id[i] for i in sorted({e['candidate_model_id'] for e in selected}) if i in by_id]
-            if context_models:write_models(context_models,directory/(kind+'_rna_model_context.gtf'))
+            context_path=directory/(kind+'_rna_model_context.gtf')
+            if context_models:write_models(context_models,context_path)
+            else:context_path.unlink(missing_ok=True)
         write_table(directory/'annotation_change_proposals.tsv',EVENT_FIELDS,events)
         write_table(directory/'local_evidence_only.tsv',EVENT_FIELDS,(e for e in events if e['whole_model_status']=='local_evidence_only'))
         write_table(directory/'complete_models_for_manual_review.tsv',EVENT_FIELDS,(e for e in events if e['whole_model_status']=='complete_model_for_manual_review'))

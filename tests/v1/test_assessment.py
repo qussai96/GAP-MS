@@ -265,3 +265,28 @@ def test_candidate_exports_require_peptides_and_keep_ambiguous_support(tmp_path,
 def main(argv):
     """Scientific fixtures retain intermediates they independently inspect."""
     return cli_main([*argv, "--keep-work"])
+
+
+@pytest.mark.parametrize('strand',['+','-'])
+@pytest.mark.parametrize('coding',[True,False])
+def test_known_junction_in_other_frame_or_gene_is_not_a_new_splice(tmp_path,strand,coding):
+    args=config(tmp_path)
+    def model(mid,source,blocks):
+        return Model(mid,source,mid,mid,'chr1',strand,cds=blocks,
+            coding=blocks if strand=='+' else list(reversed(blocks)),protein='M'+'Q'*21)
+    ref=model('ref','A01',[(0,30),(90,120)])
+    # Shares the candidate's junction but differs in phase throughout its CDS.
+    other=model('other','A01',[(1,33),(90,121)])
+    if not coding:
+        other.exons=list(other.cds);other.cds=[];other.coding=[];other.protein=''
+    candidate=model('candidate','RNA_ORF',[(0,33),(90,120)])
+    h=hit('PEPTIDE',[(21,33),(90,99)],7);h['strand']=strand
+    store=MockEvidence({'candidate':[h]},{'PEPTIDE':1})
+    metadata={'PEPTIDE':dict(quality='unknown')}
+    assert relationship(candidate,[other])==('overlapping_alternative_frame' if coding else 'UTR_associated')
+    assess(args,[ref,candidate],store,metadata,{('chr1',33,90,strand):3})
+    assert len(table(tmp_path/'refinement/alternative_splice_candidates.tsv'))==1
+    assess(args,[ref,other,candidate],store,metadata,{('chr1',33,90,strand):3})
+    assert not table(tmp_path/'refinement/alternative_splice_candidates.tsv')
+    row=table(tmp_path/'orfs/annotation_isoform_checks.tsv')[0]
+    assert json.loads(row['new_junctions'])==[]
