@@ -17,6 +17,9 @@ For runs with a BAM file, also install the RNA reconstruction tools:
 conda install -c conda-forge -c bioconda stringtie transdecoder=5.5.0
 ```
 
+TransDecoder 7, which keeps `TransDecoder.LongOrfs`/`TransDecoder.Predict` in its
+`util/` folder, is also found automatically.
+
 Or use the Apptainer image, which includes the RNA reconstruction tools:
 
 ```bash
@@ -45,12 +48,15 @@ automatically build a peptide-guided consensus. BAM is optional here too.
   `gapms -a assembly.fa -p peptides.tsv -g helixer.gtf -g another.gff3`
 
 GTF and GFF3 are accepted. BAM files must be coordinate-sorted and use the
-assembly's sequence names. FragPipe, Casanovo and plain peptide lists are supported.
+assembly's sequence names. With several annotations and a BAM, an index is needed:
+GAPMS builds one in its work folder when the BAM can be hard-linked there, and
+otherwise stops at once asking for `samtools index`. FragPipe, Casanovo and plain peptide lists are supported.
 Use `-o results` to choose an output directory (default: `./GAPMS_output`) and
 `-t 16` to change the default of **8 threads**.
 
 Analysis uses **trypsin-compatible exact matches** by default; add `--non-tryptic`
-for other enzymes. Isoleucine and leucine are treated as equivalent. All-match and
+for other enzymes. Peptides of at least **6 residues** are searched (`--min-length`).
+Isoleucine and leucine are treated as equivalent. All-match and
 tryptic-match BED tracks are always retained. Optional one-edit rescue is separate
 from the exact evidence used to support gene models. See `gapms --help-all`.
 
@@ -62,9 +68,14 @@ Start with **report.html**; **report.log** records the run. Main outputs include
 `all_proteins_scores.tsv` and `supported_genes.gtf`. Multiple annotations also
 produce `consensus.gff3` and `consensus_proteins.faa`.
 
-`review/` contains supported novel/alternative proposals when available.
-They require review and are not automatically applied. Existing annotated isoforms
-are considered before proposing changes. Without an input annotation, RNA-derived
+`review/candidates.tsv` lists one row per proposed feature (alternative start, stop
+or splice, terminal extension, novel ORF) with a `confidence` and reason codes;
+the `review/*.gff3` files contain the supported proposals only. They require review
+and are not automatically applied. A peptide supports a change only if no supplied
+annotation explains it at that locus and it has a single genomic locus over all
+exact matches (isoforms of one gene count once). Peptide length is reported, not
+filtered: the run summary gives decoy-estimated false-discovery rates by peptide
+length to judge chance matches of short peptides. Without an input annotation, RNA-derived
 ORFs are candidates whose novelty cannot be assessed. Peptide support does not
 validate every boundary of a gene model.
 

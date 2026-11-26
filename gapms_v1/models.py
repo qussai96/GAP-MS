@@ -144,6 +144,30 @@ def load_models(path, source, reference, lengths, genetic_code=1, allow_unstrand
     return sorted(models.values(), key=lambda m: m.id)
 
 
+CANONICAL_INTRONS = {'GT-AG', 'GC-AG', 'AT-AC'}
+
+
+def intron_motifs(model, reference):
+    """Donor-acceptor dinucleotides of each CDS intron, read on the model strand."""
+    complement = str.maketrans('ACGTN', 'TGCAN')
+    motifs = []
+    for (a, b), (c, d) in zip(model.cds, model.cds[1:]):
+        if b >= c:
+            continue
+        donor, acceptor = reference.fetch(model.chrom, b, b+2).upper(), reference.fetch(model.chrom, c-2, c).upper()
+        if model.strand == '-':
+            donor, acceptor = acceptor.translate(complement)[::-1], donor.translate(complement)[::-1]
+        motifs.append(donor+'-'+acceptor)
+    return motifs
+
+
+def flag_noncanonical_introns(models, reference):
+    """Mark predicted models whose introns are not canonical on their own strand."""
+    for model in models:
+        if any(m not in CANONICAL_INTRONS for m in intron_motifs(model, reference)):
+            model.issues.append('noncanonical_intron')
+
+
 def write_models(models, path):
     """Write CDS paths with explicit source and stable model IDs; no input edits."""
     with Path(path).open('w') as stream:

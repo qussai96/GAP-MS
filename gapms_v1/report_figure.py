@@ -1,5 +1,6 @@
 """Offline, exportable two-panel result figure with explicit counting units."""
 import base64
+from .events import SUPPORTED
 from collections import Counter
 from .common import write_json
 
@@ -19,7 +20,7 @@ def overview(root,diag,args,summary,events):
     # Each review proposal is counted once; a proposal is not a distinct gene.
     unique_events=list({e['event_id']:e for e in events}.values())
     counts=Counter(e['event_type'] for e in unique_events)
-    ambiguous=Counter(e['event_type'] for e in unique_events if e['confidence']=='ambiguous')
+    ambiguous=Counter(e['event_type'] for e in unique_events if e['confidence'] not in SUPPORTED)
     specific=counts-ambiguous
     categories=[('novel_orf','Novel ORF'),('alternative_start','Alternative start'),('n_terminal_extension','N-terminal extension'),
                 ('alternative_stop','Alternative stop'),('c_terminal_extension','C-terminal extension'),('alternative_splice','Alternative splice')]
@@ -44,7 +45,7 @@ def overview(root,diag,args,summary,events):
     specific_values=[specific[k] for k,label in categories]
     ambiguous_values=[ambiguous[k] for k,label in categories]
     right.barh(range(len(values)),specific_values,color=teal,height=.58,label='Specific support')
-    right.barh(range(len(values)),ambiguous_values,left=specific_values,color='#b8bfc5',height=.58,label='Ambiguous support')
+    right.barh(range(len(values)),ambiguous_values,left=specific_values,color='#b8bfc5',height=.58,label='Ambiguous or not supported')
     right.legend(loc='upper left',bbox_to_anchor=(-.03,-.18),frameon=False,fontsize=10)
     right.set(yticks=range(len(values)),yticklabels=[label for k,label in categories],xlabel='Proposals')
     right.invert_yaxis();right.set_title('B  Changes to review',loc='left',fontweight='bold',pad=18)

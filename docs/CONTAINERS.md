@@ -8,7 +8,7 @@ apptainer run --bind /path/to/data:/data gapms.sif -a /data/assembly.fa -p /data
 ```
 
 Use the `oras://` address to pull this image. The `latest` tag currently contains
-GAPMS 1.3.2. Check the downloaded version with `apptainer run gapms.sif --version`.
+GAPMS 1.4.0. Check the downloaded version with `apptainer run gapms.sif --version`.
 
 The image includes StringTie, TransDecoder 5.5.0 and procps (`ps`) for Nextflow task
 metrics. Runs use CPUs; no GPU option is needed.
@@ -18,13 +18,13 @@ metrics. Runs use CPUs; no GPU option is needed.
 From the release checkout:
 
 ```bash
-apptainer build --fakeroot gapms-1.3.2.sif gapms.def
+apptainer build --fakeroot gapms-1.4.0.sif gapms.def
 ```
 
 Maintainers can publish the SIF with:
 
 ```bash
-apptainer push gapms-1.3.2.sif oras://docker.io/qussaiab96/gapms:latest
+apptainer push gapms-1.4.0.sif oras://docker.io/qussaiab96/gapms:latest
 ```
 
 A Dockerfile is also provided for users who want to build a Docker/OCI image.

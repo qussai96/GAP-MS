@@ -34,14 +34,14 @@ From: mambaorg/micromamba:1.5.8
         test -x /opt/conda/bin/$executable
     done
     cd /tmp
-    /opt/conda/bin/python -c 'from importlib.metadata import version; assert version("gapms")=="1.3.2"; assert version("peplocus")=="0.5.6"'
+    /opt/conda/bin/python -c 'from importlib.metadata import version; assert version("gapms")=="1.4.0"; assert version("peplocus")=="0.5.6"'
     /opt/conda/bin/gapms-v1 --help >/dev/null
 
 %runscript
     exec /opt/conda/bin/gapms-v1 "$@"
 
 %labels
-    Version 1.3.2
+    Version 1.4.0
     PepLocusVersion 0.5.6
 
 %environment

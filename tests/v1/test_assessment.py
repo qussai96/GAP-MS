@@ -73,7 +73,7 @@ def test_model_relationships_and_non_nested_evidence():
 class MockEvidence:
     def __init__(self,hits,counts):self.hits=hits;self.multiplicity=counts
     def model_hits(self, **kwargs):return defaultdict(list,self.hits)
-    def counts(self):return self.multiplicity
+    def counts(self, all_mappings=False):return self.multiplicity
 
 
 def hit(peptide,blocks,aa_start=0):
@@ -132,7 +132,9 @@ def test_single_peptide_and_multimapping_never_high_confidence(tmp_path):
     assert 'non_discriminating' in row['limitations']
 
 
-def test_competing_orf_structures_prevent_high_confidence(tmp_path):
+def test_isoforms_sharing_novel_evidence_support_one_locus_not_high_confidence(tmp_path):
+    # Two RNA isoforms with the same diagnostic placements are one novel locus.
+    # Shared isoform support is not competition, but the full CDS is unresolved.
     args=config(tmp_path)
     candidate=Model('c','RNA_ORF','c','g','chr1','+',cds=[(0,90)],coding=[(0,90)],protein='M'+'Q'*29,complete_start=True,complete_stop=True)
     other=Model('other','RNA_ORF','o','g','chr1','+',cds=[(0,60),(90,120)],coding=[(0,60),(90,120)],protein='M'+'Q'*29,complete_start=True,complete_stop=True)
@@ -140,8 +142,9 @@ def test_competing_orf_structures_prevent_high_confidence(tmp_path):
     evidence=MockEvidence({'c':placements,'other':placements},{'PEPTIDE':1,'ACDEFGH':1})
     assess(args,[candidate,other,Model('unrelated','A01','unrelated','unrelated','chr1','+',cds=[(300,360)],coding=[(300,360)],protein='M'+'Q'*19)],evidence,{p:dict(quality='qvalue_pass') for p in ['PEPTIDE','ACDEFGH']},{})
     rows=table(tmp_path/'orfs/novel_orf_candidates.tsv')
-    assert rows and all(r['confidence']=='ambiguous' for r in rows)
-    assert all('equally_compatible_coding_models' in r['limitations'] for r in rows)
+    assert len(rows)==1 and rows[0]['confidence']=='peptide_supported'
+    assert set(json.loads(rows[0]['supporting_model_ids']))=={'c','other'}
+    assert 'multiple_candidate_coding_structures_share_this_evidence' in rows[0]['limitations']
 
 
 def test_adjacent_blocks_are_one_genomic_placement(tmp_path):
