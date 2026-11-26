@@ -23,6 +23,57 @@ def validate_bam(path, lengths):
     # BAM is read sequentially by junction extraction and StringTie; no input index is created.
 
 
+def find_tool(name):
+    """Locate an external executable, including TransDecoder >=7 helper scripts.
+
+    Recent TransDecoder packages install only the ``TransDecoder`` wrapper on
+    PATH and keep ``TransDecoder.LongOrfs``/``TransDecoder.Predict`` in the
+    ``util`` directory next to the wrapper's real location.
+    """
+    path = shutil.which(name)
+    if path:
+        return path
+    if name.startswith('TransDecoder.'):
+        wrapper = shutil.which('TransDecoder')
+        if wrapper:
+            candidate = Path(os.path.realpath(wrapper)).parent/'util'/name
+            if candidate.is_file() and os.access(candidate, os.X_OK):
+                return str(candidate)
+    return None
+
+
+def bam_index_candidates(bam):
+    bam = Path(bam)
+    return [Path(str(bam)+'.bai'), bam.with_suffix('.bai'), Path(str(bam)+'.csi'), bam.with_suffix('.csi')]
+
+
+def indexed_bam(bam, directory):
+    """Return a BAM path with an index, never writing next to the input BAM.
+
+    An existing input index is used as is. Otherwise the BAM is hard-linked
+    into ``directory`` (no copy) and indexed there. Fails before any heavy
+    stage when neither is possible.
+    """
+    bam = Path(bam)
+    if any(p.is_file() for p in bam_index_candidates(bam)):
+        return bam
+    directory = Path(directory); directory.mkdir(parents=True, exist_ok=True)
+    link = directory/'rna_input.bam'
+    if not (link.exists() and os.path.samefile(link, bam)):
+        link.unlink(missing_ok=True)
+        try:
+            os.link(bam, link)
+        except OSError as error:
+            raise ValueError(f'RNA BAM index is missing for {bam} and the BAM cannot be hard-linked into the work directory ({error.strerror}); '
+                             f'create an index first, e.g. "samtools index {bam}"') from error
+    index = Path(str(link)+'.bai')
+    if not index.is_file():
+        partial = Path(str(index)+'.partial')
+        pysam.index(str(link), str(partial))
+        partial.replace(index)
+    return link
+
+
 
 def canonicalize_transcripts(models, path, provenance):
     """Remove StringTie scheduling-dependent names/order, preserving gene groups."""
@@ -55,7 +106,8 @@ def reconstruct(args, reference, lengths, commands):
     directory = out/'transcripts'; directory.mkdir(exist_ok=True)
     products = out/'orfs'; products.mkdir(exist_ok=True)
     required = ['stringtie', 'TransDecoder.LongOrfs', 'TransDecoder.Predict']
-    missing = [name for name in required if not shutil.which(name)]
+    tools = {name: find_tool(name) for name in required}
+    missing = [name for name, path in tools.items() if not path]
     if missing:raise RuntimeError('BAM mode requires: '+', '.join(missing))
     transcripts = directory/'assembled_transcripts.gtf'
     marker = directory/'reconstruction.complete.json'
@@ -63,7 +115,8 @@ def reconstruct(args, reference, lengths, commands):
     projected = raw_predictions/'all_predicted_orfs.gtf'
     if args.resume and marker.exists() and projected.exists():
         return projected
-    run_command(['stringtie', args.bam, '-p', args.threads, '-o', transcripts], directory,
+    library={'firststrand':['--rf'],'secondstrand':['--fr']}.get(getattr(args,'rna_library','unstranded'),[])
+    run_command([tools['stringtie'], args.bam, *library, '-p', args.threads, '-o', transcripts], directory,
                 out/'logs/stringtie.log', commands)
     models = load_models(transcripts, 'RNA_transcripts', reference, lengths, args.genetic_code, allow_unstranded=True)
     shutil.copy2(transcripts,directory/'stringtie_original.gtf')
@@ -80,9 +133,9 @@ def reconstruct(args, reference, lengths, commands):
     # TransDecoder PWM code seeds its RNG, but hash traversal also affects
     # training/start refinement. Fix Perl ordering only for these child tools.
     td_env=dict(os.environ, PERL_HASH_SEED='0', PERL_PERTURB_KEYS='0')
-    run_command(['TransDecoder.LongOrfs', '-t', fasta, '-m', args.min_orf_aa], directory,
+    run_command([tools['TransDecoder.LongOrfs'], '-t', fasta, '-m', args.min_orf_aa], directory,
                 out/'logs/transdecoder_longorfs.log', commands, env=td_env)
-    run_command(['TransDecoder.Predict', '-t', fasta, '--cpu', args.threads], directory,
+    run_command([tools['TransDecoder.Predict'], '-t', fasta, '--cpu', args.threads], directory,
                 out/'logs/transdecoder_predict.log', commands, env=td_env)
     from .orf_projection import convert_transdecoder_to_genome_gtf
     convert_transdecoder_to_genome_gtf(str(fasta)+'.transdecoder.gff3', transcripts, projected)

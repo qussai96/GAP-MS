@@ -18,13 +18,13 @@ from peplocus import map_peptides, __version__ as peplocus_version
 from . import __version__
 from .common import LOG, input_identity, stable_id, write_json, write_table
 from .peptides import load_peptides
-from .models import load_models, write_models
+from .models import flag_noncanonical_introns, load_models, write_models
 from .mapping import EvidenceStore
 from .assessment import assess
 from .refinement import refine_annotations
 from . import consensus_engine as consensus
 from .protein_mapper import ProteinMatcher
-from .rnaseq import reconstruct, validate_bam
+from .rnaseq import find_tool, indexed_bam, reconstruct, validate_bam
 
 
 def fingerprint():
@@ -41,8 +41,8 @@ def tool_versions(bam):
     result={'pysam':pysam.__version__,'peplocus':peplocus_version}
     if bam:
         for name,flags in [('stringtie',['--version']),('TransDecoder.LongOrfs',['--version']),('TransDecoder.Predict',['--version'])]:
-            executable=shutil.which(name)
-            if not executable:raise ValueError(f'missing BAM reconstruction tool: {name}')
+            executable=find_tool(name)
+            if not executable:raise ValueError(f'missing BAM reconstruction tool: {name}'+(' (not on PATH and not found in the util directory of the TransDecoder installation)' if name.startswith('TransDecoder.') else ''))
             try:
                 process=subprocess.run([executable]+flags,capture_output=True,text=True,timeout=15)
                 result[name]={'path':executable,'version_output':(process.stdout+process.stderr).strip()[:500]}
@@ -96,7 +96,13 @@ def _run(args):
         genome,index,lengths=prepare_reference(args.assembly,args.output/'work/reference')
         manifest['assembly_contigs']=len(lengths);manifest['assembly_bases']=sum(lengths.values())
         with pysam.FastaFile(genome,filepath_index=index) as reference:
-            if args.bam:validate_bam(args.bam,lengths)
+            if args.bam:
+                validate_bam(args.bam,lengths)
+                if len(args.gtf)>1:
+                    # The consensus engine reads RNA geometry by region and needs an index.
+                    # Check (or build one in work/) before any reconstruction stage starts.
+                    args.consensus_bam=indexed_bam(args.bam,args.output/'work/rna_index')
+                    manifest['consensus_bam_index']='input_index' if args.consensus_bam==args.bam else 'built_in_work_directory_from_hard_link_of_input_BAM'
             models=[];source_rows=[]
             for i,path in enumerate(sorted(args.gtf,key=lambda p:str(p)),1):
                 source=f'A{i:02d}_{path.name}'
@@ -106,7 +112,9 @@ def _run(args):
             if args.bam:
                 LOG.info('Reconstructing RNA-supported transcripts and candidate ORFs')
                 rna_path=reconstruct(args,reference,lengths,manifest['commands'])
-                models.extend(load_models(rna_path,'RNA_ORF',reference,lengths,args.genetic_code))
+                rna_models=load_models(rna_path,'RNA_ORF',reference,lengths,args.genetic_code)
+                flag_noncanonical_introns(rna_models,reference)
+                models.extend(rna_models)
                 source_rows.append(dict(source='RNA_ORF',path=str(rna_path),kind='StringTie_TransDecoder'))
             write_table(args.output/'reports/annotation_sources.tsv',['source','path','kind'],source_rows)
             rna_junctions=[];rna_stats={}
@@ -178,7 +186,7 @@ def _run(args):
                 consensus_stats=consensus.finish(args,consensus_candidates,store,metadata,reference,
                     {(j.chrom,j.start,j.end,j.strand):j.support for j in rna_junctions},graph_reports,graph_seconds,matcher=protein_matcher)
             mapping_stats=store.export(args.output/'mapping',peptides,metadata)
-            model_stats=assess(args,models,store,metadata,{(j.chrom,j.start,j.end,j.strand):j.support for j in rna_junctions},guided_events) if models else {}
+            model_stats=assess(args,models,store,metadata,{(j.chrom,j.start,j.end,j.strand):j.support for j in rna_junctions},guided_events,reference=reference) if models else {}
             if models:
                 from .classification import run as classify_models
                 classify_models(args,models,store,metadata,peptides,protein_matcher,reference,lengths)
@@ -200,6 +208,8 @@ def _run(args):
                        'Novel and boundary events are candidates for annotation review, not experimentally confirmed changes.',
                        'Partial ORFs and uncertain peptide quality do not receive high-confidence candidate status.',
                        'Full unannotated ORF reconstruction requires BAM; supplied annotations also support bounded local refinement without BAM.',
+                       'Event peptides are diagnostic only if no supplied annotation explains them at the same locus, and specific only with one genomic locus over all exact placements; peptide length is reported, not filtered. Decoy FDRs, stratified by peptide length, cover the annotation-guided local search; judging short-peptide chance matches is left to the user.',
+                       'The vendored GeneSensus consensus counts distinct placement geometries; same-locus alternative paths can make its peptide evidence ambiguous.',
                        'Rule-seeded iterative classifier scores are not calibrated biological probabilities; seed cross-validation measures rule agreement, not independent annotation accuracy.'])
         write_json(args.output/'reports/summary.json',summary)
         after=[input_identity(p) for p in inputs]

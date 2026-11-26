@@ -26,7 +26,7 @@ def parser(advanced=False):
     p.add_argument('-t', '--threads', type=positive, default=8)
     p.add_argument('--non-tryptic', action='store_true', help='use all exact placements as evidence instead of only trypsin-compatible placements')
     p.add_argument('--peptide-column')
-    p.add_argument('--min-length', type=positive, default=7, help='minimum exact-match peptide length (default: 7); excluded queries are reported')
+    p.add_argument('--min-length', type=positive, default=6, help='minimum exact-match peptide length (default: 6); excluded queries are reported')
     p.add_argument('--genetic-code', type=positive, default=1)
     p.add_argument('--rescue-one-edit', action='store_true', help='separate exploratory rescue; never used as exact model/event evidence')
     p.add_argument('--min-rescue-length', '--rescue-min-length', dest='rescue_min_length', type=positive, default=9)

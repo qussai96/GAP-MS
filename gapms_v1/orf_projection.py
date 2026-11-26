@@ -195,6 +195,7 @@ def convert_transdecoder_to_genome_gtf(transdecoder_gff3, transcripts_gtf, outpu
 
     output_gtf.parent.mkdir(parents=True, exist_ok=True)
     converted_orfs = 0
+    reverse_strand_orfs = 0
     with open(output_gtf, 'w') as handle:
         for orf_id in sorted(orf_records):
             entry = orf_records[orf_id]
@@ -202,6 +203,11 @@ def convert_transdecoder_to_genome_gtf(transdecoder_gff3, transcripts_gtf, outpu
             if transcript_model is None or not entry['cds_features']:
                 continue
 
+            # A spliced/stranded transcript fixes the coding strand: a reverse
+            # ORF would "splice" through introns that belong to the other strand.
+            if transcript_model['strand'] in {'+', '-'} and entry.get('orf_strand', '+') == '-':
+                reverse_strand_orfs += 1
+                continue
             gene_id = transcript_model['gene_id']
             seqid = transcript_model['seqid']
             orf_strand = entry.get('orf_strand', '+')
@@ -246,4 +252,6 @@ def convert_transdecoder_to_genome_gtf(transdecoder_gff3, transcripts_gtf, outpu
             f"No TransDecoder ORFs could be projected back to genome coordinates from {transdecoder_gff3}"
         )
 
+    output_gtf.with_suffix('.summary.json').write_text(
+        '{"converted_orfs": %d, "reverse_strand_orfs_on_stranded_transcripts_skipped": %d}\n' % (converted_orfs, reverse_strand_orfs))
     return output_gtf

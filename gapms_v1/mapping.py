@@ -23,6 +23,119 @@ def locus_key(chrom, strand, blocks):
     return (chrom, strand, json.dumps(merged, separators=(',',':')))
 
 
+def blocks_overlap(left, right):
+    """True when two ascending block lists share at least one nucleotide."""
+    i=j=0
+    while i<len(left) and j<len(right):
+        a,b=left[i];c,d=right[j]
+        if max(a,c)<min(b,d):return True
+        if b<=d:i+=1
+        else:j+=1
+    return False
+
+
+def shared_nucleotides(left, right):
+    """Number of nucleotides two ascending block lists have in common."""
+    total=0;i=j=0
+    while i<len(left) and j<len(right):
+        a,b=left[i];c,d=right[j]
+        total+=max(0,min(b,d)-max(a,c))
+        if b<=d:i+=1
+        else:j+=1
+    return total
+
+
+def same_origin(left, right):
+    """Two placements of one peptide are one genomic origin when they share the
+    majority of their coding nucleotides (isoform paths, a codon split across a
+    junction, a junction sliding within a short repeat). Placements sharing only
+    one exon, e.g. combinations of duplicated exons or gene copies bridged by a
+    read-through path, are different origins."""
+    size=min(sum(b-a for a,b in left),sum(b-a for a,b in right))
+    return 2*shared_nucleotides(left,right)>size
+
+
+def locus_clusters(placements):
+    """Group (chrom, strand, blocks) placements into genomic origins (loci)."""
+    groups=defaultdict(list)
+    for chrom,strand,blocks in placements:groups[chrom,strand].append(sorted(tuple(b) for b in blocks))
+    clusters=[]
+    for (chrom,strand),items in groups.items():
+        active=[]
+        for blocks in sorted(items):
+            start=blocks[0][0]
+            active=[c for c in active if c['end']>start] if active else active
+            hits=[c for c in active if any(same_origin(blocks,member) for member in c['members'])]
+            if hits:
+                keep=hits[0]
+                for other in hits[1:]:
+                    keep['members'].extend(other['members']);keep['end']=max(keep['end'],other['end'])
+                    active.remove(other);clusters.remove(other)
+                keep['members'].append(blocks);keep['end']=max(keep['end'],blocks[-1][1])
+            else:
+                cluster=dict(chrom=chrom,strand=strand,members=[blocks],end=blocks[-1][1])
+                active.append(cluster);clusters.append(cluster)
+    return clusters
+
+
+def locus_counts(rows):
+    """rows: (canonical, chrom, strand, encoded blocks) -> {canonical: loci}."""
+    by_sequence=defaultdict(list)
+    for sequence,chrom,strand,encoded in rows:
+        by_sequence[sequence].append((chrom,strand,json.loads(encoded) if isinstance(encoded,str) else encoded))
+    return {sequence:len(locus_clusters(items)) for sequence,items in by_sequence.items()}
+
+
+class LocusIndex:
+    """Placements of each I/L sequence, queried for same-locus explanation."""
+    def __init__(self):
+        self.items=defaultdict(list)
+
+    def add(self, sequence, chrom, strand, blocks):
+        self.items[sequence].append((chrom,strand,sorted(tuple(b) for b in blocks)))
+
+    def explains(self, sequence, chrom, strand, blocks):
+        blocks=sorted(tuple(b) for b in blocks)
+        return any(c==chrom and s==strand and same_origin(blocks,other) for c,s,other in self.items.get(sequence,()))
+
+
+class ClusterIndex:
+    """Same-locus explanation at the level of whole locus clusters.
+
+    A placement is explained when its locus cluster (all placements of the
+    sequence that chain through shared nucleotides, e.g. tandem duplicated
+    exon combinations) contains an explaining placement.
+    """
+    def __init__(self):
+        self.placements=defaultdict(set);self.explaining=defaultdict(list);self.cache={}
+
+    def add(self, sequence, chrom, strand, blocks, explaining=False):
+        blocks=tuple(sorted(tuple(b) for b in blocks))
+        self.placements[sequence].add((chrom,strand,blocks));self.cache.pop(sequence,None)
+        if explaining:self.explaining[sequence].append((chrom,strand,blocks))
+
+    def members(self, sequence, chrom, strand, blocks):
+        """All placements of the sequence in the same locus cluster as blocks."""
+        blocks=sorted(tuple(b) for b in blocks)
+        clusters=locus_clusters(self.placements[sequence]|{(chrom,strand,tuple(blocks))})
+        for cluster in clusters:
+            if cluster['chrom']==chrom and cluster['strand']==strand and any(same_origin(blocks,m) for m in cluster['members']):
+                return [list(m) for m in cluster['members']]
+        return [blocks]
+
+    def explains(self, sequence, chrom, strand, blocks):
+        blocks=sorted(tuple(b) for b in blocks)
+        explaining=self.explaining.get(sequence)
+        if not explaining:return False
+        if sequence not in self.cache:
+            self.cache[sequence]=locus_clusters(self.placements[sequence]|{(chrom,strand,tuple(blocks))})
+        for cluster in self.cache[sequence]:
+            if cluster['chrom']!=chrom or cluster['strand']!=strand:continue
+            if not any(same_origin(blocks,member) for member in cluster['members']):continue
+            return any(c==chrom and s==strand and any(same_origin(list(other),member) for member in cluster['members']) for c,s,other in explaining)
+        return any(c==chrom and s==strand and same_origin(blocks,list(other)) for c,s,other in explaining)
+
+
 class EvidenceStore:
     def __init__(self, path, require_tryptic=False):
         self.require_tryptic = require_tryptic
@@ -86,9 +199,26 @@ class EvidenceStore:
         self.db.commit()
 
     def counts(self, all_mappings=False):
-        # I/L-equivalent observed sequences constitute one evidence sequence.
+        """Genomic loci per I/L evidence sequence.
+
+        Placements sharing at least one nucleotide on the same contig and strand
+        are one locus: isoform paths, junction overhangs and local hypotheses at
+        one site do not make a peptide multi-locus.
+        """
+        table='hits' if all_mappings else 'active_hits'
+        return locus_counts(self.db.execute(f'SELECT DISTINCT canonical,chrom,strand,blocks FROM {table}'))
+
+    def placement_counts(self, all_mappings=False):
+        """Distinct genomic paths per I/L evidence sequence (not loci)."""
         table='hits' if all_mappings else 'active_hits'
         return dict(self.db.execute(f'SELECT canonical,count(*) FROM (SELECT DISTINCT canonical,chrom,strand,blocks FROM {table}) GROUP BY canonical'))
+
+    def placements(self, sequences):
+        """All exact placements (chrom, strand, blocks) of the given I/L sequences."""
+        wanted=set(sequences);result=defaultdict(list)
+        for sequence,chrom,strand,encoded in self.db.execute('SELECT DISTINCT canonical,chrom,strand,blocks FROM hits'):
+            if sequence in wanted:result[sequence].append((chrom,strand,json.loads(encoded)))
+        return result
 
     def model_hits(self, all_mappings=False, model_ids=None):
         result=defaultdict(list)
@@ -101,8 +231,9 @@ class EvidenceStore:
     def export(self, directory, peptides, metadata):
         counts=self.counts(all_mappings=True)
         analysis_counts=self.counts()
-        tryptic_counts=dict(self.db.execute('SELECT canonical,count(*) FROM tryptic_hits GROUP BY canonical'))
-        fields=['mapping_id','peptide_id','peptide','chrom','start','end','strand','blocks','matched_sequence','match_type','mapping_type','evidence','loci_for_peptide','identification_quality','tryptic_compatible','tryptic_loci_for_peptide']
+        tryptic_counts=locus_counts(self.db.execute('SELECT canonical,chrom,strand,blocks FROM tryptic_hits'))
+        placements=self.placement_counts(all_mappings=True)
+        fields=['mapping_id','peptide_id','peptide','chrom','start','end','strand','blocks','matched_sequence','match_type','mapping_type','evidence','loci_for_peptide','placements_for_peptide','identification_quality','tryptic_compatible','tryptic_loci_for_peptide']
         mapped=set();stats=Counter()
         with (directory/'mapped_peptides.tsv').open('w') as tsv, (directory/'mapped_peptides.bed').open('w') as bed, (directory/'mapped_peptides.igv.bed').open('w') as igv, (directory/'splice_peptides.bed').open('w') as splice, (directory/'tryptic_peptides.bed').open('w') as tryptic_bed:
             writer=csv.DictWriter(tsv,fieldnames=fields,delimiter='\t',lineterminator='\n');writer.writeheader()
@@ -114,7 +245,7 @@ class EvidenceStore:
                 row=dict(mapping_id=stable_id('L',sequence,chrom,strand,encoded),peptide_id=metadata[peptide]['peptide_id'],peptide=peptide,
                          chrom=chrom,start=left,end=right,strand=strand,blocks=encoded,matched_sequence=matched,
                          match_type='exact' if peptide==matched else 'il_equivalent',mapping_type='spliced' if spliced else 'contiguous',
-                         evidence=evidence,loci_for_peptide=counts[sequence],identification_quality=metadata[peptide]['quality'],tryptic_compatible=bool(compatible),tryptic_loci_for_peptide=tryptic_counts.get(sequence,0))
+                         evidence=evidence,loci_for_peptide=counts[sequence],placements_for_peptide=placements[sequence],identification_quality=metadata[peptide]['quality'],tryptic_compatible=bool(compatible),tryptic_loci_for_peptide=tryptic_counts.get(sequence,0))
                 writer.writerow(row)
                 fields_bed=[chrom,left,right,peptide,1000 if unique else 0,strand,left,right,'210,100,35' if spliced else '45,110,180',len(blocks),','.join(str(b-a) for a,b in blocks),','.join(str(a-left) for a,b in blocks)]
                 line='\t'.join(map(str,fields_bed))+'\n';bed.write(line)

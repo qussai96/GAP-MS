@@ -107,7 +107,7 @@ def prepare(args, models, store, metadata, reference):
     if args.bam:
         # Preserve the frozen engine's RNA qualification defaults. GAPMS mapper
         # thresholds remain independent and are recorded in the run manifest.
-        config['rna'] = dict(bam=str(args.bam),library=args.rna_library)
+        config['rna'] = dict(bam=str(getattr(args,'consensus_bam',None) or args.bam),library=args.rna_library)
     config_path=directory/'config.json'; write_json(config_path,config)
     config=load_config(config_path)
     cache=args.output/'work/genesensus_cache';cache.mkdir(exist_ok=True)
@@ -138,6 +138,22 @@ def prepare(args, models, store, metadata, reference):
     return context,graphs,reports,round(time.monotonic()-started,3)
 
 
+def feedback_model(identifier, row, reference):
+    """A graph candidate first seen after selection, with sequence-derived completeness.
+
+    Uses the same start/stop rules as load_models; completeness is never assumed
+    from the candidate's origin.
+    """
+    bb=[tuple(x) for x in json.loads(row['CDS_0based_halfopen'])]
+    dna=join_blocks(reference,row['contig'],row['strand'],bb)
+    aa=translate(dna,1)
+    protein=aa[:-1] if aa.endswith('*') else aa
+    issues=(['internal_stop'] if '*' in protein else [])+(['partial_terminal_codon'] if len(dna)%3 else [])
+    return Model(identifier,'consensus_graph',identifier,identifier,row['contig'],row['strand'],
+        exons=bb,cds=bb,protein=protein,coding=bb if row['strand']=='+' else list(reversed(bb)),issues=issues,
+        complete_start=dna[:3].upper()=='ATG',complete_stop=len(dna)%3==0 and aa.endswith('*'))
+
+
 def finish(args, context, store, metadata, reference, rna, graph_reports, graph_seconds, matcher=None):
     LOG.info('Selecting consensus with frozen GeneSensus 0.6.0a3 graph_contrast policy')
     directory=args.output/'consensus'
@@ -155,11 +171,7 @@ def finish(args, context, store, metadata, reference, rna, graph_reports, graph_
                 rows.append(row)
                 identifier='GS.g'+row['candidate']+'.t1'
                 if row['origin']!='graph' or identifier in context['graph_ids']:continue
-                bb=[tuple(x) for x in json.loads(row['CDS_0based_halfopen'])]
-                aa=translate(join_blocks(reference,row['contig'],row['strand'],bb),1).rstrip('*')
-                model=Model(identifier,'consensus_graph',identifier,identifier,row['contig'],row['strand'],
-                    exons=bb,cds=bb,protein=aa,coding=bb if row['strand']=='+' else list(reversed(bb)),
-                    complete_start=True,complete_stop=True)
+                model=feedback_model(identifier,row,reference)
                 additional_graphs.append(model);context['graph_ids'].add(identifier)
         before=store.db.execute('SELECT COUNT(*) FROM active_hits').fetchone()[0]
         if additional_graphs:

@@ -33,7 +33,9 @@ def test_internal_nontryptic_methionine_start_without_bam(tmp_path,strand):
     starts=[r for r in rows if r['event_type']=='alternative_start']
     assert len(starts)==1
     row=starts[0];assert row['boundary_status']=='internal_ATG_nontryptic_N_terminus'
-    assert row['upstream_peptide_support']=='1' # coexistence is allowed; absence is not required
+    assert row['upstream_peptide_support']=='1'
+    # A unique peptide upstream of the proposed start shows the longer protein exists.
+    assert row['confidence']=='not_supported' and 'conflicting_upstream_evidence' in json.loads(row['confidence_reasons'])
     assert 'proteolytic_processing_not_excluded' in row['limitations']
     assert row['candidate_cds_blocks']=='[]' and row['candidate_model_id']==''
     assert row['evidence_origin']=='annotation_guided'
@@ -55,12 +57,28 @@ def test_internal_start_filters(tmp_path,reason):
 
 @pytest.mark.parametrize('strand',['+','-'])
 def test_n_terminal_extension_leaves_start_unresolved(tmp_path,strand):
-    protein='MPEPTIDEKACDEFGHK*';sequence='C'*90+dna(protein)+'C'*90
-    out,rows=run_case(tmp_path,sequence,[[(117,90+3*len(protein))]],['PEPTIDEK'],strand)
+    # The extension peptide follows a tryptic K: the start lies further upstream.
+    protein='MQQKVEPTIDEKACDEFGHK*';sequence='C'*90+dna(protein)+'C'*90
+    out,rows=run_case(tmp_path,sequence,[[(126,90+3*len(protein))]],['VEPTIDEK'],strand)
     extensions=[r for r in rows if r['event_type']=='n_terminal_extension']
     assert len(extensions)==1 and extensions[0]['boundary_status']=='boundary_unresolved'
     assert extensions[0]['proposed_feature_blocks']=='[]'
     assert not [r for r in rows if r['event_type']=='alternative_start']
+
+
+@pytest.mark.parametrize('strand',['+','-'])
+def test_upstream_peptide_after_methionine_is_initiator_processed_start(tmp_path,strand):
+    # M|PEPTIDEK: P is a MetAP substrate residue, so the upstream ATG is the start.
+    protein='MPEPTIDEKACDEFGHK*';sequence='C'*90+dna(protein)+'C'*90
+    out,rows=run_case(tmp_path,sequence,[[(117,90+3*len(protein))]],['PEPTIDEK'],strand)
+    starts=[r for r in rows if r['event_type']=='alternative_start']
+    assert len(starts)==1
+    assert starts[0]['boundary_status']=='ATG_supported_start_initiator_methionine_removed'
+    codon=json.loads(starts[0]['proposed_feature_blocks'])
+    assert sum(b-a for a,b in codon)==3
+    # Length is reported, not filtered: a unique 8-residue peptide supports the start.
+    assert starts[0]['confidence']=='peptide_supported'
+    assert json.loads(starts[0]['peptide_loci'])['PEPTIDEK']['length']==8
 
 
 @pytest.mark.parametrize('strand',['+','-'])

@@ -16,6 +16,7 @@ from urllib.parse import quote
 
 from .common import read_table,write_table,write_json
 from .assessment import EVENT_FIELDS,MODEL_FIELDS
+from .events import SUPPORTED
 from .models import attributes
 
 
@@ -153,7 +154,7 @@ def publish(root,diag,args, *, refresh=False):
     if events:
         review.mkdir();write_table(review/'candidates.tsv',EVENT_FIELDS,events)
         for name,kinds in [('alternative_start',{'alternative_start','n_terminal_extension'}),('alternative_stop',{'alternative_stop','c_terminal_extension'}),('alternative_splice',{'alternative_splice'}),('novel_orfs',{'novel_orf'})]:
-            selected=[e for e in events if e['event_type'] in kinds]
+            selected=[e for e in events if e['event_type'] in kinds and e['confidence'] in SUPPORTED]
             if selected:review_features(selected,review/(name+'.gff3'))
     staged=diag/'work/consensus_inputs'
     if staged.exists():
@@ -204,8 +205,8 @@ def publish(root,diag,args, *, refresh=False):
     text+=figure
     text+='<h2>Main results</h2><table><tr><th>File</th><th>Meaning</th></tr>'+main+'</table>'
     if (root/'all_proteins_scores.tsv').exists():text+='<p>'+link('diagnostics/score_columns.tsv','Score-table column definitions')+'</p>'
-    specific_events=sum(e['confidence']!='ambiguous' for e in events)
-    text+='<h2>Changes to review</h2><p>'+str(len(events))+' proposal rows ('+str(specific_events)+' with specific support; '+str(len(events)-specific_events)+' with ambiguous support); these are not counts of distinct genes. Start/stop files also include explicitly labeled terminal-extension proposals. Uncertain boundaries remain unresolved.</p><ul>'+review_links+'</ul>'
+    specific_events=sum(e['confidence'] in SUPPORTED for e in events)
+    text+='<h2>Changes to review</h2><p>'+str(len(events))+' proposal rows ('+str(specific_events)+' supported by specific peptides; '+str(len(events)-specific_events)+' ambiguous or not supported, kept in candidates.tsv with reason codes). Each row is one biological feature. Review GFF3 files contain supported proposals only. Start/stop files also include explicitly labeled terminal-extension proposals. Uncertain boundaries remain unresolved.</p><ul>'+review_links+'</ul>'
     text+='<h2>Supplied annotations</h2><p>'+('These inputs were merged to produce the consensus.' if multi else 'The supplied annotation was assessed, not rewritten or automatically corrected.')+'</p><table><tr><th>Input path</th><th>SHA-256</th></tr>'+inp+'</table>'
     text+='<details><summary>Methods, limitations and detailed evidence</summary><ul>'+notes+'</ul><p>'+link('diagnostics/reports/summary.json','Run summary')+' · '+link('diagnostics/run_manifest.json','Input and software provenance')+' · '+link('diagnostics/','Detailed diagnostics')+'</p><p>Temporary work '+('is retained (--keep-work).' if args.keep_work else 'is removed after successful completion. Use --keep-work to retain it; failed runs retain their work.')+'</p></details></body></html>'
     temporary=root/'report.html.partial';temporary.write_text(text);temporary.replace(root/'report.html')
